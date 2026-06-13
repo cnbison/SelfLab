@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>来源 · 认知架构与认知状态</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <p class="eyebrow">Sources & Evidence Notes</p>
+      <h1>来源、证据等级与不确定性</h1>
+      <p class="subtitle">记录本初版调研使用的核心来源，以及每类来源支持什么、不支持什么。</p>
+    </div>
+    <div class="wrap">
+      <nav aria-label="site">
+        <a href="index.html">总览</a>
+        <a href="background.html">背景</a>
+        <a href="related-work.html">相关工作</a>
+        <a href="frameworks.html">综合框架</a>
+        <a href="hypotheses.html">假设与问题</a>
+        <a href="sources.html">来源</a>
+        <a href="log.html">日志</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>证据等级</h2>
+      <p><span class="tag">A 直接来源</span><span class="tag">B 多源推断</span><span class="tag">C 合理解释</span><span class="tag">D 探索性假设</span><span class="tag">E 开放问题</span></p>
+    </section>
+
+    <section>
+      <h2>核心来源表</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>来源</th>
+            <th>类型</th>
+            <th>支持的内容</th>
+            <th>限制</th>
+            <th>证据等级</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="https://act-r.psy.cmu.edu/">ACT-R 官方站点</a></td>
+            <td>项目/架构官方说明</td>
+            <td>ACT-R 是用于模拟和理解人类认知的认知架构，强调知识组织和智能行为。</td>
+            <td>官方概述不等于完整理论细节；需进一步读 Anderson 等论文和教程。</td>
+            <td>A</td>
+          </tr>
+          <tr>
+            <td><a href="https://soar.eecs.umich.edu/">Soar 官方站点</a></td>
+            <td>项目/架构官方说明</td>
+            <td>Soar 是用于开发智能行为系统的通用认知架构，并提供语义记忆、情景记忆、强化学习等教程模块。</td>
+            <td>工程文档偏 Soar 社区实现；对人类学习测量的直接支持有限。</td>
+            <td>A</td>
+          </tr>
+          <tr>
+            <td><a href="https://arxiv.org/abs/1610.08602">Kotseruba & Tsotsos, A Review of 40 Years of Cognitive Architecture Research</a></td>
+            <td>综述论文</td>
+            <td>调研 84 个认知架构、49 个仍活跃开发，并按感知、注意、行动选择、记忆、学习和推理等能力总结领域。</td>
+            <td>arXiv 页面是 2018 修订版；具体统计随时间变化。</td>
+            <td>A/B</td>
+          </tr>
+          <tr>
+            <td><a href="https://arxiv.org/abs/1506.05908">Piech et al., Deep Knowledge Tracing</a></td>
+            <td>机器学习/教育数据挖掘论文</td>
+            <td>知识追踪是根据课程交互建模学生知识的任务；RNN 可捕捉更复杂的学生知识表示。</td>
+            <td>预测性能不等于可解释认知诊断；深度模型可能需要校准。</td>
+            <td>A</td>
+          </tr>
+          <tr>
+            <td><a href="https://arxiv.org/abs/2202.03980">Schmucker & Mitchell, Transferable Student Performance Modeling for ITS</a></td>
+            <td>智能导师/迁移学习论文</td>
+            <td>ITS 依赖学习者表现模型追踪变化并提供个性化教学；新课程存在冷启动问题。</td>
+            <td>研究设定基于数学 ITS 数据，是否泛化到开放式认知能力需验证。</td>
+            <td>A/B</td>
+          </tr>
+          <tr>
+            <td><a href="https://arxiv.org/abs/2309.02427">Sumers et al., Cognitive Architectures for Language Agents</a></td>
+            <td>语言 Agent 架构论文</td>
+            <td>CoALA 用模块化记忆、结构化动作空间和决策过程组织语言 Agent。</td>
+            <td>主要服务 Agent 工程分类；不直接提供人类学习测量方案。</td>
+            <td>A/B</td>
+          </tr>
+          <tr>
+            <td><a href="https://arxiv.org/abs/2305.16291">Wang et al., Voyager</a></td>
+            <td>LLM Agent 系统论文</td>
+            <td>自动课程、技能库、环境反馈和自我验证可支持开放式 Agent 技能积累。</td>
+            <td>Minecraft 环境与人类教育场景差异大；结论需迁移验证。</td>
+            <td>A/B</td>
+          </tr>
+          <tr>
+            <td><a href="https://arxiv.org/abs/2512.23036">Hooshyar et al., Problems With LLMs for Learner Modelling</a></td>
+            <td>2025 arXiv 预印本</td>
+            <td>报告 DKT 在 next-step prediction 和时序一致性上优于测试中的 LLM，主张负责任导师应采用混合学习者建模。</td>
+            <td>预印本，需等待同行评审和复现；具体模型与数据集选择会影响结论。</td>
+            <td>B/C</td>
+          </tr>
+          <tr>
+            <td><a href="https://en.wikipedia.org/wiki/Intelligent_tutoring_system">Intelligent Tutoring System 概述</a></td>
+            <td>百科与引用线索</td>
+            <td>ITS 常见四组件：领域模型、学生模型、教学模型和界面模型；学生模型关注认知和情感状态。</td>
+            <td>百科条目需回到 Nwana、Nkambou、Wenger 等原始来源深读。</td>
+            <td>B</td>
+          </tr>
+          <tr>
+            <td><a href="https://en.wikipedia.org/wiki/Belief%E2%80%93desire%E2%80%93intention_software_model">BDI 软件模型概述</a></td>
+            <td>百科与引用线索</td>
+            <td>BDI 用信念、欲望/目标和意图组织智能 Agent 的计划选择和执行。</td>
+            <td>应进一步阅读 Rao & Georgeff、Bratman、Wooldridge 原文。</td>
+            <td>B</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>重要不确定性</h2>
+      <ul>
+        <li><strong>维度最小性：</strong>K/P/M/G/A/E/W/X/U 是综合框架，不是经实验确认的最小充分集。</li>
+        <li><strong>跨领域泛化：</strong>数学、编程、科研阅读、管理决策的认知状态维度权重可能不同。</li>
+        <li><strong>LLM 评估可靠性：</strong>LLM 可评估开放式解释，但必须与人工评分、行为数据和校准集结合。</li>
+        <li><strong>人-Agent 边界：</strong>联合认知能力如何评价仍是开放问题，尤其涉及责任、隐私和自主性。</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">后续应加入原始论文 PDF 笔记、BibTeX 和证据-声明映射。</div>
+  </footer>
+</body>
+</html>

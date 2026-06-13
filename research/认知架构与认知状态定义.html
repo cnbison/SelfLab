@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>认知架构与认知状态定义</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <p class="eyebrow">PhD Living Research Site · 2026-06-10</p>
+      <h1>认知架构：面向“认知状态 A → B”的综合调研</h1>
+      <p class="subtitle">目标：把人或其 Agent 的认知状态定义成可观测、可估计、可干预、可验证的状态集合，使学习系统能够诊断 A、指定 B，并设计从 A 到 B 的训练路径。</p>
+    </div>
+    <div class="wrap">
+      <nav aria-label="site">
+        <a href="index.html">总览</a>
+        <a href="background.html">背景</a>
+        <a href="related-work.html">相关工作</a>
+        <a href="frameworks.html">综合框架</a>
+        <a href="hypotheses.html">假设与问题</a>
+        <a href="sources.html">来源</a>
+        <a href="log.html">日志</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="callout">
+      <strong>核心结论：</strong>认知状态不应定义为一个单一能力分数，而应定义为一个带置信度的多层状态向量：知识、程序技能、策略、注意/工作记忆资源、目标/动机、情绪负荷、元认知、世界模型、工具/Agent 外部记忆，以及上下文约束。A→B 学习系统的核心不是“讲授内容”，而是持续估计这些状态变量并选择能最大化状态迁移概率的干预。
+    </section>
+
+    <section>
+      <h2>当前工作定义</h2>
+      <p><span class="mark">认知状态</span> 是主体在某一任务族和情境下，能够解释其理解、选择、行动、错误、迁移和自我调节表现的一组潜变量及其证据状态。它不是主体完整心智的复制，而是为了预测和改变学习行为而构建的任务相关模型。</p>
+      <p>可操作表达：</p>
+      <p><code>S_t = {K, P, M, G, A, E, W, X, U}</code></p>
+      <p>其中 <code>K</code> 是概念/事实知识，<code>P</code> 是程序性技能，<code>M</code> 是元认知与策略，<code>G</code> 是目标/价值/意图，<code>A</code> 是注意与工作记忆状态，<code>E</code> 是情绪和动机负荷，<code>W</code> 是世界模型/信念，<code>X</code> 是外部工具、笔记、Agent 记忆和环境支架，<code>U</code> 是不确定性与证据质量。</p>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>为什么认知架构重要</h2>
+        <p>ACT-R、Soar、LIDA、CLARION 等认知架构提供了“状态变量应该有哪些层”的启发：记忆、目标、规则/操作、注意、学习、动作选择和元认知。它们比单纯的成绩模型更适合定义人的可迁移认知状态。</p>
+      </article>
+      <article class="card">
+        <h2>为什么学习建模重要</h2>
+        <p>知识追踪、IRT、认知诊断和智能导师系统提供了“如何从行为证据估计状态”的方法。没有可观测证据，认知状态定义会停留在哲学标签。</p>
+      </article>
+      <article class="card">
+        <h2>为什么 Agent 视角重要</h2>
+        <p>语言 Agent 的 CoALA、Voyager 等工作把记忆、动作空间、反馈、自我验证和技能库工程化。它们提示：未来用户的认知状态可能分布在人、工具和个人 Agent 之间。</p>
+      </article>
+    </section>
+
+    <section>
+      <h2>从 A 到 B 的最小系统闭环</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>系统问题</th>
+            <th>产物</th>
+            <th>关键风险</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>定义 B</td>
+            <td>目标状态在任务中表现为什么？</td>
+            <td>能力规格、任务样本、评价量规、迁移场景</td>
+            <td>B 被定义成课程完成度，而不是可迁移能力</td>
+          </tr>
+          <tr>
+            <td>估计 A</td>
+            <td>当前证据支持哪些状态判断？</td>
+            <td>状态向量、置信度、缺失证据清单</td>
+            <td>把一次测试结果误当稳定认知状态</td>
+          </tr>
+          <tr>
+            <td>规划路径</td>
+            <td>哪些干预最可能改变目标变量？</td>
+            <td>练习序列、反馈策略、支架、反思任务</td>
+            <td>只补知识，不改变策略、动机和情境使用</td>
+          </tr>
+          <tr>
+            <td>执行更新</td>
+            <td>学习中状态如何变化？</td>
+            <td>轨迹、错误模式、遗忘/迁移信号</td>
+            <td>LLM 对学习者状态的判断不稳定或不可校准</td>
+          </tr>
+          <tr>
+            <td>验证 B</td>
+            <td>是否在新任务、新情境中达到目标？</td>
+            <td>迁移测评、延迟测评、解释性报告</td>
+            <td>只验证训练集任务，未验证泛化</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>关键新增内容</h2>
+      <ul>
+        <li>建立了“认知状态向量”初版，连接认知架构、学习科学和 Agent 工程。</li>
+        <li>形成相关工作矩阵，比较经典认知架构、学习者建模、语言 Agent 架构。</li>
+        <li>提出从 A 到 B 的学习系统闭环：目标定义、诊断、干预、状态更新、迁移验证。</li>
+        <li>标注了证据类型与不确定性，避免把工程假设误写成已证实事实。</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">此站点是开放式研究草稿，适合继续加入论文、案例、实验数据和实现原型。</div>
+  </footer>
+</body>
+</html>
