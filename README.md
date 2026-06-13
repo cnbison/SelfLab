@@ -32,6 +32,7 @@ SelfLab/
 ├── research/          # 研究纲领与分析文档
 │   ├── Artificial-Self-Research-v0.1.md
 │   └── Artificial-Self-Research-v0.2.md
+├── references/        # 参考资料（论文、综述、外部文章等）
 ├── discussions/       # 技术讨论记录（规划中）
 └── prototypes/        # 架构原型设计（规划中）
 ```
