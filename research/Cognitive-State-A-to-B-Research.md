@@ -248,16 +248,16 @@ policy(S_t, B) -> intervention_t
 
 | 来源 | 类型 | 支持的内容 | 限制 | 证据等级 |
 |------|------|----------|------|---------|
-| ACT-R 官方站点 | 项目/架构官方说明 | ACT-R 是用于模拟和理解人类认知的认知架构，强调知识组织和智能行为。 | 官方概述不等于完整理论细节；需进一步读 Anderson 等论文和教程。 | A |
-| Soar 官方站点 | 项目/架构官方说明 | Soar 是用于开发智能行为系统的通用认知架构，并提供语义记忆、情景记忆、强化学习等教程模块。 | 工程文档偏 Soar 社区实现；对人类学习测量的直接支持有限。 | A |
-| Kotseruba & Tsotsos, A Review of 40 Years of Cognitive Architecture Research | 综述论文 | 调研 84 个认知架构、49 个仍活跃开发，并按感知、注意、行动选择、记忆、学习和推理等能力总结领域。 | arXiv 页面是 2018 修订版；具体统计随时间变化。 | A/B |
-| Piech et al., Deep Knowledge Tracing | 机器学习/教育数据挖掘论文 | 知识追踪是根据课程交互建模学生知识的任务；RNN 可捕捉更复杂的学生知识表示。 | 预测性能不等于可解释认知诊断；深度模型可能需要校准。 | A |
-| Schmucker & Mitchell, Transferable Student Performance Modeling for ITS | 智能导师/迁移学习论文 | ITS 依赖学习者表现模型追踪变化并提供个性化教学；新课程存在冷启动问题。 | 研究设定基于数学 ITS 数据，是否泛化到开放式认知能力需验证。 | A/B |
-| Sumers et al., Cognitive Architectures for Language Agents | 语言 Agent 架构论文 | CoALA 用模块化记忆、结构化动作空间和决策过程组织语言 Agent。 | 主要服务 Agent 工程分类；不直接提供人类学习测量方案。 | A/B |
-| Wang et al., Voyager | LLM Agent 系统论文 | 自动课程、技能库、环境反馈和自我验证可支持开放式 Agent 技能积累。 | Minecraft 环境与人类教育场景差异大；结论需迁移验证。 | A/B |
-| Hooshyar et al., Problems With LLMs for Learner Modelling | 2025 arXiv 预印本 | 报告 DKT 在 next-step prediction 和时序一致性上优于测试中的 LLM，主张负责任导师应采用混合学习者建模。 | 预印本，需等待同行评审和复现；具体模型与数据集选择会影响结论。 | B/C |
-| Intelligent Tutoring System 概述 | 百科与引用线索 | ITS 常见四组件：领域模型、学生模型、教学模型和界面模型；学生模型关注认知和情感状态。 | 百科条目需回到 Nwana、Nkambou、Wenger 等原始来源深读。 | B |
-| BDI 软件模型概述 | 百科与引用线索 | BDI 用信念、欲望/目标和意图组织智能 Agent 的计划选择和执行。 | 应进一步阅读 Rao & Georgeff、Bratman、Wooldridge 原文。 | B |
+| [ACT-R 官方站点](https://act-r.psy.cmu.edu/) | 项目/架构官方说明 | ACT-R 是用于模拟和理解人类认知的认知架构，强调知识组织和智能行为。 | 官方概述不等于完整理论细节；需进一步读 Anderson 等论文和教程。 | A |
+| [Soar 官方站点](https://soar.eecs.umich.edu/) | 项目/架构官方说明 | Soar 是用于开发智能行为系统的通用认知架构，并提供语义记忆、情景记忆、强化学习等教程模块。 | 工程文档偏 Soar 社区实现；对人类学习测量的直接支持有限。 | A |
+| [Kotseruba & Tsotsos, A Review of 40 Years of Cognitive Architecture Research](https://arxiv.org/abs/1610.08602) | 综述论文 | 调研 84 个认知架构、49 个仍活跃开发，并按感知、注意、行动选择、记忆、学习和推理等能力总结领域。 | arXiv 页面是 2018 修订版；具体统计随时间变化。 | A/B |
+| [Piech et al., Deep Knowledge Tracing](https://arxiv.org/abs/1506.05908) | 机器学习/教育数据挖掘论文 | 知识追踪是根据课程交互建模学生知识的任务；RNN 可捕捉更复杂的学生知识表示。 | 预测性能不等于可解释认知诊断；深度模型可能需要校准。 | A |
+| [Schmucker & Mitchell, Transferable Student Performance Modeling for ITS](https://arxiv.org/abs/2202.03980) | 智能导师/迁移学习论文 | ITS 依赖学习者表现模型追踪变化并提供个性化教学；新课程存在冷启动问题。 | 研究设定基于数学 ITS 数据，是否泛化到开放式认知能力需验证。 | A/B |
+| [Sumers et al., Cognitive Architectures for Language Agents](https://arxiv.org/abs/2309.02427) | 语言 Agent 架构论文 | CoALA 用模块化记忆、结构化动作空间和决策过程组织语言 Agent。 | 主要服务 Agent 工程分类；不直接提供人类学习测量方案。 | A/B |
+| [Wang et al., Voyager](https://arxiv.org/abs/2305.16291) | LLM Agent 系统论文 | 自动课程、技能库、环境反馈和自我验证可支持开放式 Agent 技能积累。 | Minecraft 环境与人类教育场景差异大；结论需迁移验证。 | A/B |
+| [Hooshyar et al., Problems With LLMs for Learner Modelling](https://arxiv.org/abs/2512.23036) | 2025 arXiv 预印本 | 报告 DKT 在 next-step prediction 和时序一致性上优于测试中的 LLM，主张负责任导师应采用混合学习者建模。 | 预印本，需等待同行评审和复现；具体模型与数据集选择会影响结论。 | B/C |
+| [Intelligent Tutoring System 概述](https://en.wikipedia.org/wiki/Intelligent_tutoring_system) | 百科与引用线索 | ITS 常见四组件：领域模型、学生模型、教学模型和界面模型；学生模型关注认知和情感状态。 | 百科条目需回到 Nwana、Nkambou、Wenger 等原始来源深读。 | B |
+| [BDI 软件模型概述](https://en.wikipedia.org/wiki/Belief%E2%80%93desire%E2%80%93intention_software_model) | 百科与引用线索 | BDI 用信念、欲望/目标和意图组织智能 Agent 的计划选择和执行。 | 应进一步阅读 Rao & Georgeff、Bratman、Wooldridge 原文。 | B |
 
 ## 重要不确定性
 
