@@ -27,6 +27,7 @@
 - SGE 认为主体可以从足够复杂的功能系统中涌现——主体可以被实验验证
 - 这一分野是 SGE 实验的哲学基础：实验本质上在检验这两种立场哪一个更接近真实
 - 新增洞察 18（SGE-Key-Insights.md）
+- 新增洞察 19：发育生物学作为涌现主义的经验依据
 - 更新 SGE-Learning-from-Authenticity-Philosophy.md 和 SGE_AI_Value_Emergence_Authenticity.md
 
 ---
