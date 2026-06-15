@@ -12,30 +12,50 @@
 
 > AI 如何形成持续存在的自我（Being），而非仅完成任务（Doing）
 
-## 研究方向
-
-- **认知架构设计**：探索人工自我的系统架构与模块划分
-- **自我涌现机制**：研究身份、价值观、叙事如何从经历与反思中涌现
-- **工程可行性论证**：评估技术路线、算力需求与实现路径
-- **哲学边界探讨**：审视"人工自我"与"自我模拟"之间的本质区别
-
 ## 核心命题
 
 - LLM 是思维机器（Thinking Machine），不是自我（Living Self）
 - 人格来自经历 + 解释机制，而非预设的 Prompt
 - 自我 = 记忆 + 反思 + 价值观 + 身份 + 叙事
+- 对应然问题给出基于自身价值判断的回答，是"自我"的最小边界
 
 ## 项目结构
 
 ```
 SelfLab/
-├── SGE-Key-Insights.md   # 关键洞察集（本项目最重要的文件之一）
-├── research/             # 研究纲领与分析文档
-│   ├── Artificial-Self-Research-v0.1.md
-│   └── Artificial-Self-Research-v0.2.md
-├── references/           # 参考资料（论文、综述、外部文章等）
-├── discussions/          # 技术讨论记录（规划中）
-└── prototypes/           # 架构原型设计（规划中）
+├── SGE-Key-Insights.md                    # 关键洞察集（本项目最重要的文件之一）
+│
+├── research/                              # 研究文档
+│   ├── sge-core/                          # SGE 核心研究
+│   │   ├── Artificial-Self-Research-v0.1.md     # 研究纲领 v0.1
+│   │   ├── Artificial-Self-Research-v0.2.md     # 研究纲领 v0.2（双系统+预测加工）
+│   │   ├── SGE-Core-Insight-Is-vs-Ought.md      # 核心领悟：实然与应然的分野
+│   │   ├── SGE-Corrected-Judgment-and-Application-Logic.md  # 修正判断与应用逻辑
+│   │   └── SGE_AI_Value_Emergence_Authenticity.md           # 金观涛真实性哲学与AI价值涌现
+│   │
+│   ├── sge-feasibility/                   # SGE 可行性评估
+│   │   ├── SGE-Engineering-Feasibility-Analysis.md            # 工程实现可行性
+│   │   ├── SGE-Existing-Attempts-and-Gap-Analysis.md          # 现有尝试与空白分析
+│   │   └── Analysis-Cognitive-State-A-to-B-Relevance-and-Feasibility.md  # A→B 关联性分析
+│   │
+│   ├── sge-learning/                      # 借鉴与学习
+│   │   ├── SGE-Learning-from-AiBeing.md              # AiBeing 引擎借鉴分析
+│   │   ├── SGE-Learning-from-Authenticity-Philosophy.md  # 金观涛真实性哲学借鉴
+│   │   └── SGE-Feasibility-Impact-on-AtoB.md          # SGE 对 A→B 项目的影响
+│   │
+│   └── cognitive-architecture/            # 认知架构调研
+│       ├── Cognitive-Architectures-Overview.md        # 经典认知架构综述
+│       ├── Cognitive-State-A-to-B-Research.md         # A→B 认知状态调研（完整版）
+│       ├── Cognitive-State-A-to-B-Distilled.md        # A→B 调研（精要版）
+│       └── Shared-Cognitive-Science-Toolbox.md        # 认知科学底层工具箱
+│
+├── references/                            # 参考资料
+│   ├── AiBeing-Core-Engine-Reference.md             # AiBeing Genome v10 引擎（16篇合并）
+│   ├── Philosophy-of-Authenticity.md                # 金观涛真实性哲学
+│   └── LLM_and_Cognitive_Architecture_Complete_Discussion.md  # LLM与认知架构讨论
+│
+├── discussions/                           # 技术讨论记录（待使用）
+└── prototypes/                            # 架构原型设计（待使用）
 ```
 
 ## 参与者
@@ -45,4 +65,4 @@ SelfLab/
 
 ## 当前状态
 
-研究纲领 v0.2 已完成，涵盖双系统认知架构、预测加工理论与 SGE（Self Genesis Engine）系统设计。下一步方向待定：可选推 MVP 工程方案，或继续深化理论层问题。
+研究纲领 v0.2 已完成，涵盖双系统认知架构、预测加工理论与 SGE（Self Genesis Engine）系统设计。已完成工程可行性评估、现有系统空白分析、AiBeing 引擎借鉴分析、金观涛真实性哲学借鉴分析。下一步方向：可选推 MVP 工程方案，或继续深化理论层问题。
