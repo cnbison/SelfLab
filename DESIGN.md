@@ -8,6 +8,8 @@
 状态：草案
 
 > **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
+>
+> **术语约定**：本文档涉及的所有 SGE 术语与 [references/Glossary.md](./references/Glossary.md) 保持一致。
 
 ---
 

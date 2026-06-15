@@ -114,9 +114,11 @@ discussions/YYYY-MM-DD-主题关键词.md
 - `research/sge-feasibility/` — SGE 可行性评估（工程、空白、关联性）
 - `research/sge-learning/` — 借鉴分析（AiBeing、真实性哲学、对A→B的影响）
 - `research/cognitive-architecture/` — 认知架构调研（经典架构、A→B、工具箱）
-- `references/` — 参考资料（外部论文、引擎文档、哲学文献）
+- `references/` — 参考资料（外部论文、引擎文档、哲学文献），含 `Glossary.md` 术语表
 - `discussions/` — 讨论存档（每次深度讨论的完整记录）
 - `prototypes/` — 架构原型设计图与系统描述（非可运行代码）
+
+> **术语使用约定**：所有 SGE 文档涉及核心术语时，应与 [references/Glossary.md](./references/Glossary.md) 保持一致。如发现术语使用冲突，以 Glossary.md 为准。
 
 ## 深度分析存档策略
 

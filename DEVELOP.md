@@ -117,6 +117,10 @@ def ema_update(self, value_delta: dict, event_intensity: float):
 
 # 四、目录结构
 
+> **前瞻性章节**：本节描述的是 SGE **未来实现阶段**（Phase 1 之后）的代码组织。当前 Phase 0 阶段不产生可运行代码，本节仅作为实现前的设计参考。
+>
+> 当项目进入 Phase 1（实现 M1.1）时，本节将作为代码组织的基础。
+
 ```
 sge/
 ├── __init__.py
@@ -224,6 +228,10 @@ def test_three_babies_divergence():
 
 # 六、配置管理
 
+> **SSOT**：[DESIGN.md §八 参数配置](../DESIGN.md) 是 SGE 所有参数的**算法权威源**（包含数学定义、默认值、推荐范围）。本节描述**配置文件**（YAML 格式）如何将这些参数序列化，配置文件是参数**部署**层面的载体。
+>
+> **同步约束**：修改 DESIGN.md 中的默认值必须同步更新本节的 YAML 示例；反之亦然。建议修改时同时更新两处并标注 commit。
+
 ## 6.1 配置文件结构
 
 ```yaml
@@ -257,8 +265,8 @@ value_layer:
     compassion: 0.0
 
 llm:
-  critic_model: "claude-3-haiku-20240307"
-  actor_model: "claude-sonnet-4-20250514"
+  critic_model: "claude-3-haiku-latest"  # 使用 litellm 模型别名，避免版本号过期
+  actor_model: "claude-sonnet-latest"    # 使用 litellm 模型别名，避免版本号过期
   critic_temperature: 0.2
   actor_temperature: 0.9
 

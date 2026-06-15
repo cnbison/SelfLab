@@ -8,6 +8,8 @@
 状态：草案
 
 > **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
+>
+> **术语约定**：本文档涉及的所有 SGE 术语与 [references/Glossary.md](./references/Glossary.md) 保持一致。
 
 ---
 
@@ -282,15 +284,16 @@ class ValueVector:
 
 ## 4.1 核心技术栈
 
-| 组件 | 选型 | 理由 |
-|------|------|------|
-| 语言 | Python 3.11+ | 与 AiBeing 一致，生态丰富 |
-| LLM（Critic） | Haiku / Qwen | 低成本，稳定结构化输出 |
-| LLM（Actor） | Sonnet / GPT-4o | 高质量表达 |
-| 结构化存储 | SQLite | 轻量级，单机部署 |
-| 向量存储 | ChromaDB / FAISS | 语义检索 |
-| 异步框架 | asyncio | 与 AiBeing 一致 |
-| 状态持久化 | JSON 文件 | 简单可靠 |
+> **SSOT**：[DEVELOP.md §二 技术栈](../DEVELOP.md) 是 SGE 技术栈的权威定义。本节仅列出**架构层面的关键选型**及理由，详细版本号、参数、降级策略参见 DEVELOP.md。
+
+| 组件 | 选型 | 架构理由 |
+|------|------|---------|
+| 语言 | Python 3.11+ | 异步原语丰富，与 AiBeing 一致便于复用 |
+| LLM（Critic） | Haiku / 小模型 | 结构化输出对成本敏感 |
+| LLM（Actor） | Sonnet / 中等模型 | 行为表达需要创造性 |
+| 结构化存储 | SQLite | 状态文件的轻量级持久化 |
+| 向量存储 | ChromaDB | 情节记忆的语义检索 |
+| 异步框架 | asyncio | 单轮认知循环的串行化（[ARCH §6.1](#61-并发模型)） |
 
 ## 4.2 AiBeing 组件复用
 
