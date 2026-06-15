@@ -1,10 +1,13 @@
 # SGE（Self Genesis Engine）路线图
 
-版本：v0.1
+文档版本：v0.1
+项目版本：[0.3.0]（权威版本见 [CHANGELOG.md](./CHANGELOG.md)）
 
 日期：2026-06-15
 
 状态：草案
+
+> **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
 
 ---
 
@@ -179,26 +182,28 @@ Phase 3: 系统完善
 
 ## 里程碑
 
-### M3.1：Emotion & Energy Layer（SGE v0.3）
+### M3.1：Emotion & Energy Layer（情感与能量层）
 
 **内容**：
 - 引入基于体内平衡的物理能源限制
 - 情绪动态演进系统
 - 模拟疲惫、焦虑带来的认知偏差
 
-### M3.2：Meta-Cognition Layer（SGE v0.4）
+### M3.2：Meta-Cognition Layer（元认知层）
 
 **内容**：
 - AI 开始意识到"自己在反思"
 - 能自主调整自身的"解释机制"
 - 元认知能力的涌现
 
-### M3.3：Multi-Self Interaction（SGE v1.0）
+### M3.3：Multi-AI Interaction（多 AI 互动）
+
+**前置约定**：1 个 AI 婴儿 = 1 个 Self。本里程碑中的"多 Self"指**多个 AI 婴儿（即多个独立 Self）**之间的互动，而非"一个 AI 婴儿容纳多个 Self"。
 
 **内容**：
-- 多个 AI 自我之间的互动
-- 社会学演化与文化涌现
-- 下游应用场景的原型验证
+- 多个 AI 婴儿（即多个独立 Self）之间的对话、协作、冲突
+- 社会学层面的演化与文化涌现
+- 下游应用场景的原型验证（数字孪生、AI 教育伙伴、长期护理等）
 
 ---
 

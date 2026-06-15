@@ -1,10 +1,13 @@
 # SGE（Self Genesis Engine）开发规范
 
-版本：v0.1
+文档版本：v0.1
+项目版本：[0.3.0]（权威版本见 [CHANGELOG.md](./CHANGELOG.md)）
 
 日期：2026-06-15
 
 状态：草案
+
+> **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
 
 ---
 

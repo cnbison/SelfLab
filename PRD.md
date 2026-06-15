@@ -1,10 +1,13 @@
 # SGE（Self Genesis Engine）产品需求文档
 
-版本：v0.1
+文档版本：v0.1
+项目版本：[0.3.0]（权威版本见 [CHANGELOG.md](./CHANGELOG.md)）
 
 日期：2026-06-15
 
 状态：草案
+
+> **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
 
 ---
 
@@ -136,7 +139,7 @@ SGE 不是让 AI 模拟一个有自我的角色，而是测试 AI 是否能**真
 - 初始元价值：真实（truth-seeking）和自由（freedom）
 - 具体价值观从经历中涌现，不预设
 - 使用 EMA 机制渐进演化
-- 使用 Hebbian Learning 积累暗知识
+- 与 Hebbian Learning（FR-7 关联）形成"显性-暗知识"双轨：Value Layer 维护显性的价值观向量，Hebbian Learning 维护亚符号的行为模式权重；两者平行运作，都接收 reward 信号，但作用于不同状态空间（参见 ARCH 1.4）
 
 **验收标准**：
 - 价值观向量随经历变化（不是固定不变）

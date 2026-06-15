@@ -6,6 +6,31 @@
 
 ---
 
+## [0.4.0] - 2026-06-15
+
+### 修正（P0 批次：必须修正的问题）
+
+#### 版本号体系统一
+- 明确 `CHANGELOG.md` 为项目版本号的权威源
+- PRD/ROADMAP/ARCH/DESIGN/DEVELOP 顶部版本号从"版本：v0.1"改为"文档版本：v0.1 / 项目版本：[0.3.0]"，并标注权威源链接
+- ROADMAP M3.1/M3.2/M3.3 移除与 CHANGELOG 冲突的"SGE v0.3/v0.4/v1.0"标签
+
+#### ARCH 双图冲突解决
+- ARCH 新增 §2.3 "架构三视图对照"：明确 1.2（概念/逻辑视图）、2.1（数据流视图）、2.2（流程视图）三者的视角差异
+- 在 1.2 架构全景图和 2.1/2.2 节点处添加视图说明引用
+
+#### Hebbian Learning 与 Value Layer 关系明确
+- ARCH 新增 §1.3 "核心学习机制：Hebbian Learning 与 Value Layer 的关系"：明确两者是**平行且互补**的学习机制，作用于不同状态空间（亚符号 vs 符号）、承载不同知识类型（暗知识 vs 显性知识）
+- DESIGN 新增 §4.4 "Hebbian Learning 与 Value Layer 的对照"：工程实现对照（数据结构、存储位置、计算复杂度、调试注意事项）
+- PRD §4.1 FR-4 修正：将"使用 Hebbian Learning 积累暗知识"改为"与 Hebbian Learning 形成'显性-暗知识'双轨"，避免读为父子关系
+- 建立"金观涛暗知识 / 显性知识 / 拱桥"与"SGE Hebbian / Value Layer / Reflection"的三方对应
+
+#### Self 与 AI 婴儿关系明确
+- ARCH 新增 §1.4 "核心概念对应：Self 与 AI 婴儿"：明确**1 个 AI 婴儿 = 1 个 Self**
+- ROADMAP M3.3 标题与描述修正：从"Multi-Self Interaction"改为"Multi-AI Interaction"，澄清"多 Self"= "多 AI 婴儿"，而非"1 个 AI 婴儿容纳多 Self"
+
+---
+
 ## [0.3.0] - 2026-06-15
 
 ### 新增

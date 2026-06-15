@@ -1,10 +1,13 @@
 # SGE（Self Genesis Engine）详细设计文档
 
-版本：v0.1
+文档版本：v0.1
+项目版本：[0.3.0]（权威版本见 [CHANGELOG.md](./CHANGELOG.md)）
 
 日期：2026-06-15
 
 状态：草案
+
+> **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
 
 ---
 
@@ -220,6 +223,42 @@ def hebbian_learn(self, signals: dict, reward: float, hidden: list):
         for j in range(HIDDEN_SIZE):
             self.W2[i][j] *= 0.995
 ```
+
+## 4.4 Hebbian Learning 与 Value Layer 的对照
+
+SGE 的两个核心学习机制——Hebbian Learning 与 Value Layer（EMA）——是**平行且互补**的关系，作用于不同状态空间，承担不同认知功能。详细架构论述见 [ARCH.md §1.3](./ARCH.md)，本节给出工程实现对照。
+
+**状态空间对比**：
+
+| 维度 | Hebbian Learning | Value Layer（EMA） |
+|------|-----------------|---------------------|
+| 数据结构 | 神经网络 W2 权重（`numpy.ndarray`, 8×24） | `ValueVector` 对象（2 元价值 + 6 具体价值观） |
+| 存储位置 | `agent_state.json` 的 `W1, W2, b1, b2` 字段 | `value_vector.json` 独立文件 |
+| 更新频率 | 每 Epoch 一次 | 每 Epoch 一次（与 Hebbian 同） |
+| 触发条件 | reward 非零时 | Critic 输出 `value_delta` 时 |
+| 计算复杂度 | O(8 × 24) | O(6) |
+
+**学习信号对比**：
+
+- Hebbian 直接接收 `reward`（标量），学习率与 `|reward|` 正相关
+- Value Layer 接收 `value_delta`（6 维字典），由 Critic LLM 根据事件生成
+- 两者共同上游：`Reward Calculator`（产生 reward），但路径分叉
+
+**作用效果对比**：
+
+- Hebbian 改变下一轮 `signals`（8D 行为信号）→ 改变 Actor 的内心独白和选择
+- Value Layer 改变下一轮 `judgment`（判断）→ 改变 Identity/Narrative 构建
+- 两者都需多 Epoch 累积才能观察到显著变化
+
+**对实验验证的影响**：
+- M1.1 验证 Value Layer 涌现：只观察 `value_vector.json` 的轨迹
+- M1.3 反合理化测试：需同时观察 Hebbian 权重和 Value Layer——反思若仅改变 ValueLayer 而不影响 Hebbian，即"自我合理化"
+- M2.2 1000 Epoch 实验：Hebbian 权重和 Value Layer 应同时收敛
+
+**实现注意事项**：
+- 两者都依赖 reward 信号，但 reward 计算依赖 `frustration_delta`（来自 Critic）
+- 任何 Critic 解析失败将导致两者都不更新（默认值）
+- 调试时应分别记录 `W2_delta` 和 `value_vector_delta`，便于分离观察
 
 ---
 
