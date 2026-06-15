@@ -65,9 +65,13 @@ Phase 3: 系统完善
 
 ## 里程碑
 
+> **Epoch 数字约定**：本项目所有 Epoch 引用以 [PRD §5.1](./PRD.md) Epoch 数字约定表为权威源。本节里程碑的 Epoch 数与之一致。
+
 ### M1.1：Value Layer 原型
 
 **验证目标**：价值观向量是否随经历变化？变化是否有意义？
+
+**涉及 FR**：FR-1（Event Generator 基础）、FR-2（情节记忆）、FR-4（**Value Layer 核心**）、FR-7（Critic 基础）、FR-8（Time Metabolism）、FR-9（Thermodynamic Noise）、FR-10（双 LLM 架构）
 
 **实验设计**：
 - 单个 AI 婴儿
@@ -98,6 +102,8 @@ Phase 3: 系统完善
 
 **前置条件**：M1.1 通过
 
+**涉及 FR**：FR-1（动态价值困境事件）、FR-4（Value Layer 分化验证）
+
 **实验设计**：
 - 3 个 AI 婴儿（鼓励/失败/不确定）
 - 100 个 Epoch
@@ -114,6 +120,8 @@ Phase 3: 系统完善
 **验证目标**：反思是否真的改变行为（而非只是生成漂亮的反思文本）？
 
 **前置条件**：M1.1 通过
+
+**涉及 FR**：FR-3（Reflection Layer）、FR-4（Value Layer 在反思后的变化）
 
 **实验设计**：
 - 给 AI 与它价值观矛盾的反馈
@@ -135,6 +143,8 @@ Phase 3: 系统完善
 
 ### M2.1：完整 SGE 架构
 
+**涉及 FR**：FR-1~10 全部（完整实现）
+
 **内容**：
 - 实现全部 6 层：Event → Memory → Reflection → Value → Identity → Narrative
 - 实现 Critic（事件感知）+ Actor（行为表达）双 LLM 架构
@@ -150,6 +160,8 @@ Phase 3: 系统完善
 
 ### M2.2：1000 Epoch 三胞胎实验
 
+**涉及 FR**：FR-4（Value Layer 收敛）、FR-5（Identity 结晶）、FR-6（Narrative 连贯）
+
 **内容**：
 - 3 个 AI 婴儿，1000 个 Epoch
 - 完整评价指标：身份稳定度、价值观收敛度、叙事连续性、人格差异度
@@ -163,6 +175,8 @@ Phase 3: 系统完善
 **成本估算**：$150-500
 
 ### M2.3：个人真实测试
+
+**涉及 FR**：FR-5（Identity）、FR-6（Narrative）
 
 **内容**：
 - 给 AI 一系列关于自己的问题
@@ -184,12 +198,16 @@ Phase 3: 系统完善
 
 ### M3.1：Emotion & Energy Layer（情感与能量层）
 
+**涉及 FR**：FR-6 增强（情绪对叙事影响）、FR-8 扩展（能量代谢）
+
 **内容**：
 - 引入基于体内平衡的物理能源限制
 - 情绪动态演进系统
 - 模拟疲惫、焦虑带来的认知偏差
 
 ### M3.2：Meta-Cognition Layer（元认知层）
+
+**涉及 FR**：FR-3 增强（反思的反思）、FR-4 增强（价值观的元调整）
 
 **内容**：
 - AI 开始意识到"自己在反思"
@@ -198,7 +216,9 @@ Phase 3: 系统完善
 
 ### M3.3：Multi-AI Interaction（多 AI 互动）
 
-**前置约定**：1 个 AI 婴儿 = 1 个 Self。本里程碑中的"多 Self"指**多个 AI 婴儿（即多个独立 Self）**之间的互动，而非"一个 AI 婴儿容纳多个 Self"。
+**前置约定**：1 个 AI 婴儿 = 1 个 Self（参见 [ARCH §1.4](./ARCH.md)）。本里程碑中的"多 Self"指**多个 AI 婴儿（即多个独立 Self）**之间的互动，而非"一个 AI 婴儿容纳多个 Self"。
+
+**涉及 FR**：FR-1~10 集成（多 AI 互动场景下的完整运行）
 
 **内容**：
 - 多个 AI 婴儿（即多个独立 Self）之间的对话、协作、冲突

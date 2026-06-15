@@ -70,28 +70,35 @@ discussions/YYYY-MM-DD-主题关键词.md
 ### 流程示意
 
 ```
-深度讨论
+深度讨论 / 深度分析
     │
     ▼
-存档到 discussions/YYYY-MM-DD-主题.md
+【第 0 步】深度分析 → 存档到 research/ 对应子目录
     │
     ▼
-是否产生关键洞察？
-    │
-    ├── 否 → 结束
-    │
-    ├── 是 → 添加到 SGE-Key-Insights.md
-    │           │
-    │           ▼
-    │       检查项目级文档是否需要修正
-    │           │
-    │           ├── 是 → 修正 PRD/ARCH/DESIGN/ROADMAP/DEVELOP
-    │           │         更新 CHANGELOG.md
-    │           │
-    │           └── 否 → 仅更新 CHANGELOG.md
+【第 1 步】讨论存档 → discussions/YYYY-MM-DD-主题.md
     │
     ▼
-git add + commit + push
+【第 2 步】是否产生关键洞察？
+    │
+    ├── 否 → 继续
+    │
+    └── 是 → 添加到 SGE-Key-Insights.md
+              │
+              ▼
+          【第 3 步】检查项目级文档是否需要修正
+              │
+              ├── 是 → 修正 PRD/ARCH/DESIGN/ROADMAP/DEVELOP
+              │         更新 CHANGELOG.md
+              │
+              └── 否 → 仅更新 CHANGELOG.md
+    │
+    ▼
+【第 4 步】会话记录 → 在 discussions/ 生成简要记录
+    │          （包含日期、主题、核心结论、产出文件列表）
+    │
+    ▼
+【第 5 步】git add + commit + push
 ```
 
 ## 目录约定
