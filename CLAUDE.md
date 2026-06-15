@@ -113,7 +113,11 @@ git add + commit + push
 
 ## 深度分析存档策略
 
-当用户对某个主题进行深度分析时，默认将分析结果保存为 `research/` 对应子目录下的 MD 文件（sge-core / sge-feasibility / sge-learning / cognitive-architecture），而非仅在对话中输出。文件命名应体现主题，格式与现有研究文档保持一致。保存后告知用户文件路径。
+当用户说"深度分析"或"深度研究"时，默认将分析结果保存为 `research/` 对应子目录下的 MD 文件（sge-core / sge-feasibility / sge-learning / cognitive-architecture），而非仅在对话中输出。文件命名应体现主题，格式与现有研究文档保持一致。保存后告知用户文件路径。
+
+当用户说"深度探讨"时，走完整闭环流程（见"核心工作流"章节）。
+
+**会话记录**：无论"深度分析"还是"深度探讨"，每次对话结束时在 `discussions/` 目录生成一个简要的会话记录（`YYYY-MM-DD-主题.md`），包含日期、主题、核心结论、产出文件列表。
 
 ## 自动同步推送策略
 
