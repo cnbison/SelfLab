@@ -46,6 +46,9 @@
 - 新增关键词触发机制："深度分析"/"深度研究" → 存到 research/；"深度探讨" → 走完整闭环
 - 新增会话记录要求：每次对话结束在 discussions/ 生成简要记录
 
+### 新增
+- `research/sge-feasibility/SGE-Technology-Stack-Overview.md` — SGE 技术栈全景（AiBeing 复用、LLM 选型、记忆框架、反思技术、自研部分）
+
 ---
 
 ## [0.2.0] - 2026-06-14

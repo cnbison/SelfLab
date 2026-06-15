@@ -80,6 +80,7 @@ SelfLab/
 │   ├── sge-feasibility/                   # SGE 可行性评估
 │   │   ├── SGE-Engineering-Feasibility-Analysis.md            # 工程实现可行性
 │   │   ├── SGE-Existing-Attempts-and-Gap-Analysis.md          # 现有尝试与空白分析
+│   │   ├── SGE-Technology-Stack-Overview.md                   # 技术栈全景
 │   │   └── Analysis-Cognitive-State-A-to-B-Relevance-and-Feasibility.md  # A→B 关联性分析
 │   │
 │   ├── sge-learning/                      # 借鉴与学习
