@@ -30,6 +30,11 @@
 - 新增洞察 19：发育生物学作为涌现主义的经验依据
 - 更新 SGE-Learning-from-Authenticity-Philosophy.md 和 SGE_AI_Value_Emergence_Authenticity.md
 
+### 项目级文档修正（受洞察 19 影响）
+- PRD.md — 核心假设加入发育生物学的哲学依据
+- ARCH.md — 设计哲学加入"受精卵→婴儿"的架构类比表
+- DESIGN.md — 设计原则新增第 6 条"发育映射原则"
+
 ---
 
 ## [0.2.0] - 2026-06-14
