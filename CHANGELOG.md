@@ -21,6 +21,14 @@
 - 研究文档重组为 4 个子目录（sge-core / sge-feasibility / sge-learning / cognitive-architecture）
 - README.md 和 CLAUDE.md 同步更新目录结构
 
+### 哲学立场明确
+- 明确 SGE 的哲学立场：涌现主义/功能主义，而非金观涛的先验论
+- 金观涛认为"主体不是客观对象，而是一切对象化的前提"——主体不能被研究和构建
+- SGE 认为主体可以从足够复杂的功能系统中涌现——主体可以被实验验证
+- 这一分野是 SGE 实验的哲学基础：实验本质上在检验这两种立场哪一个更接近真实
+- 新增洞察 18（SGE-Key-Insights.md）
+- 更新 SGE-Learning-from-Authenticity-Philosophy.md 和 SGE_AI_Value_Emergence_Authenticity.md
+
 ---
 
 ## [0.2.0] - 2026-06-14
