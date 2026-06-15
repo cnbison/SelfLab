@@ -25,6 +25,13 @@
 SelfLab/
 ├── SGE-Key-Insights.md                    # 关键洞察集（本项目最重要的文件之一）
 │
+├── PRD.md                                 # 产品需求文档
+├── ROADMAP.md                             # 路线图
+├── ARCH.md                                # 架构文档
+├── DESIGN.md                              # 详细设计文档
+├── DEVELOP.md                             # 开发规范
+├── CHANGELOG.md                           # 变更日志
+│
 ├── research/                              # 研究文档
 │   ├── sge-core/                          # SGE 核心研究
 │   │   ├── Artificial-Self-Research-v0.1.md     # 研究纲领 v0.1
@@ -65,4 +72,4 @@ SelfLab/
 
 ## 当前状态
 
-研究纲领 v0.2 已完成，涵盖双系统认知架构、预测加工理论与 SGE（Self Genesis Engine）系统设计。已完成工程可行性评估、现有系统空白分析、AiBeing 引擎借鉴分析、金观涛真实性哲学借鉴分析。下一步方向：可选推 MVP 工程方案，或继续深化理论层问题。
+Phase 0（理论奠基）已完成：研究纲领 v0.2、认知架构调研、工程可行性评估、AiBeing 借鉴分析、金观涛真实性哲学借鉴分析。项目级文档（PRD、ROADMAP、ARCH、DESIGN、DEVELOP、CHANGELOG）已建立。下一步：Phase 1 最小验证——Value Layer 原型实验（50-100 Epochs）。
