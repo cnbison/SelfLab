@@ -95,7 +95,8 @@ A→B 与 SGE 共享 7 个认知科学工具但目标不同，详见 [CLAUDE.md 
 
 ```
 SelfLab/
-├── SGE-Key-Insights.md                    # 关键洞察集（19 条 + FR 双向追溯）
+├── SGE-Status-Map.md                      # 项目战略仪表盘（已稳固/关键不确定性/下一步动作）
+├── SGE-Key-Insights.md                    # 关键洞察集（25 条 + FR 双向追溯）
 │
 ├── PRD.md                                 # 产品需求文档（FR-1~10 + 验收标准）
 ├── ROADMAP.md                             # 路线图（Phase 0~3 + M1.1~M3.3）
