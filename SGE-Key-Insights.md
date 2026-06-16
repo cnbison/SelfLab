@@ -794,6 +794,8 @@ SGE 的哲学基础是**涌现主义**（emergentism）或**功能主义**（fun
 
 > **对应 FR**：FR-2（Memory Layer）、FR-3（Reflection Layer）、FR-4（Value Layer）、FR-5（Identity Layer）、FR-6（Narrative Layer）—— 5 层都从金观涛的稳态/反馈/真实性框架获得工程化指导。本洞察修订 [洞察 18 哲学立场](../SGE-Key-Insights.md)——从"全面反对金观涛"到"接受工具拒绝结论"。
 
+> **2026-06-15 验证状态修订**：经过 11 次 WebFetch 核查，本洞察的**部分具体表述**（如"3 个层次"、"愿意质疑自己"等）**实际是 SGE 自身的建构**，**不声称是金观涛的原话**。本洞察的整体态度（"接受工具拒绝结论"）**仍然成立**——但"工具"的内容需要被理解为**用户提供 + SGE 建构**，而非"金观涛明确主张"。详见 [SGE-Jin-Guantao-System-Philosophy.md §1.3 诚实声明](../research/sge-core/SGE-Jin-Guantao-System-Philosophy.md)。
+
 **一句话**：SGE 完全接受金观涛的**工具价值**（稳态框架、反馈系统、真实性哲学、暗知识/拱桥），但**明确拒绝**他的**结论**（主体先验论、AI 不可能产生主体意识）——这是 SGE 对金观涛的"工程化致敬"。
 
 **完整论证**：
