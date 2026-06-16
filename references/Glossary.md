@@ -6,6 +6,50 @@
 
 ---
 
+# 〇、术语使用规范
+
+## 〇.1 通用原则
+
+- **SSOT 原则**：所有术语定义以本文件为准，其他文档不重新定义
+- **首次引入**：新概念首次出现时，使用"中文（English）"格式，如"暗知识（tacit knowledge）"
+- **后续引用**：使用"中文"或"English"任一，但同一文档内应统一
+- **冲突时**：以本 Glossary 为准，并修正引用方
+
+## 〇.2 同义术语的使用场景
+
+| 术语 A | 术语 B | 等价来源 | 使用建议 |
+|--------|--------|---------|---------|
+| 暗知识 | 默会知识 | 同义（不同作者：波兰尼 vs 金观涛） | **SGE 内部统一用"暗知识"**；引用波兰尼原文时用"默会知识" |
+| 显性知识 | 明示知识 | 同义 | 统一用"显性知识" |
+| 自我 | Self | 同义（不同语言） | 中文文档用"自我"；代码/英文文档用"Self" |
+| 主体 | Subject | **不**同义（哲学立场不同） | 哲学讨论用"主体"；SGE 工程用"自我"——**不可混用** |
+| 价值困境 | 价值冲突 | 同义（早期混用） | 优先用"价值困境"；保留"价值冲突"作为同义词 |
+| 相变 | Phase Transition | 同义（不同语言） | 中文用"相变"；代码/英文用"Phase Transition" |
+| 结晶 | Crystallization | 同义（不同语言） | 中文用"结晶"；代码/英文用"Crystallization" |
+| 反思 | Reflection | 同义（不同语言） | 中文用"反思"；代码/英文用"Reflection" |
+| 解释机制 | Interpretation Mechanism | 同义 | 中文用"解释机制"；代码/英文用"Interpretation Mechanism" |
+| 反合理化 | 反事实验证 | 同义（不同侧重） | 优先用"反合理化"（与"自我合理化"对仗） |
+
+## 〇.3 中英对照速查
+
+| 类别 | 中文 | English |
+|------|------|---------|
+| 哲学 | 自我 / 主体 / 主体性 | Self / Subject / Subjectivity |
+| 哲学 | 涌现主义 / 功能主义 / 先验论 | Emergentism / Functionalism / Transcendentalism |
+| 哲学 | 实然 / 应然 | Is / Ought |
+| 哲学 | 暗知识 / 显性知识 | Tacit Knowledge / Explicit Knowledge |
+| 哲学 | 拱桥 | Arch Bridge |
+| 认知 | 双系统 / 认知失调 / 预测加工 | Dual-System / Cognitive Dissonance / Predictive Processing |
+| 价值 | 元价值 / 具体价值观 | Meta-Value / Concrete Value |
+| 价值 | 真实 / 自由 | Truth-Seeking / Freedom |
+| 架构 | 4 层（符号/经验/感知/表达） | 4 Layers (Symbolic/Experiential/Perception/Expression) |
+| 架构 | 三视图（概念/数据流/流程） | Three Views (Conceptual/Data-Flow/Process) |
+| 工程 | 反思 / 解释机制 / 结晶 / 相变 | Reflection / Interpretation / Crystallization / Phase Transition |
+| 工程 | EMA / Hebbian Learning | EMA / Hebbian Learning |
+| 工程 | 双 LLM（Critic + Actor） | Dual-LLM (Critic + Actor) |
+
+---
+
 # 一、哲学与理论基础
 
 ## 自我（Self）

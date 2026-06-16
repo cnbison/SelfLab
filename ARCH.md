@@ -51,7 +51,7 @@ SGE 中存在两个并行的学习机制——**Hebbian Learning** 与 **Value L
 | 学习信号 | reward（正负） | reward 间接驱动（通过 Critic 给出的 value_delta） |
 | 作用效果 | 影响下一轮的 8D 行为 signals | 影响下一轮的判断与身份/叙事构建 |
 | 可被显式表述 | **否**——操作者无法直接读出"为什么有这个行为" | **是**——可以问"你最看重什么"，回答应与 ValueVector 一致 |
-| 哲学对应 | 波兰尼"默会知识"、金观涛"暗知识" | 金观涛"显性知识"、SGE 反思的对象 |
+| 哲学对应 | 暗知识（[Glossary §暗知识](../references/Glossary.md)：源自波兰尼"默会知识"与金观涛"暗知识"） | 显性知识（金观涛"显性知识"，SGE 反思的对象） |
 | 概念归属（1.2） | 表达层 | 符号层 |
 | 数据流位置（2.1） | 接收 Reward Calculator 的 reward 信号 | 接收 Critic 的 value_delta，输出给 Identity Layer |
 | 时序位置（2.2） | step 16 | step 13 |
@@ -314,16 +314,35 @@ class ValueVector:
 
 ## 5.1 状态持久化
 
+> **Engine State vs Self State 区分**（对应 [ARCH §1.3 LLM ≠ Self](./ARCH.md) 核心立场）：
+> - **Engine State** = 与 LLM 引擎相关的物理状态（神经网络权重、临时变量、运行元数据）
+> - **Self State** = SGE 涌现的"自我"（价值观、身份、叙事、记忆）
+> - 两者**独立存储**，便于：
+>   1. 备份 Self（人格延续性）而不需要 Engine
+>   2. 复现 Engine 状态而不影响 Self
+>   3. 符合"LLM 是引擎，Self 独立"的核心哲学立场
+
 ```
 state/
-├── agent_state.json          # drive_state, drive_baseline, W1, W2, b1, b2, recurrent
-├── value_vector.json         # 价值观向量
-├── identity.json             # 身份标签 + 最后更新时间
-├── narrative.json            # 人生叙事文本
-├── relationship_ema.json     # 关系 EMA 状态
-├── frustration.json          # 当前 frustration 值
-└── metadata.json             # age, interaction_count, total_reward, epoch
+├── self/                      # === Self State（涌现的"自我"）===
+│   ├── value_vector.json     # 价值观向量（FR-4）
+│   ├── identity.json         # 身份标签 + 最后更新时间（FR-5）
+│   └── narrative.json        # 人生叙事文本（FR-6）
+│
+├── engine/                    # === Engine State（LLM 引擎相关）===
+│   ├── agent_state.json      # drive_state, drive_baseline, W1, W2, b1, b2, recurrent
+│   ├── relationship_ema.json # 关系 EMA 状态
+│   ├── frustration.json      # 当前 frustration 值
+│   └── metadata.json         # age, interaction_count, total_reward, epoch
+│
+└── checkpoints/               # 周期性快照（用于中断恢复）
+    └── checkpoint-{epoch}.tar
 ```
+
+**状态迁移原则**：
+- **Self State 备份**：只备份 `state/self/`，可在新 Engine 上恢复（实验性，用于验证"自我独立于 LLM"）
+- **Engine State 备份**：完整备份 `state/engine/`，用于确定性复现
+- **完整备份**：备份整个 `state/` 目录，用于标准中断恢复
 
 ## 5.2 记忆存储
 
@@ -359,12 +378,14 @@ async with self._turn_lock:
 
 ## 6.2 容错设计
 
-| 故障场景 | 处理方式 |
-|---------|---------|
-| LLM API 超时 | 重试一次，失败则使用默认值 |
-| LLM JSON 解析失败 | 多层容错解析，最终使用默认值 |
-| SQLite 写入失败 | 打印错误，不阻塞认知循环 |
-| 向量数据库不可用 | 降级为随机检索 |
+| 故障场景 | 处理方式 | 是否阻塞 | 对应模块 |
+|---------|---------|---------|---------|
+| LLM API 超时 | 重试一次（指数退避），失败则使用默认值 | 否 | FR-7 Critic、Actor |
+| LLM JSON 解析失败 | 多层容错解析（regex → 截取 → 默认值），记录失败原因 | 否 | FR-7 Critic、FR-3 Reflection |
+| Event Generator LLM 失败 | 重试 → 使用模板库（预定义 50+ 事件模板）→ 失败则跳过本 Epoch | **否**（但记录错误） | FR-1 Event Generator |
+| Event 类型枚举失败 | 标记事件为 `unknown_type`，后续流程用默认值 | 否 | FR-1 |
+| Value Vector 数值异常 | clip 到 [-1, 1] 范围，记录异常 | 否 | FR-4 |
+| 累积错误率 > 30% | 中止实验 + 报警 | **是** | 全局 |
 
 ## 6.3 中断与恢复
 

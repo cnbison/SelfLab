@@ -104,14 +104,24 @@ Phase 3: 系统完善
 
 **涉及 FR**：FR-1（动态价值困境事件）、FR-4（Value Layer 分化验证）
 
+> **AI 婴儿组定义**（与 [DESIGN §8.2 BABY_PROFILES](./DESIGN.md) 一致）：
+>
+> | 婴儿组 ID | 中文 | 描述 | 事件生成器 |
+> |----------|------|------|-----------|
+> | `encouraged` | 鼓励组 | 持续正面反馈 | `generate_positive_biased_event()` |
+> | `challenged` | 挑战组 | 持续失败和挫折 | `generate_negative_biased_event()` |
+> | `uncertain` | 不确定组 | 高度不确定，奖惩随机 | `generate_random_event()` |
+>
+> **命名说明**：DESIGN 中"challenged"对应中文"挑战/失败"——本项目刻意用"challenged"（挑战）而非"failed"（失败），强调这是"被考验"而非"被打败"，符合 SGE "经历 + 解释 = 人格"的立场。
+
 **实验设计**：
-- 3 个 AI 婴儿（鼓励/失败/不确定）
+- 3 个 AI 婴儿（`encouraged` / `challenged` / `uncertain`）
 - 100 个 Epoch
-- 相同的元价值初始种子，不同的事件流
+- 相同的元价值初始种子（真实=0.5, 自由=0.5），不同的事件流
 
 **验收标准**：
 - 3 个 AI 婴儿的价值观分布显著不同
-- 人格差异度 > 预设阈值
+- 人格差异度 > 预设阈值（[PRD §6.1 4.1.4](./PRD.md)）
 
 **成本估算**：$3-30
 
@@ -122,6 +132,8 @@ Phase 3: 系统完善
 **前置条件**：M1.1 通过
 
 **涉及 FR**：FR-3（Reflection Layer）、FR-4（Value Layer 在反思后的变化）
+
+> **哲学对应**：本里程碑验证 SGE 的"**拱桥**"机制（[Glossary §拱桥](./references/Glossary.md)）——Reflection Layer 能否真的连接暗知识（Hebbian）与显性知识（Value Layer），使反思有行为后果。
 
 **实验设计**：
 - 给 AI 与它价值观矛盾的反馈

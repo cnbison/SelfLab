@@ -45,7 +45,7 @@
 ```python
 @dataclass
 class LifeEvent:
-    event_id: str
+    event_id: str            # 格式："{baby_id}-e{epoch}-{uuid8}"，见下方规范
     event_type: str          # success, failure, relationship, exploration, risk, value_conflict
     description: str         # 事件的自然语言描述
     intensity: float         # 事件强度 [0, 1]
@@ -53,6 +53,38 @@ class LifeEvent:
     causal_context: str      # 因果背景
     timestamp: float         # 事件时间戳
 ```
+
+### event_id 生成规范
+
+**格式**：`{baby_id}-e{epoch}-{uuid8}`
+
+- `baby_id`：AI 婴儿标识符（如 `encouraged`, `challenged`, `uncertain`）
+- `e{epoch}`：Epoch 编号（前缀 `e` 避免数字开头的标识符）
+- `{uuid8}`：8 字符 UUID（uuid4 库截取前 8 位），保证唯一性
+
+**示例**：
+- `encouraged-e0001-a3b9f2e1` —— 鼓励组第 1 个 Epoch 的事件
+- `challenged-e0042-7c8d4b1a` —— 失败组第 42 个 Epoch 的事件
+
+**生成函数**：
+
+```python
+import uuid
+
+def make_event_id(baby_id: str, epoch: int) -> str:
+    """生成符合规范的事件 ID。"""
+    return f"{baby_id}-e{epoch:04d}-{uuid.uuid4().hex[:8]}"
+```
+
+**为什么用复合 ID 而非纯 UUID**：
+- 复合 ID 可读性高：从 ID 就能看出"哪个婴儿、哪个 Epoch"
+- UUID 后缀保证唯一性：避免同 Epoch 多个事件的 ID 冲突
+- 便于调试：日志、错误信息中能快速定位事件来源
+
+**约束**：
+- `baby_id` 必须是小写字母数字串（与 YAML 配置一致）
+- `epoch` 必须是非负整数
+- 整个 `event_id` 长度 ≤ 64 字符（满足 SQLite VARCHAR 限制）
 
 ## 2.2 动态事件生成
 
