@@ -16,6 +16,30 @@
 
 SelfLab 探索"人工自我（Artificial Self）"——AI 能否形成持续存在的自我认同、价值观、人生叙事与成长轨迹。核心研究纲领见 `research/sge-core/` 目录，关键洞察见项目根目录 `SGE-Key-Insights.md`。
 
+## 子项目：A→B 调研
+
+> **A→B 是 SelfLab 的并行子项目**——与 SGE（人工自我）使用**相同的认知科学底层工具箱**，但目标不同。
+>
+> 当用户提及"A→B"、"认知状态向量"、"学习迁移"等关键词时，参考 [research/cognitive-architecture/](./research/cognitive-architecture/) 和 [research/sge-learning/SGE-Feasibility-Impact-on-AtoB.md](./research/sge-learning/SGE-Feasibility-Impact-on-AtoB.md)。
+
+| 维度 | SGE（自我生成） | A→B（学习状态迁移） |
+|------|----------------|---------------------|
+| **目标** | AI 能否形成持续自我 | 人的学习状态如何估计与迁移 |
+| **核心问题** | "AI 能否成为存在" | "如何从 A 状态迁移到 B 状态" |
+| **状态语义** | 存在性身份（价值观、叙事） | 功能能力（9 维认知状态向量） |
+| **应用** | 数字孪生、AI 陪伴、Personal AI | 自适应学习系统、教育 AI |
+| **研究文档** | `research/sge-core/`、`research/sge-feasibility/` | `research/cognitive-architecture/` |
+
+**为什么 A→B 调研放在 SelfLab**：
+- 两者共享 7 个认知科学工具（贝叶斯更新、预测加工、双系统、记忆分层、BDI、元认知等）
+- SGE 验证后可赋能 A→B 升级为"有灵魂的教育者"（[洞察 11](./SGE-Key-Insights.md)）
+- 同一研究者（Bisen）关注这两个方向
+
+**A→B 关键文档**：
+- [Cognitive-State-A-to-B-Research.md](./research/cognitive-architecture/Cognitive-State-A-to-B-Research.md) — 完整调研
+- [Cognitive-State-A-to-B-Distilled.md](./research/cognitive-architecture/Cognitive-State-A-to-B-Distilled.md) — 精要版
+- [SGE-Feasibility-Impact-on-AtoB.md](./research/sge-learning/SGE-Feasibility-Impact-on-AtoB.md) — SGE 对 A→B 的影响
+
 ## 用户与协作
 
 **项目发起人**：Bisen

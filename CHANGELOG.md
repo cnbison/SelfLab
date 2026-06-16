@@ -25,6 +25,40 @@
 
 ---
 
+## [0.8.0] - 2026-06-15 (P4 批次)
+
+### 进一步优化（P4 批次：可读性 + 可追溯性）
+
+#### discussions 模板（P4-1）
+- 新增 `discussions/_TEMPLATE.md`：标准化讨论文件结构（必填/可选章节、命名规范、判断标准）
+
+#### ARCH 架构图跨层数据流升级（P4-2）
+- `prototypes/sge-architecture-overview.md` 新增 v2 跨层数据流版本：显式标注 3 类跨层数据流（value_delta、reward、frustration）
+- 保留 v1 原版作为"何时使用 v1 vs v2"对照
+
+#### PRD §6.3 失败处理（P4-3）
+- PRD §6.3 扩展为 4 个子节：通过条件、失败处理路径（6 种失败模式对应诊断+应对）、哲学层面应对（重新设计 vs 接受金观涛）、决策原则
+
+#### A→B 关系说明（P4-4）
+- CLAUDE.md 新增"子项目 A→B 调研"章节：明确 SGE 与 A→B 的目标差异、为什么放在一起、关键文档链接
+
+#### Memory Layer 独立化（P4-5）
+- 新增 `research/sge-feasibility/SGE-Memory-Layer-Design.md`：从 discussions 升格为正式设计文档
+- 包含设计原则、内容分类、推荐架构、方案对比、关键决策汇总、相关文档映射
+
+#### 洞察-FR 双向追溯（P4-6）
+- `SGE-Key-Insights.md` 19 条洞察全部添加"对应 FR"标注
+- 文档头部新增 FR 双向追溯索引表（19 行 × 4 列）
+- 形成"洞察 → FR"反向追溯链：19 条洞察对应 FR-1~10 的覆盖关系
+
+#### README 同步更新（P4-7）
+- README.md 反映 P0~P3 的所有变化：新增 Glossary.md、Experiment-Protocol.md、SGE-Memory-Layer-Design.md、prototypes/ 目录
+- 新增"关键 SSOT"表格：7 类信息的 SSOT 文档明确化
+- 新增"子项目"表格：SGE vs A→B
+- 6 步工作流图与 CLAUDE.md 同步
+
+---
+
 ## [0.7.0] - 2026-06-15 (P3 批次)
 
 ### 修正（P3 批次：优化性质 + 术语审查）
