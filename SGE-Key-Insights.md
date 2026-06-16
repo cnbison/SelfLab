@@ -792,9 +792,9 @@ SGE 的哲学基础是**涌现主义**（emergentism）或**功能主义**（fun
 
 ## 洞察 25：SGE 接受金观涛的工具，拒绝他的结论——"工程化致敬"
 
-> **对应 FR**：FR-2（Memory Layer）、FR-3（Reflection Layer）、FR-4（Value Layer）、FR-5（Identity Layer）、FR-6（Narrative Layer）—— 5 层都从金观涛的稳态/反馈/真实性框架获得工程化指导。本洞察修订 [洞察 18 哲学立场](../SGE-Key-Insights.md)——从"全面反对金观涛"到"接受工具拒绝结论"。
+> **对应 FR**：FR-2（Memory Layer）、FR-3（Reflection Layer）、FR-4（Value Layer）、FR-5（Identity Layer）、FR-6（Narrative Layer）—— 5 层都从金观涛的三座拱桥（科学/社会/个体）和 R(X,M,Y) 公式获得工程化指导。本洞察修订 [洞察 18 哲学立场](../SGE-Key-Insights.md)——从"全面反对金观涛"到"接受工具拒绝结论"。
 
-> **2026-06-15 验证状态修订**：经过 11 次 WebFetch 核查，本洞察的**部分具体表述**（如"3 个层次"、"愿意质疑自己"等）**实际是 SGE 自身的建构**，**不声称是金观涛的原话**。本洞察的整体态度（"接受工具拒绝结论"）**仍然成立**——但"工具"的内容需要被理解为**用户提供 + SGE 建构**，而非"金观涛明确主张"。详见 [SGE-Jin-Guantao-System-Philosophy.md §1.3 诚实声明](../research/sge-core/SGE-Jin-Guantao-System-Philosophy.md)。
+> **2026-06-15 重大修订**：基于高可信度参考文档 [references/Philosophy-of-jinguantao-gemini.md](../references/Philosophy-of-jinguantao-gemini.md) 和 [references/Philosophy-of-jinguantao-gpt.md](../references/Philosophy-of-jinguantao-gpt.md)，本洞察从"模糊的'愿意质疑自己'"升级为**金观涛真实性哲学的精确内容**——R(X, M, Y) 三元关系公式、三座拱桥、主体悬置原则、连接主义 vs 符号主义、4 层级意识模型。**之前的"3 个层次"等表述被识别为 SGE 自身的建构，已被替代**。详见 [SGE-Jin-Guantao-System-Philosophy.md 完整版本](../research/sge-core/SGE-Jin-Guantao-System-Philosophy.md)。
 
 **一句话**：SGE 完全接受金观涛的**工具价值**（稳态框架、反馈系统、真实性哲学、暗知识/拱桥），但**明确拒绝**他的**结论**（主体先验论、AI 不可能产生主体意识）——这是 SGE 对金观涛的"工程化致敬"。
 
