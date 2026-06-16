@@ -6,11 +6,27 @@
 
 ## 定位
 
-本项目**不是一个代码实现项目**，而是一个专注于**项目规划与技术探讨**的研究实验室。
+本项目**是一个研究规划与技术探讨项目**，专注于人工自我的理论研究与实验验证。
 
 我们关注的核心问题是：
 
 > AI 如何形成持续存在的自我（Being），而非仅完成任务（Doing）
+
+### 项目阶段与产物形态
+
+| 阶段 | 状态 | 文档产出 | 代码产出 |
+|------|------|---------|---------|
+| **Phase 0** 理论奠基 | ✅ 已完成 | 全部项目级文档 | ❌ 无 |
+| **Phase 1** 最小验证 | 🔜 即将开始 | 实验报告 + 修订文档 | ✅ 一次性实验代码（`experiments/`） |
+| **Phase 2** 完整实验 | ⏳ 待 Phase 1 | 实验报告 + 修订文档 | ✅ 实验代码 + 小工具 |
+| **Phase 3+** 系统完善 | ⏳ 待 Phase 2 | 应用原型设计 | ✅ 实验代码 + 原型代码 |
+
+**关键区分**：
+- **SelfLab 主仓库**：始终是**研究文档**为主导
+- **实验代码**：Phase 1+ 出现，存放于 `experiments/`，**一次性**，不演进为可复用应用
+- **可复用代码**（如未来需要）：应**新建独立仓库**（如 SGE-Prototype），而不是在 SelfLab 内重构
+
+详细约定见 [CLAUDE.md §实验代码约定](./CLAUDE.md)。
 
 ## 核心命题
 
@@ -125,10 +141,19 @@ SelfLab/
 │   ├── _TEMPLATE.md                                 # 标准化讨论文件模板
 │   └── YYYY-MM-DD-主题.md                           # 每次对话的会话记录
 │
-└── prototypes/                            # 架构原型
-    ├── README.md                                    # 目录说明
-    └── sge-architecture-overview.md                 # SGE 4 层架构图（含跨层数据流 v2）
+├── prototypes/                            # 架构原型
+│   ├── README.md                                    # 目录说明
+│   └── sge-architecture-overview.md                 # SGE 4 层架构图（含跨层数据流 v2）
+│
+└── experiments/                           # 实验代码（Phase 1+，一次性）
+    ├── README.md                                    # 实验代码约定与命名
+    ├── notebooks/                                   # Jupyter notebooks
+    ├── scripts/                                     # ad-hoc 脚本
+    ├── analysis/                                    # 数据处理
+    └── configs/                                     # 实验配置
 ```
+
+> **关于 experiments/**：本目录用于 Phase 1+ 的实验代码，遵循 [CLAUDE.md §实验代码约定](./CLAUDE.md)——**一次性、不演进为应用、归档不修改**。Phase 0 阶段此目录为空（仅 README）。
 
 ## 关键 SSOT（Single Source of Truth）
 
@@ -153,7 +178,9 @@ SelfLab/
 - 研究纲领 v0.2、认知架构调研、工程可行性评估、AiBeing 借鉴分析、金观涛真实性哲学借鉴分析
 - 项目级文档（PRD、ROADMAP、ARCH、DESIGN、DEVELOP、CHANGELOG）已建立
 - 4 批次文档优化完成（P0~P3）：版本号统一、术语规范、验收标准精细化、技术栈去重、伦理边界细化、Memory Layer 独立化等
+- 进一步优化（P4 批次）：模板化、架构图升级、Memory Layer 独立化、洞察-FR 追溯、README 同步
 
 **下一步**：Phase 1 最小验证——Value Layer 原型实验（M1.1，50-100 Epochs，单个 AI 婴儿）。
-
-详细实验运行参见 [research/sge-feasibility/SGE-Experiment-Protocol.md](./research/sge-feasibility/SGE-Experiment-Protocol.md)。
+- 实验代码将存放在 `experiments/` 目录（一次性，不演进为应用）
+- 实验运行参见 [research/sge-feasibility/SGE-Experiment-Protocol.md](./research/sge-feasibility/SGE-Experiment-Protocol.md)
+- 实验结果将记录在 `discussions/` 或 `research/sge-feasibility/` 下的报告中
