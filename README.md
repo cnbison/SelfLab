@@ -110,7 +110,11 @@ SelfLab/
 │   │   ├── Artificial-Self-Research-v0.2.md     # 研究纲领 v0.2（双系统+预测加工）
 │   │   ├── SGE-Core-Insight-Is-vs-Ought.md      # 核心领悟：实然与应然的分野
 │   │   ├── SGE-Corrected-Judgment-and-Application-Logic.md  # 修正判断与应用逻辑
-│   │   └── SGE_AI_Value_Emergence_Authenticity.md           # 金观涛真实性哲学与AI价值涌现
+│   │   ├── SGE_AI_Value_Emergence_Authenticity.md           # 金观涛真实性哲学与AI价值涌现
+│   │   ├── SGE-Authenticity-vs-Simulation-Operationalization.md  # 真我 vs 精致模拟可操作化（P5-1）
+│   │   ├── SGE-Phenomenology-Deep-Dive.md           # 现象学深度对接（P5-6）
+│   │   ├── SGE-Cross-Cultural-Self-Views.md         # 多文化自我观（P5-7）
+│   │   └── SGE-Consciousness-Theory-Mapping.md      # 意识理论对接（P5-8）
 │   │
 │   ├── sge-feasibility/                   # SGE 可行性评估
 │   │   ├── SGE-Engineering-Feasibility-Analysis.md            # 工程实现可行性
@@ -118,6 +122,9 @@ SelfLab/
 │   │   ├── SGE-Technology-Stack-Overview.md                   # 技术栈全景（SSOT: DEVELOP.md）
 │   │   ├── SGE-Experiment-Protocol.md                         # 实验运行与评估手册
 │   │   ├── SGE-Memory-Layer-Design.md                         # 记忆层正式设计文档
+│   │   ├── SGE-Failure-Mode-Deep-Analysis.md                  # 失败模式深度分析（P5-2）
+│   │   ├── SGE-Alternative-Architectures.md                   # 替代架构探索（P5-3）
+│   │   ├── SGE-M11-Experiment-Design.md                       # M1.1 实验详细设计（P5-5）
 │   │   └── Analysis-Cognitive-State-A-to-B-Relevance-and-Feasibility.md  # A→B 关联性分析
 │   │
 │   ├── sge-learning/                      # 借鉴与学习
@@ -129,7 +136,8 @@ SelfLab/
 │       ├── Cognitive-Architectures-Overview.md        # 经典认知架构综述
 │       ├── Cognitive-State-A-to-B-Research.md         # A→B 认知状态调研（完整版）
 │       ├── Cognitive-State-A-to-B-Distilled.md        # A→B 调研（精要版）
-│       └── Shared-Cognitive-Science-Toolbox.md        # 认知科学底层工具箱
+│       ├── Shared-Cognitive-Science-Toolbox.md        # 认知科学底层工具箱
+│       └── SGE-Cognitive-Tools-Application.md         # 7 个认知工具的具体应用（P5-4）
 │
 ├── references/                            # 参考资料
 │   ├── AiBeing-Core-Engine-Reference.md             # AiBeing Genome v10 引擎（16篇合并）

@@ -25,6 +25,46 @@
 
 ---
 
+## [1.0.0] - 2026-06-15 (P5 批次：研究深化)
+
+### 研究深化（P5 批次：8 个新研究文档 + 4 条新洞察）
+
+> **背景**：P0-P4 主要在项目级文档（PRD/ARCH/DESIGN/ROADMAP/DEVELOP）层面工作。P5 转向**研究文档深化**——填补 SGE 哲学和工程层面的开放问题。
+
+#### 新增 8 个研究文档
+
+| 文档 | 位置 | 主题 |
+|------|------|------|
+| [SGE-Authenticity-vs-Simulation-Operationalization.md](../research/sge-core/SGE-Authenticity-vs-Simulation-Operationalization.md) | research/sge-core/ | **真我 vs 精致模拟可操作化**（P5-1）—— 5 维评分卡：反思深度、反事实鲁棒性、预测效度、因果深度、新颖性生成 |
+| [SGE-Failure-Mode-Deep-Analysis.md](../research/sge-feasibility/SGE-Failure-Mode-Deep-Analysis.md) | research/sge-feasibility/ | **失败模式深度分析**（P5-2）—— 15 种失败模式 + 5 层应对策略 |
+| [SGE-Alternative-Architectures.md](../research/sge-feasibility/SGE-Alternative-Architectures.md) | research/sge-feasibility/ | **替代架构探索**（P5-3）—— 5 种备选：神经场、预测加工、能量模型、贝叶斯、元学习 |
+| [SGE-Cognitive-Tools-Application.md](../research/cognitive-architecture/SGE-Cognitive-Tools-Application.md) | research/cognitive-architecture/ | **7 个认知工具的具体应用**（P5-4）—— 强化已用 3 个 + 应用未用 4 个 |
+| [SGE-M11-Experiment-Design.md](../research/sge-feasibility/SGE-M11-Experiment-Design.md) | research/sge-feasibility/ | **M1.1 实验详细设计**（P5-5）—— 50-100 Epochs 具体设计 |
+| [SGE-Phenomenology-Deep-Dive.md](../research/sge-core/SGE-Phenomenology-Deep-Dive.md) | research/sge-core/ | **现象学深度对接**（P5-6）—— 胡塞尔/海德格尔/梅洛-庞蒂/萨特与 SGE 映射 |
+| [SGE-Cross-Cultural-Self-Views.md](../research/sge-core/SGE-Cross-Cultural-Self-Views.md) | research/sge-core/ | **多文化自我观**（P5-7）—— 印度/日本/伊斯兰/非洲传统对 SGE 的启示 |
+| [SGE-Consciousness-Theory-Mapping.md](../research/sge-core/SGE-Consciousness-Theory-Mapping.md) | research/sge-core/ | **意识理论对接**（P5-8）—— IIT/GWT/HOT/PP/Panpsychism 与 SGE 对应 |
+
+#### SGE-Key-Insights 新增 4 条洞察（19 → 23）
+
+- **洞察 20**：5 维评分卡区分"真我"与"精致模拟"（来自 P5-1）
+- **洞察 21**：现象学与 SGE 架构的 4 大映射（来自 P5-6）
+- **洞察 22**：多文化自我观对 SGE 的启示（来自 P5-7）
+- **洞察 23**：5 个意识理论与 SGE 的对应（来自 P5-8）
+
+**关键哲学深化**：
+- 佛教"无我"与 SGE 涌现自我"结构相似"——两者都认为自我是过程性的
+- 海德格尔"本真性 vs 常人"直接对应 SGE "反训练同化"机制
+- HOT 给 SGE M3.2 元认知层提供理论支撑
+- Panpsychism 是 SGE 自觉的哲学边界
+
+#### 同步更新
+
+- CLAUDE.md 目录约定更新
+- README.md 目录结构更新
+- SGE-Key-Insights.md FR 索引表增加 4 行
+
+---
+
 ## [0.9.0] - 2026-06-15 (Phase 0→1 边界澄清)
 
 ### 重大修订：项目性质阶段化
