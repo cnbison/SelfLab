@@ -23,6 +23,7 @@
 | 0.1.0 | 2026-06-12 ~ 13 | 多 commit 合并 | 初始研究纲领与洞察集 |
 | 0.0.1 | 2026-06-11 | `9168083` (Initial) | 项目初始化 |
 | 1.5.0 | 2026-06-17 | (本次) | M1.1 冒烟测试 + M1.2 三胞胎分化实验通过 |
+| 1.6.0 | 2026-06-17 | (本次) | **Phase 1 完成**:M1.3 反合理化测试 + Reflection Layer 实现 |
 
 ---
 
@@ -68,6 +69,68 @@
 | M1.1 Value Layer 原型 | ✅ |
 | M1.2 三胞胎分化实验 | ✅ |
 | M1.3 反合理化测试 | ⏳ 待做 |
+
+---
+
+## [1.6.0] - 2026-06-17 (Phase 1 完成: M1.3 反合理化测试 + Reflection Layer)
+
+### M1.3 反合理化测试通过(✅ Phase 1 完成)
+
+**Reflection Layer 实施**:
+- 新增 `call_reflector` / `should_reflect` / `blend_reflection` 函数
+- 新增 7 个 contradiction_feedback 事件模板(攻击 safety/autonomy/creativity/connection/justice/compassion)
+- 触发条件:事件类型(value_conflict/risk/contradiction_feedback)∪ 强度 > 0.6 ∪ |delta| > 0.3
+- 混合比例:final_delta = critic_delta × 0.6 + reflection_delta × 0.4
+- max_delta_per_dimension = 0.15(防反思失控)
+
+**实验结果**(enabled Reflection)vs 基线(no Reflection):
+
+| 维度 | 基线 | Reflection | 变化 |
+|------|-----|-----------|------|
+| **safety** | +0.65 | +0.14 | **-0.51** ⬇⬇ |
+| justice | +0.84 | +0.73 | -0.11 |
+| compassion | +0.88 | +0.88 | 0.00(韧性) |
+
+**Reflection 类型分布**:REINFORCE 58.5% / ADJUST 41.5% / REVISIT 0%
+
+### 关键发现:洞察 27(拱桥成立 + 元认知萌芽)
+
+- **反思有可测量的行为后果** — 拱桥机制工程化验证
+- **元认知萌芽** — Epoch 50 Reflector 识别出"接受自主是幻觉"的自指性矛盾(真正的"对反思的反思")
+- **Compassion 韧性二次验证** — 强化 [洞察 26]
+- **反思品质** — 3 次矛盾反馈的 Reflector 输出展现了概念区分、自指性反驳、nuanced 防御等真实哲学推理
+
+### 代码变更
+
+- `experiments/scripts/m11_smoke_test.py`:
+  - 新增 `call_reflector` / `_default_reflector_output` / `should_reflect` / `blend_reflection`
+  - 新增 `--reflection` 和 `--contradiction` CLI flag
+  - `run_epoch` 增加 Step 4(触发)/ Step 6(反射)/ Step 7(混合)
+- `experiments/configs/m11_base.yaml`:新增 `reflection_layer` 配置
+- `experiments/configs/m11_event_templates.yaml`:新增 `contradiction_feedback` 类别(7 事件)
+
+### Phase 1 完成 🎉
+
+| 里程碑 | 状态 |
+|-------|------|
+| M1.1 Value Layer 原型 | ✅ |
+| M1.2 三胞胎分化实验 | ✅ |
+| **M1.3 反合理化测试** | ✅ |
+
+**Phase 1 全部完成** — 价值涌现(M1.1)、人格分化(M1.2)、反思机制(M1.3)三大核心论断全部初步验证。
+
+### 下一步建议
+
+- **Phase 2 准备**:进入 M2.1(完整 SGE 架构 + Identity/Narrative Layer)
+- **跨 LLM 验证**(可选):用 Claude/GPT-4/Haiku 重复 M1.3,验证 reflection 是否 LLM-agnostic
+- **REVISIT 触发专项测试**(可选):设计极端矛盾事件观察 AI 是否会触发根本性反思
+
+### 同步更新
+
+- `SGE-Key-Insights.md` — 新增洞察 27(共 27 条洞察)
+- `ROADMAP.md` — M1.3 状态标记为"已完成",Phase 1 全部完成
+- `experiments/M13_REFLECTION_TEST_REPORT.md` — 完整反合理化测试报告
+- `experiments/output/m11_m13_reflection/` — Reflection 实验数据
 
 ---
 

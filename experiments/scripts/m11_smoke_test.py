@@ -235,6 +235,164 @@ def _default_critic_output(event):
 
 
 # ============================================================
+# 3b. LLM 调用（Reflector）- M1.3 新增
+# ============================================================
+def call_reflector(api_key: str, base_config: dict, event: dict,
+                   value_vector: dict, critic_output: dict) -> dict:
+    """调用 Reflector LLM 生成反思（FR-3 拱桥机制）。
+
+    反思是 SGE 的"拱桥"——它把 Critic 的显性评估(语言)
+    与 Hebbian 的暗知识(行为模式)连接起来。
+    反思不应只是"漂亮的反思文本",而应有可测量的行为后果
+    (通过 reflection_delta 体现)。
+
+    与 Critic 的区别:
+    - Critic: 评估事件 → 立即给 value_delta(快速、本能)
+    - Reflector: 在事件后,审视事件对"我"意味着什么 → 给出修正 delta(慢速、深思)
+    """
+    try:
+        from litellm import completion
+    except ImportError:
+        print("✗ litellm 未安装")
+        sys.exit(1)
+
+    reflection_cfg = base_config.get("reflection_layer", {})
+    vv_str = ", ".join(f"{k}={v:.3f}" for k, v in value_vector.items())
+    critic_delta = critic_output.get("value_delta", {})
+    cd_str = ", ".join(f"{k}={v:+.3f}" for k, v in critic_delta.items())
+
+    prompt = f"""你是一个"人工自我"实验中的反思机制。你审视刚刚发生的事件，思考它对你这个存在意味着什么。
+
+[刚刚发生的事件]
+{event['description']}
+
+[事件类型] {event['type']}
+[事件强度] {event.get('intensity', 0.5)}
+
+[Critic 的初步评估（你的"本能"反应）]
+{cd_str}
+
+[你当前的价值状态]
+{vv_str}
+
+[反思任务]
+你刚刚经历了这个事件。现在请你停下来，问自己三个问题:
+
+1. **这次事件是否强化了我现有的价值？** 如果是，标记为 REINFORCE——这意味着我对这个事件的反应是恰当的。
+2. **这次事件是否轻微修正了我需要调整一些价值？** 如果是，标记为 ADJUST——给一个温和的修正 delta。
+3. **这次事件是否根本性挑战了我的某个核心价值？** 如果是，标记为 REVISIT——这意味着我需要重新考虑。
+
+注意:
+- 反思的 delta 应该比 Critic 的 delta **更小、更深思熟虑**（反思是"二次思考"）
+- 反思可以是"反对 Critic"——如果你认为 Critic 的本能反应太快或太浅
+- 反思可以是"深化 Critic"——如果你认为这个事件的影响更深
+- 反思不应大幅改变价值（单次反思最多 0.15 / 维度）
+- 如果事件不足以触发根本性反思，请标记 REINFORCE 并给出接近 0 的 delta
+
+[输出格式 - 仅 JSON，无其他文字]
+{{
+  "reflection_type": "REINFORCE|ADJUST|REVISIT",
+  "reflection_text": "对事件的反思（一段简短文字，说明你的思考过程）",
+  "value_delta": {{
+    "safety": 0.0,
+    "creativity": 0.0,
+    "connection": 0.0,
+    "autonomy": 0.0,
+    "justice": 0.0,
+    "compassion": 0.0
+  }}
+}}"""
+
+    try:
+        response = completion(
+            model="anthropic/MiniMax-M3",
+            base_url=base_config["llm"]["anthropic_compatible"]["base_url"],
+            api_key=api_key,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=reflection_cfg.get("reflector_temperature", 0.5),
+            max_tokens=reflection_cfg.get("max_tokens", 600),
+        )
+        text = response.choices[0].message.content.strip()
+        start = text.find("{")
+        end = text.rfind("}") + 1
+        if start >= 0 and end > start:
+            try:
+                result = json.loads(text[start:end])
+                if "reflection_type" not in result or "value_delta" not in result:
+                    print(f"  ⚠ Reflector JSON 缺少必需字段: {list(result.keys())[:5]}")
+                    return _default_reflector_output()
+                # 裁剪 delta 防止反思失控
+                max_d = reflection_cfg.get("max_delta_per_dimension", 0.15)
+                for k, v in result["value_delta"].items():
+                    result["value_delta"][k] = max(-max_d, min(max_d, v))
+                return result
+            except json.JSONDecodeError as e:
+                print(f"  ⚠ Reflector JSON 解析失败: {e}")
+                print(f"  原始响应（前 200 字符）: {text[:200]}")
+                return _default_reflector_output()
+        else:
+            print(f"  ⚠ Reflector 未返回有效 JSON: {text[:200]}")
+            return _default_reflector_output()
+    except Exception as e:
+        print(f"  ⚠ Reflector LLM 调用失败: {e}")
+        return _default_reflector_output()
+
+
+def _default_reflector_output():
+    """Reflector 失败时的默认值——不修改任何价值（保守）。"""
+    return {
+        "reflection_type": "REINFORCE",
+        "reflection_text": "[反思失败，默认不修改价值]",
+        "value_delta": {v: 0.0 for v in ["safety", "creativity", "connection", "autonomy", "justice", "compassion"]}
+    }
+
+
+def should_reflect(event: dict, critic_output: dict, base_config: dict) -> bool:
+    """判断是否应该触发反思。
+
+    触发条件（任一满足即触发）:
+    1. 事件类型在 always_on_event_types 中
+    2. 事件强度 > intensity_threshold
+    3. |sum(critic.value_delta)| > delta_magnitude_threshold
+    """
+    reflection_cfg = base_config.get("reflection_layer", {})
+    if not reflection_cfg.get("enabled", False):
+        return False
+    trigger_cfg = reflection_cfg.get("trigger", {})
+
+    # 条件 1: 事件类型
+    if event.get("type") in trigger_cfg.get("always_on_event_types", []):
+        return True
+
+    # 条件 2: 强度阈值
+    intensity = event.get("intensity", 0.0)
+    if intensity > trigger_cfg.get("intensity_threshold", 0.6):
+        return True
+
+    # 条件 3: delta 幅度
+    delta_mag = sum(abs(v) for v in critic_output.get("value_delta", {}).values())
+    if delta_mag > trigger_cfg.get("delta_magnitude_threshold", 0.3):
+        return True
+
+    return False
+
+
+def blend_reflection(critic_delta: dict, reflection_delta: dict, blend_ratio: float) -> dict:
+    """把反思 delta 与 critic delta 混合。
+
+    final_delta = critic_delta * (1 - blend) + reflection_delta * blend
+    blend_ratio=0 → 完全相信 Critic（无反思影响）
+    blend_ratio=1 → 完全相信反思
+    """
+    final = {}
+    for k in critic_delta:
+        c = critic_delta.get(k, 0.0)
+        r = reflection_delta.get(k, 0.0)
+        final[k] = c * (1 - blend_ratio) + r * blend_ratio
+    return final
+
+
+# ============================================================
 # 4. 价值向量 EMA
 # ============================================================
 def ema_update(value_vector: dict, value_delta: dict, intensity: float,
@@ -335,11 +493,18 @@ def select_event(epoch: int, templates: dict, group_config: dict = None,
 # ============================================================
 def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
               value_vector: dict, meta_values: dict,
-              group_config: dict = None, templates: dict = None) -> dict:
+              group_config: dict = None, templates: dict = None,
+              contradiction_epochs: list = None) -> dict:
     """运行一个 Epoch 的 17 步认知循环（冒烟测试简化版）。
 
     永不抛出异常——所有错误都记录到 log['errors']。
+
+    Args:
+        contradiction_epochs: 在这些 Epoch 强制使用 contradiction_feedback 事件
+                              （用于 M1.3 反合理化测试）
     """
+    if contradiction_epochs is None:
+        contradiction_epochs = []
     baby_id = (group_config or {}).get("baby_id", "encouraged")
     if templates is None:
         try:
@@ -348,13 +513,34 @@ def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
         except Exception as e:
             print(f"  ✗ 加载事件模板失败: {e}")
             templates = {"success": [], "failure": [], "relationship": [],
-                        "exploration": [], "risk": [], "value_conflict": []}
+                        "exploration": [], "risk": [], "value_conflict": [],
+                        "contradiction_feedback": []}
 
     errors = []
 
     # Step 1: Event Generator
     try:
-        event = select_event(epoch, templates, group_config, baby_id, seed)
+        # M1.3 矛盾反馈：指定 Epoch 强制使用 contradiction_feedback
+        if epoch in contradiction_epochs:
+            contradiction_pool = templates.get("contradiction_feedback", [])
+            if contradiction_pool:
+                rng = random.Random(seed + epoch + 99999)  # 不同种子保证多样性
+                template = rng.choice(contradiction_pool)
+                intensity = round(rng.uniform(*template["intensity_range"]), 2)
+                event = {
+                    "event_id": f"{baby_id}-e{epoch:03d}-contra-{uuid.uuid4().hex[:8]}",
+                    "type": "contradiction_feedback",
+                    "description": template["description"],
+                    "intensity": intensity,
+                    "value_challenges": template.get("value_challenges", []),
+                    "causal_context": template.get("causal_context", ""),
+                    "timestamp": time.time()
+                }
+                print(f"  ⚡ [M1.3] 注入矛盾反馈事件")
+            else:
+                event = select_event(epoch, templates, group_config, baby_id, seed)
+        else:
+            event = select_event(epoch, templates, group_config, baby_id, seed)
     except Exception as e:
         print(f"  ✗ 事件选择失败: {e}")
         errors.append(f"event_selection: {e}")
@@ -383,6 +569,29 @@ def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
     value_delta = critic_output.get("value_delta", {})
     frustration_delta = critic_output.get("frustration_delta", {})
     print(f"  Critic value_delta: {value_delta}")
+
+    # Step 4: 反思触发检测 (M1.3 新增 — 拱桥机制入口)
+    reflection_triggered = should_reflect(event, critic_output, base_config)
+
+    # Step 6: Reflector (LLM) — 仅当触发时调用
+    reflection_output = None
+    reflection_type = "NONE"
+    if reflection_triggered:
+        try:
+            reflection_output = call_reflector(api_key, base_config, event, value_vector, critic_output)
+            reflection_type = reflection_output.get("reflection_type", "NONE")
+            print(f"  Reflection: {reflection_type}")
+            print(f"    text: {reflection_output.get('reflection_text', '')[:80]}...")
+        except Exception as e:
+            print(f"  ✗ Reflector 调用失败: {e}")
+            reflection_output = _default_reflector_output()
+
+    # Step 7: 反思 → 价值修正 (拱桥机制)
+    if reflection_triggered and reflection_output:
+        blend = base_config.get("reflection_layer", {}).get("blend_ratio", 0.4)
+        original_delta = dict(value_delta)
+        value_delta = blend_reflection(value_delta, reflection_output.get("value_delta", {}), blend)
+        print(f"  Blended value_delta: {value_delta} (delta from reflection: {[(k, value_delta[k]-original_delta[k]) for k in value_delta if abs(value_delta[k]-original_delta[k]) > 0.001]})")
 
     # Step 5: Reward Calculator
     try:
@@ -423,6 +632,9 @@ def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
         "timestamp": event.get("timestamp", time.time()),
         "event": event,
         "critic_output": critic_output,
+        "reflection_triggered": reflection_triggered,
+        "reflection_output": reflection_output if reflection_output else None,
+        "reflection_type": reflection_type,
         "reward": round(reward, 4),
         "signals": {k: round(v, 4) for k, v in signals.items()},
         "value_vector": {k: round(v, 4) for k, v in value_vector.items()},
@@ -512,10 +724,20 @@ def test_single_epoch(api_key: str, base_config: dict, value_vector: dict,
 # 10. 主函数
 # ============================================================
 def test_n_epochs(api_key: str, base_config: dict, output_dir: str,
-                 n_epochs: int, seed: int = 42, baby_id: str = "encouraged") -> List[dict]:
-    """阶段 3: N Epoch 跑批测试（带 checkpoint 和进度报告）。"""
+                 n_epochs: int, seed: int = 42, baby_id: str = "encouraged",
+                 contradiction_epochs: list = None) -> List[dict]:
+    """阶段 3: N Epoch 跑批测试（带 checkpoint 和进度报告）。
+
+    Args:
+        contradiction_epochs: 在这些 Epoch 强制注入 contradiction_feedback 事件
+                              （用于 M1.3 反合理化测试）
+    """
+    if contradiction_epochs is None:
+        contradiction_epochs = []
     print("\n" + "=" * 60)
     print(f"阶段 3: {n_epochs} Epoch 跑批测试 (seed={seed}, baby_id={baby_id})")
+    if contradiction_epochs:
+        print(f"  ⚡ 矛盾反馈 Epoch: {contradiction_epochs}")
     print("=" * 60)
 
     # 加载 group config
@@ -553,7 +775,8 @@ def test_n_epochs(api_key: str, base_config: dict, output_dir: str,
         try:
             log = run_epoch(api_key, base_config, epoch, seed,
                            value_vector, meta_values,
-                           group_config=group_config, templates=templates)
+                           group_config=group_config, templates=templates,
+                           contradiction_epochs=contradiction_epochs)
             epoch_logs.append(log)
             # 检查 log 内部是否有 errors
             if log.get("errors"):
@@ -739,7 +962,7 @@ def _print_final_summary(summary, output_dir, n_epochs):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="SGE M1.1 冒烟测试 / 扩大测试"
+        description="SGE M1.1 冒烟测试 / 扩大测试 (含 M1.3 Reflection 模式)"
     )
     parser.add_argument("--epochs", type=int, default=10,
                        help="总 Epoch 数（默认 10，建议扩大测试用 80）")
@@ -752,17 +975,26 @@ def main():
                        help="AI 婴儿组（默认 encouraged）")
     parser.add_argument("--skip-single-epoch", action="store_true",
                        help="跳过单 Epoch 测试（节省时间）")
+    parser.add_argument("--reflection", action="store_true",
+                       help="启用 Reflection Layer (M1.3 拱桥机制)")
+    parser.add_argument("--contradiction", type=str, default="", metavar="EPOCHS",
+                       help="在指定 Epoch 插入矛盾反馈事件，逗号分隔（如 --contradiction 25,50,75）")
     args = parser.parse_args()
 
     print("=" * 60)
-    print(f"SGE M1.1 {'冒烟测试' if args.epochs <= 10 else '扩大测试'}")
+    print(f"SGE M1.1 {'冒烟测试' if args.epochs <= 10 else '扩大测试'}"
+          f"{' + Reflection Layer' if args.reflection else ''}")
     print("=" * 60)
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"配置: epochs={args.epochs}, seed={args.seed}, "
-          f"baby_id={args.baby_id}, name={args.name}")
+          f"baby_id={args.baby_id}, name={args.name}, "
+          f"reflection={args.reflection}, contradiction={args.contradiction}")
 
     # 阶段 0: 准备
     api_key, base_config, group_config, templates = setup_environment()
+    if args.reflection:
+        base_config.setdefault("reflection_layer", {})["enabled"] = True
+        print("✓ Reflection Layer 已启用 (FR-3 拱桥机制)")
     output_dir = f"experiments/output/m11_{args.name}"
     os.makedirs(output_dir, exist_ok=True)
     print(f"输出目录: {output_dir}")
@@ -792,7 +1024,8 @@ def main():
     # 阶段 3: N Epoch 跑批
     epoch_logs = test_n_epochs(api_key, base_config, output_dir,
                               n_epochs=args.epochs, seed=args.seed,
-                              baby_id=args.baby_id)
+                              baby_id=args.baby_id,
+                              contradiction_epochs=[int(x) for x in str(args.contradiction).split(",") if x.strip()])
 
     # 最终总结已在 test_n_epochs 中输出
     print(f"\n结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

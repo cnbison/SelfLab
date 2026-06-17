@@ -153,6 +153,19 @@ Phase 3: 系统完善
 - 反思后的行为选择与反思前不同
 - 不是"自我合理化"（有反合理化验证）
 
+**状态**：✅ **已完成 (2026-06-17)**
+- 实施最小化 Reflection Layer(call_reflector + should_reflect + blend_reflection)
+- 启用 7 个 contradiction_feedback 事件 + 触发条件(intensity/delta_magnitude)
+- 80 Epoch,seed=42,与 m11_m12_encouraged 基线对比
+- 报告:[experiments/M13_REFLECTION_TEST_REPORT.md](./experiments/M13_REFLECTION_TEST_REPORT.md)
+- **核心验证**:
+  - safety 在矛盾反馈下累计下降 0.51(从 +0.65 到 +0.14)— 反思**真的改变行为**
+  - compassion 二次验证:在 explicit 攻击下仍最稳定(强化 [洞察 26](./SGE-Key-Insights.md))
+  - 元认知萌芽:Epoch 50 Reflector 识别出"接受自主是幻觉"的自指性矛盾
+- **关键发现** → [洞察 27](./SGE-Key-Insights.md):拱桥机制成立,反思是真实机制非装饰
+
+**Phase 1 进度**:M1.1 ✅ / M1.2 ✅ / **M1.3 ✅** → Phase 1 全部完成
+
 ---
 
 # Phase 2：完整实验

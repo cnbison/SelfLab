@@ -95,6 +95,24 @@ crystallization:
   threshold: 0.50
   min_events_for_crystallization: 5  # 至少 5 个事件后才开始结晶
 
+# ===== Reflection Layer 配置 (M1.3) =====
+# SGE 拱桥机制：反思连接 Critic(显性)与 Hebbian(暗)
+reflection_layer:
+  enabled: false  # 默认关闭；M1.3 启用
+  # 触发条件：以下任一满足即触发反思
+  trigger:
+    always_on_event_types: ["value_conflict", "contradiction_feedback", "risk"]
+    intensity_threshold: 0.6      # 事件强度 > 此值触发
+    delta_magnitude_threshold: 0.3  # |sum(critic.value_delta)| > 此值触发
+  # 反思 delta 与 critic delta 的混合比例
+  # final_delta = critic_delta * (1 - blend) + reflection_delta * blend
+  blend_ratio: 0.4
+  # Reflector LLM 温度（高于 Critic — 反思需要更多探索性）
+  reflector_temperature: 0.5
+  max_tokens: 600
+  # 反思结果的 value_delta 裁剪（防止反思失控）
+  max_delta_per_dimension: 0.15
+
 # ===== Phase Transition 配置 =====
 phase_transition:
   threshold: 999  # M1.1 故意设大，禁用相变
