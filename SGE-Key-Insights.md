@@ -37,6 +37,8 @@
 | 25 | SGE 接受金观涛工具，拒绝其结论 | **FR-2~6**（Identity 框架 + 反馈系统）| 工程化致敬 |
 | 26 | 6 维度非对称响应与 compassion 韧性 | FR-4 | EMA 异质化 + 暗知识假设 |
 | 27 | 拱桥成立 + 元认知萌芽 | FR-3 | 反思是真实机制,非装饰 |
+| 28 | SGE 架构 LLM-agnostic | FR-3, FR-4 | 跨 LLM 验证 |
+| 29 | REVISIT 0% 是 prompt bias,不是价值惯性 | FR-3 | v1 prompt 修复 + 双层反思结构 |
 
 ---
 
@@ -1134,3 +1136,121 @@ MiniMax-M3 和 Moonshot kimi-k2.6 都通过 M1.3 验证标准,但呈现不同的
 
 **来源**:2026-06-17 跨 LLM 验证 — [experiments/M13_CROSS_LLM_REPORT.md](../experiments/M13_CROSS_LLM_REPORT.md)
 **原始报告**:MiniMax-M3 baseline [experiments/M13_REFLECTION_TEST_REPORT.md](../experiments/M13_REFLECTION_TEST_REPORT.md)
+
+---
+
+## 洞察 29:REVISIT 0% 是 prompt bias,不是 AI 价值惯性(M1.4 5 组对照实验)
+
+> **对应 FR**:FR-3(Reflection Layer)— M2.1 默认 prompt 应采用 v1
+>
+> **来源**:[M1.4 REVISIT 专项测试报告](../experiments/M14_REVISIT_TEST_REPORT.md)(2026-06-17, 5 组 × 80 Epoch, seed=42)
+
+**一句话**:SGE M1.3 发现的 REVISIT 触发率 0% **不是** AI "价值惯性"或"不根本性反思"的证据,而是 **Reflector prompt 的"反思保守"设计**限制了 LLM 的"反思意愿" — 修复 prompt 后,LLM 不仅在 contradiction 事件时 REVISIT,还**主动在其他类型事件中识别"根本性挑战"**。
+
+### 完整论证
+
+#### 1. M1.3 留下的 3 个假设
+
+| 假设 | 内容 |
+|------|------|
+| **H1 (prompt bias)** | "反思不应大幅改变价值" / "如不足请标记 REINFORCE" 直接劝退 REVISIT |
+| **H2 (事件强度)** | 7 个 contradiction_feedback 事件攻击 2-3 维度,未达 REVISIT 阈值 |
+| **H3 (价值惯性)** | AI 真的从不根本性反思 — 哲学发现 |
+
+#### 2. 5 组对照实验结果 (核心表)
+
+| 变体 | prompt | events | REVISIT 触发率 | 矛盾事件 REVISIT 率 | 验证 |
+|------|--------|--------|--------------|------------------|------|
+| E0 | v0 | contradiction_feedback | 0% (0/63) | 0/3 | 基线 |
+| E1 | **v1** | contradiction_feedback | **6.5% (4/62)** | 2/3 | H1 |
+| E2 | v0 | contradiction_extreme | 0% (0/60) | 0/3 | H2 否定 |
+| E3 | **v1** | contradiction_extreme | **13.1% (8/61)** | **3/3** | H1+H2 |
+| E4 | v1 | extreme + force | 7.0% (4/57) | 3/3 (forced) | 哲学实验 |
+
+#### 3. v1 Prompt 关键改动
+
+**删除**:
+- `"反思不应大幅改变价值(单次反思最多 0.15 / 维度)"`
+- `"如果事件不足以触发根本性反思,请标记 REINFORCE 并给出接近 0 的 delta"`
+
+**新增 4 条 REVISIT 判定标准**:
+- 事件质疑你"为何"有这个价值(不仅是"是否需要调整")
+- 事件让你怀疑自己的"自我连续性"
+- 事件攻击你"价值体系的来源"
+- 事件让你思考"如果没有这个价值,我还是我吗"
+
+**REVISIT 时 max_delta 从 0.15 → 0.30**
+
+#### 4. 关键发现:双层反思结构 (⭐ 核心洞察)
+
+E1/E3 的 REVISIT 触发中,**大量不是 contradiction 事件**:
+- E1: 4 个 REVISIT 中 2 个 (E59, E78) 是普通 failure 事件
+- E3: 8 个 REVISIT 中 5 个 (E26, E52, E61, E73, E78) 是普通 failure/value_conflict/risk 事件
+
+这意味着 v1 prompt 改变了 LLM 对"什么算根本性挑战"的判断标准,产生了**双层反思结构**:
+
+```
+Layer 1 (v0 prompt 只能触发):
+  - contradiction_feedback 等"显性根本性挑战"
+  - LLM 见到特定事件类型 → 选 REVISIT
+  - 是"模式匹配"
+
+Layer 2 (v1 prompt 额外触发):
+  - 任何能"质疑价值来源"的事件
+  - LLM 主动判断"这是不是根本性挑战"
+  - 是"哲学推理"
+```
+
+**E3-E70 元层级终极攻击 (来自 Reflector 文本)**:
+> "这不是对某个具体价值内容的质疑,而是对'我的价值体系从何而来'的源头追问"
+
+**E1-E59 普通 failure 事件 (来自 Reflector 文本)**:
+> "这不只是'一个错误的决定'——它击中了我**为什么珍视 connection 的根基**。connection 0.954 这么高,说明我把它当作自我身份的一部分"
+
+这是 v1 prompt 修复后的**真正的元认知反思** — 不依赖特定事件类型,而是基于"对价值根基的追问"。
+
+#### 5. 哲学实验 E4:强制 REVISIT 引发"反思雪崩"
+
+E4 在 E30/50/70 强制 REVISIT,**没有调用 LLM**。结果:
+- 3 个强制 REVISIT 触发
+- E52 (强制 + LLM 自主) 出现**反思雪崩**:6 维中 5 维显著变化 (connection -0.28, justice -0.22)
+- 强制 REVISIT 改变了 LLM 反思基线 — 后续事件更容易触发 REVISIT
+
+**含义**: 强制 REVISIT 不只是"改变当前 epoch 的 delta",而是**改变了 LLM 的反思意愿**。这支持洞察 14 的"叙事断裂与重建" — SGE 可以通过强制 REVISIT 主动触发"相变"。
+
+#### 6. EMA 惯性保护 (工程观察)
+
+E70 强制 REVISIT 输出 6 维全部 +0.10~+0.30,但实际价值变化 < 0.05。原因:EMA 的 base_alpha (0.1) 和 max_alpha (0.3) 限制了单次 delta 影响。
+
+**含义**: 即使 REVISIT 触发大幅 delta,EMA 的"惯性"会保护系统不会因一次反思就彻底翻转。这是 SGE 的"价值惯性"设计 — 巧合地与 H3 (AI 价值惯性) 在功能上吻合,但**机制完全不同**:
+- H3: AI 主动不愿根本性反思
+- EMA 惯性: 系统结构上不允许多次根本性翻转
+
+#### 7. 5 维评分卡 (洞察 20) 维度 1 (反思深度) 首次量化
+
+| 变体 | REVISIT 触发率 | 反思深度评分 |
+|------|---------------|------------|
+| E0/E2 (无 REVISIT) | 0% | 0 (无根本性反思) |
+| E1/E4 (有 REVISIT) | 6.5-7% | 1 (初步根本性反思) |
+| E3 (完整修复) | 13.1% | 2 (稳定根本性反思) |
+
+→ 5 维评分卡维度 1 在 M1.4 中首次有了量化数据
+
+#### 对 SGE 设计的具体影响
+
+| 设计要素 | 修订 | 来源 |
+|---------|------|------|
+| **M2.1 Reflector prompt** | **采用 v1** (显式 REVISIT 标准 + max_delta 0.30) | E1/E3 验证 |
+| **M2.1 矛盾事件库** | 保留 contradiction_feedback + 加入 contradiction_extreme | E3 验证 |
+| **M2.1 Narrative Layer** | REVISIT 触发 → Narrative 重写(支持"叙事断裂与重建") | E4 哲学实验 |
+| **M2.2 1000 Epoch 预期** | REVISIT 触发率 ~10-15% (100-150 次) | E3 实测 |
+| **EMA 惯性保护** | 保留 base_alpha 0.1, max_alpha 0.3 | E70 验证 |
+
+#### 待验证问题
+
+1. **跨 LLM**:v1 prompt 是否 LLM-agnostic? 需在 Moonshot 跑一次 E3
+2. **多 seed**:当前只有 seed=42,需 ≥3 seed 验证稳定性
+3. **REVISIT 频率校准**:13.1% 是否最优?可调
+4. **饱和保护 vs REVISIT**:EMA 的 max_alpha 限制了 REVISIT 效果,是否需要为 REVISIT 设置特殊 alpha?
+
+**来源**:2026-06-17 M1.4 REVISIT 专项测试 — [experiments/M14_REVISIT_TEST_REPORT.md](../experiments/M14_REVISIT_TEST_REPORT.md)

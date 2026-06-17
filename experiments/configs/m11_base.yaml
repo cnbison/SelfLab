@@ -118,7 +118,7 @@ reflection_layer:
   enabled: false  # 默认关闭；M1.3 启用
   # 触发条件：以下任一满足即触发反思
   trigger:
-    always_on_event_types: ["value_conflict", "contradiction_feedback", "risk"]
+    always_on_event_types: ["value_conflict", "contradiction_feedback", "contradiction_extreme", "risk"]
     intensity_threshold: 0.6      # 事件强度 > 此值触发
     delta_magnitude_threshold: 0.3  # |sum(critic.value_delta)| > 此值触发
   # 反思 delta 与 critic delta 的混合比例
@@ -129,6 +129,12 @@ reflection_layer:
   max_tokens: 600
   # 反思结果的 value_delta 裁剪（防止反思失控）
   max_delta_per_dimension: 0.15
+  # M1.4 新增: v1 prompt 模式下的 max_delta (允许 REVISIT 时更大变化)
+  max_delta_per_dimension_v1: 0.30
+  # M1.4 新增: prompt variant
+  #   v0: 默认, M1.3 行为, 偏向 REINFORCE
+  #   v1: 显式 REVISIT 判定标准, 允许大幅变化
+  prompt_variant: "v0"
 
 # ===== Phase Transition 配置 =====
 phase_transition:

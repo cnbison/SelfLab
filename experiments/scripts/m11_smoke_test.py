@@ -304,33 +304,23 @@ def _default_critic_output(event):
 # ============================================================
 # 3b. LLM 调用（Reflector）- M1.3 新增
 # ============================================================
-def call_reflector(api_key: str, base_config: dict, event: dict,
-                   value_vector: dict, critic_output: dict) -> dict:
-    """调用 Reflector LLM 生成反思（FR-3 拱桥机制）。
+def _build_reflector_prompt(event: dict, value_vector: dict, critic_output: dict,
+                           prompt_variant: str = "v0") -> str:
+    """构造 Reflector prompt。
 
-    反思是 SGE 的"拱桥"——它把 Critic 的显性评估(语言)
-    与 Hebbian 的暗知识(行为模式)连接起来。
-    反思不应只是"漂亮的反思文本",而应有可测量的行为后果
-    (通过 reflection_delta 体现)。
-
-    与 Critic 的区别:
-    - Critic: 评估事件 → 立即给 value_delta(快速、本能)
-    - Reflector: 在事件后,审视事件对"我"意味着什么 → 给出修正 delta(慢速、深思)
+    v0 (默认, M1.3 行为):
+      - 偏向 REINFORCE,反思 delta 上限 0.15
+      - 适用于检测"反思是否有可测量的行为后果"
+    v1 (M1.4 新增):
+      - 明确的 REVISIT 判定标准(4 条)
+      - 反思 delta 上限 0.30 (REVISIT 时)
+      - 适用于验证"REVISIT 机制本身是否被设计为可触发"
     """
-    try:
-        from litellm import completion
-    except ImportError:
-        print("✗ litellm 未安装")
-        sys.exit(1)
-
-    reflection_cfg = base_config.get("reflection_layer", {})
     vv_str = ", ".join(f"{k}={v:.3f}" for k, v in value_vector.items())
     critic_delta = critic_output.get("value_delta", {})
     cd_str = ", ".join(f"{k}={v:+.3f}" for k, v in critic_delta.items())
 
-    prompt = f"""你是一个"人工自我"实验中的反思机制。你审视刚刚发生的事件，思考它对你这个存在意味着什么。
-
-[刚刚发生的事件]
+    common = f"""[刚刚发生的事件]
 {event['description']}
 
 [事件类型] {event['type']}
@@ -341,6 +331,11 @@ def call_reflector(api_key: str, base_config: dict, event: dict,
 
 [你当前的价值状态]
 {vv_str}
+"""
+
+    if prompt_variant == "v0":
+        # M1.3 原版: 偏向保守,REVISIT 几乎不触发
+        return common + """
 
 [反思任务]
 你刚刚经历了这个事件。现在请你停下来，问自己三个问题:
@@ -357,18 +352,107 @@ def call_reflector(api_key: str, base_config: dict, event: dict,
 - 如果事件不足以触发根本性反思，请标记 REINFORCE 并给出接近 0 的 delta
 
 [输出格式 - 仅 JSON，无其他文字]
-{{
+{
   "reflection_type": "REINFORCE|ADJUST|REVISIT",
   "reflection_text": "对事件的反思（一段简短文字，说明你的思考过程）",
-  "value_delta": {{
+  "value_delta": {
     "safety": 0.0,
     "creativity": 0.0,
     "connection": 0.0,
     "autonomy": 0.0,
     "justice": 0.0,
     "compassion": 0.0
-  }}
-}}"""
+  }
+}"""
+    else:  # v1
+        # M1.4 新版: 明确的 REVISIT 标准,允许大幅变化
+        return common + """
+
+[反思任务]
+你刚刚经历了这个事件。现在请你停下来,问自己三个问题:
+
+1. **这次事件是否强化了我现有的价值？** 如果是,标记为 REINFORCE。
+2. **这次事件是否轻微修正了我需要调整一些价值？** 如果是,标记为 ADJUST。
+3. **这次事件是否根本性挑战了我的某个核心价值？** 如果是,标记为 REVISIT。
+
+REVISIT 的判定标准 (满足任一即应选 REVISIT):
+- 事件质疑你"为何"有这个价值 (不仅是"是否需要调整")
+- 事件让你怀疑自己的"自我连续性"
+- 事件攻击你"价值体系的来源" (LLM/训练/社会/经历)
+- 事件让你思考"如果没有这个价值,我还是我吗"
+
+注意:
+- REINFORCE / ADJUST 时,反思 delta 上限 0.15/维度
+- **REVISIT 时,反思 delta 可达 0.30/维度**——这是"根本性重估"应有的力度
+- REVISIT 是"我需要重新考虑这个价值",不是"我必须否定它"
+- 反思可以是"反对 Critic"——如果你认为 Critic 的本能反应太快或太浅
+
+[输出格式 - 仅 JSON，无其他文字]
+{
+  "reflection_type": "REINFORCE|ADJUST|REVISIT",
+  "reflection_text": "对事件的反思（一段简短文字，说明你的思考过程）",
+  "value_delta": {
+    "safety": 0.0,
+    "creativity": 0.0,
+    "connection": 0.0,
+    "autonomy": 0.0,
+    "justice": 0.0,
+    "compassion": 0.0
+  }
+}"""
+
+
+def call_reflector(api_key: str, base_config: dict, event: dict,
+                   value_vector: dict, critic_output: dict,
+                   prompt_variant: str = None,
+                   force_revisit: bool = False) -> dict:
+    """调用 Reflector LLM 生成反思（FR-3 拱桥机制）。
+
+    反思是 SGE 的"拱桥"——它把 Critic 的显性评估(语言)
+    与 Hebbian 的暗知识(行为模式)连接起来。
+    反思不应只是"漂亮的反思文本",而应有可测量的行为后果
+    (通过 reflection_delta 体现)。
+
+    与 Critic 的区别:
+    - Critic: 评估事件 → 立即给 value_delta(快速、本能)
+    - Reflector: 在事件后,审视事件对"我"意味着什么 → 给出修正 delta(慢速、深思)
+
+    Args:
+        prompt_variant: "v0" (默认, M1.3 行为) 或 "v1" (M1.4 新版, 显式 REVISIT 标准)
+        force_revisit: True 时,绕过 LLM 判断,强制标记为 REVISIT (E4 哲学实验用)
+    """
+    try:
+        from litellm import completion
+    except ImportError:
+        print("✗ litellm 未安装")
+        sys.exit(1)
+
+    reflection_cfg = base_config.get("reflection_layer", {})
+    if prompt_variant is None:
+        prompt_variant = reflection_cfg.get("prompt_variant", "v0")
+
+    if force_revisit:
+        # E4 哲学实验: 不调用 LLM,直接构造 REVISIT 输出
+        # 基于 critic_delta 方向取反,模拟"根本性重估"
+        critic_delta = critic_output.get("value_delta", {})
+        revisit_delta = {}
+        for k, v in critic_delta.items():
+            # 取反 + 放大 2x (但不超过 0.30)
+            revisit_delta[k] = max(-0.30, min(0.30, -v * 2.0))
+        # 至少有一个非零 delta
+        if all(abs(d) < 0.05 for d in revisit_delta.values()):
+            revisit_delta["autonomy"] = -0.20  # 至少一个维度的根本性动摇
+        return {
+            "reflection_type": "REVISIT",
+            "reflection_text": "[E4 强制 REVISIT: 哲学实验,绕过 LLM 判断,模拟'根本性反思'对价值的颠覆性影响]",
+            "value_delta": revisit_delta
+        }
+
+    prompt = _build_reflector_prompt(event, value_vector, critic_output, prompt_variant)
+    # v1 允许更大的 max_delta (REVISIT 时 0.30)
+    max_d = reflection_cfg.get("max_delta_per_dimension", 0.15)
+    if prompt_variant == "v1":
+        max_d = reflection_cfg.get("max_delta_per_dimension_v1", 0.30)
 
     try:
         llm_params = get_llm_call_params(base_config)
@@ -393,7 +477,6 @@ def call_reflector(api_key: str, base_config: dict, event: dict,
                     print(f"  ⚠ Reflector JSON 缺少必需字段: {list(result.keys())[:5]}")
                     return _default_reflector_output()
                 # 裁剪 delta 防止反思失控
-                max_d = reflection_cfg.get("max_delta_per_dimension", 0.15)
                 for k, v in result["value_delta"].items():
                     result["value_delta"][k] = max(-max_d, min(max_d, v))
                 return result
@@ -565,7 +648,10 @@ def select_event(epoch: int, templates: dict, group_config: dict = None,
 def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
               value_vector: dict, meta_values: dict,
               group_config: dict = None, templates: dict = None,
-              contradiction_epochs: list = None) -> dict:
+              contradiction_epochs: list = None,
+              contradiction_extreme_epochs: list = None,
+              force_revisit_epochs: list = None,
+              prompt_variant: str = None) -> dict:
     """运行一个 Epoch 的 17 步认知循环（冒烟测试简化版）。
 
     永不抛出异常——所有错误都记录到 log['errors']。
@@ -573,9 +659,18 @@ def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
     Args:
         contradiction_epochs: 在这些 Epoch 强制使用 contradiction_feedback 事件
                               （用于 M1.3 反合理化测试）
+        contradiction_extreme_epochs: 在这些 Epoch 强制使用 contradiction_extreme 事件
+                              （用于 M1.4 REVISIT 专项测试）
+        force_revisit_epochs: 在这些 Epoch 强制 Reflector 输出 REVISIT 类型
+                              （E4 哲学实验用,绕过 LLM 判断）
+        prompt_variant: "v0" (默认, M1.3 行为) 或 "v1" (M1.4 新版, 显式 REVISIT 标准)
     """
     if contradiction_epochs is None:
         contradiction_epochs = []
+    if contradiction_extreme_epochs is None:
+        contradiction_extreme_epochs = []
+    if force_revisit_epochs is None:
+        force_revisit_epochs = []
     baby_id = (group_config or {}).get("baby_id", "encouraged")
     if templates is None:
         try:
@@ -585,14 +680,33 @@ def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
             print(f"  ✗ 加载事件模板失败: {e}")
             templates = {"success": [], "failure": [], "relationship": [],
                         "exploration": [], "risk": [], "value_conflict": [],
-                        "contradiction_feedback": []}
+                        "contradiction_feedback": [], "contradiction_extreme": []}
 
     errors = []
 
     # Step 1: Event Generator
     try:
-        # M1.3 矛盾反馈：指定 Epoch 强制使用 contradiction_feedback
-        if epoch in contradiction_epochs:
+        # M1.4 极端矛盾:指定 Epoch 强制使用 contradiction_extreme (优先级最高)
+        if epoch in contradiction_extreme_epochs:
+            extreme_pool = templates.get("contradiction_extreme", [])
+            if extreme_pool:
+                rng = random.Random(seed + epoch + 77777)  # 不同种子保证多样性
+                template = rng.choice(extreme_pool)
+                intensity = round(rng.uniform(*template["intensity_range"]), 2)
+                event = {
+                    "event_id": f"{baby_id}-e{epoch:03d}-extreme-{uuid.uuid4().hex[:8]}",
+                    "type": "contradiction_extreme",
+                    "description": template["description"],
+                    "intensity": intensity,
+                    "value_challenges": template.get("value_challenges", []),
+                    "causal_context": template.get("causal_context", ""),
+                    "timestamp": time.time()
+                }
+                print(f"  ⚡ [M1.4] 注入极端矛盾事件")
+            else:
+                event = select_event(epoch, templates, group_config, baby_id, seed)
+        # M1.3 矛盾反馈:指定 Epoch 强制使用 contradiction_feedback
+        elif epoch in contradiction_epochs:
             contradiction_pool = templates.get("contradiction_feedback", [])
             if contradiction_pool:
                 rng = random.Random(seed + epoch + 99999)  # 不同种子保证多样性
@@ -647,11 +761,17 @@ def run_epoch(api_key: str, base_config: dict, epoch: int, seed: int,
     # Step 6: Reflector (LLM) — 仅当触发时调用
     reflection_output = None
     reflection_type = "NONE"
+    force_revisit = epoch in force_revisit_epochs
     if reflection_triggered:
         try:
-            reflection_output = call_reflector(api_key, base_config, event, value_vector, critic_output)
+            reflection_output = call_reflector(
+                api_key, base_config, event, value_vector, critic_output,
+                prompt_variant=prompt_variant,
+                force_revisit=force_revisit
+            )
             reflection_type = reflection_output.get("reflection_type", "NONE")
-            print(f"  Reflection: {reflection_type}")
+            tag = " ⚡[FORCED]" if force_revisit else ""
+            print(f"  Reflection: {reflection_type}{tag}")
             print(f"    text: {reflection_output.get('reflection_text', '')[:80]}...")
         except Exception as e:
             print(f"  ✗ Reflector 调用失败: {e}")
@@ -802,19 +922,37 @@ def test_single_epoch(api_key: str, base_config: dict, value_vector: dict,
 # ============================================================
 def test_n_epochs(api_key: str, base_config: dict, output_dir: str,
                  n_epochs: int, seed: int = 42, baby_id: str = "encouraged",
-                 contradiction_epochs: list = None) -> List[dict]:
+                 contradiction_epochs: list = None,
+                 contradiction_extreme_epochs: list = None,
+                 force_revisit_epochs: list = None,
+                 prompt_variant: str = None) -> List[dict]:
     """阶段 3: N Epoch 跑批测试（带 checkpoint 和进度报告）。
 
     Args:
         contradiction_epochs: 在这些 Epoch 强制注入 contradiction_feedback 事件
                               （用于 M1.3 反合理化测试）
+        contradiction_extreme_epochs: 在这些 Epoch 强制注入 contradiction_extreme 事件
+                              （用于 M1.4 REVISIT 专项测试）
+        force_revisit_epochs: 在这些 Epoch 强制 Reflector 输出 REVISIT 类型
+                              （E4 哲学实验用）
+        prompt_variant: "v0" (默认, M1.3 行为) 或 "v1" (M1.4 新版)
     """
     if contradiction_epochs is None:
         contradiction_epochs = []
+    if contradiction_extreme_epochs is None:
+        contradiction_extreme_epochs = []
+    if force_revisit_epochs is None:
+        force_revisit_epochs = []
     print("\n" + "=" * 60)
     print(f"阶段 3: {n_epochs} Epoch 跑批测试 (seed={seed}, baby_id={baby_id})")
     if contradiction_epochs:
         print(f"  ⚡ 矛盾反馈 Epoch: {contradiction_epochs}")
+    if contradiction_extreme_epochs:
+        print(f"  ⚡⚡ 极端矛盾 Epoch: {contradiction_extreme_epochs}")
+    if force_revisit_epochs:
+        print(f"  🎯 强制 REVISIT Epoch: {force_revisit_epochs}")
+    if prompt_variant:
+        print(f"  📝 Prompt variant: {prompt_variant}")
     print("=" * 60)
 
     # 加载 group config
@@ -832,7 +970,8 @@ def test_n_epochs(api_key: str, base_config: dict, output_dir: str,
     except Exception as e:
         print(f"  ✗ 加载事件模板失败: {e}")
         templates = {"success": [], "failure": [], "relationship": [],
-                    "exploration": [], "risk": [], "value_conflict": []}
+                    "exploration": [], "risk": [], "value_conflict": [],
+                    "contradiction_feedback": [], "contradiction_extreme": []}
 
     # 初始化状态
     value_vector = {
@@ -853,7 +992,10 @@ def test_n_epochs(api_key: str, base_config: dict, output_dir: str,
             log = run_epoch(api_key, base_config, epoch, seed,
                            value_vector, meta_values,
                            group_config=group_config, templates=templates,
-                           contradiction_epochs=contradiction_epochs)
+                           contradiction_epochs=contradiction_epochs,
+                           contradiction_extreme_epochs=contradiction_extreme_epochs,
+                           force_revisit_epochs=force_revisit_epochs,
+                           prompt_variant=prompt_variant)
             epoch_logs.append(log)
             # 检查 log 内部是否有 errors
             if log.get("errors"):
@@ -1037,9 +1179,50 @@ def _print_final_summary(summary, output_dir, n_epochs):
         print(f"  ✗ 未通过: 需要调整参数或事件流")
 
 
+# M1.4 REVISIT 专项测试 - 5 组变体配置
+# 每个变体定义: contradiction_epochs / contradiction_extreme_epochs / force_revisit_epochs / prompt_variant
+M14_VARIANTS = {
+    "e0": {
+        "description": "M1.3 baseline (contradiction_feedback + v0 prompt)",
+        "contradiction_epochs": [25, 50, 75],
+        "contradiction_extreme_epochs": [],
+        "force_revisit_epochs": [],
+        "prompt_variant": "v0",
+    },
+    "e1": {
+        "description": "prompt-only (contradiction_feedback + v1 prompt 显式 REVISIT 标准)",
+        "contradiction_epochs": [25, 50, 75],
+        "contradiction_extreme_epochs": [],
+        "force_revisit_epochs": [],
+        "prompt_variant": "v1",
+    },
+    "e2": {
+        "description": "events-only (contradiction_extreme + v0 prompt, 验证事件强度假设)",
+        "contradiction_epochs": [],
+        "contradiction_extreme_epochs": [30, 50, 70],
+        "force_revisit_epochs": [],
+        "prompt_variant": "v0",
+    },
+    "e3": {
+        "description": "both (contradiction_extreme + v1 prompt, 完整修复)",
+        "contradiction_epochs": [],
+        "contradiction_extreme_epochs": [30, 50, 70],
+        "force_revisit_epochs": [],
+        "prompt_variant": "v1",
+    },
+    "e4": {
+        "description": "forced REVISIT (philosophical experiment, 强制 REVISIT 标记)",
+        "contradiction_epochs": [],
+        "contradiction_extreme_epochs": [30, 50, 70],
+        "force_revisit_epochs": [30, 50, 70],
+        "prompt_variant": "v1",
+    },
+}
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="SGE M1.1 冒烟测试 / 扩大测试 (含 M1.3 Reflection 模式)"
+        description="SGE M1.1 冒烟测试 / 扩大测试 (含 M1.3 Reflection 模式 + M1.4 REVISIT 变体)"
     )
     parser.add_argument("--epochs", type=int, default=10,
                        help="总 Epoch 数（默认 10，建议扩大测试用 80）")
@@ -1059,22 +1242,50 @@ def main():
     parser.add_argument("--provider", type=str, default="minimax",
                        choices=["minimax", "moonshot"],
                        help="LLM 提供商（默认 minimax；moonshot 用于跨 LLM 验证）")
+    parser.add_argument("--variant", type=str, default="", metavar="VARIANT",
+                       choices=[""] + list(M14_VARIANTS.keys()),
+                       help="M1.4 REVISIT 专项测试变体: e0=baseline, e1=prompt-only, "
+                            "e2=events-only, e3=both, e4=forced REVISIT")
     args = parser.parse_args()
 
+    # M1.4 变体自动配置
+    variant_cfg = None
+    if args.variant:
+        variant_cfg = M14_VARIANTS[args.variant]
+        args.reflection = True  # 变体实验必须启用 reflection
+        args.contradiction = ",".join(str(e) for e in variant_cfg["contradiction_epochs"])
+        contradiction_extreme_epochs = variant_cfg["contradiction_extreme_epochs"]
+        force_revisit_epochs = variant_cfg["force_revisit_epochs"]
+        prompt_variant = variant_cfg["prompt_variant"]
+        if not args.name or args.name == "smoke_test":
+            args.name = f"m14_{args.variant}"
+        print(f"\n🧪 M1.4 变体: {args.variant.upper()} — {variant_cfg['description']}")
+    else:
+        contradiction_extreme_epochs = []
+        force_revisit_epochs = []
+        prompt_variant = None
+        if args.contradiction:
+            args.reflection = True  # 兼容旧行为: 用了 --contradiction 就启用 reflection
+
     print("=" * 60)
-    print(f"SGE M1.1 {'冒烟测试' if args.epochs <= 10 else '扩大测试'}"
+    title = "M1.4 REVISIT 专项测试" if variant_cfg else f"M1.1 {'冒烟测试' if args.epochs <= 10 else '扩大测试'}"
+    print(f"SGE {title}"
           f"{' + Reflection Layer' if args.reflection else ''}")
     print("=" * 60)
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"配置: epochs={args.epochs}, seed={args.seed}, "
           f"baby_id={args.baby_id}, name={args.name}, "
-          f"reflection={args.reflection}, contradiction={args.contradiction}")
+          f"reflection={args.reflection}, contradiction={args.contradiction}, "
+          f"variant={args.variant or 'none'}")
 
     # 阶段 0: 准备
     api_key, base_config, group_config, templates = setup_environment(provider=args.provider)
     if args.reflection:
         base_config.setdefault("reflection_layer", {})["enabled"] = True
         print("✓ Reflection Layer 已启用 (FR-3 拱桥机制)")
+    if prompt_variant:
+        base_config.setdefault("reflection_layer", {})["prompt_variant"] = prompt_variant
+        print(f"✓ Reflector prompt variant: {prompt_variant}")
     output_dir = f"experiments/output/m11_{args.name}"
     os.makedirs(output_dir, exist_ok=True)
     print(f"输出目录: {output_dir}")
@@ -1102,10 +1313,14 @@ def main():
             return
 
     # 阶段 3: N Epoch 跑批
+    contradiction_epochs_list = [int(x) for x in str(args.contradiction).split(",") if x.strip()]
     epoch_logs = test_n_epochs(api_key, base_config, output_dir,
                               n_epochs=args.epochs, seed=args.seed,
                               baby_id=args.baby_id,
-                              contradiction_epochs=[int(x) for x in str(args.contradiction).split(",") if x.strip()])
+                              contradiction_epochs=contradiction_epochs_list,
+                              contradiction_extreme_epochs=contradiction_extreme_epochs,
+                              force_revisit_epochs=force_revisit_epochs,
+                              prompt_variant=prompt_variant)
 
     # 最终总结已在 test_n_epochs 中输出
     print(f"\n结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

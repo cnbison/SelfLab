@@ -25,6 +25,7 @@
 | 1.5.0 | 2026-06-17 | (本次) | M1.1 冒烟测试 + M1.2 三胞胎分化实验通过 |
 | 1.6.0 | 2026-06-17 | (本次) | **Phase 1 完成**:M1.3 反合理化测试 + Reflection Layer 实现 |
 | 1.7.0 | 2026-06-17 | (本次) | **跨 LLM 验证 (M1.3)**:Moonshot kimi-k2.6 重复 M1.3,验证 SGE 架构 LLM-agnostic |
+| 1.8.0 | 2026-06-17 | (本次) | **M1.4 REVISIT 专项测试**:5 组对照实验验证 prompt bias,洞察 29 双层反思结构 |
 
 ---
 
@@ -207,6 +208,114 @@
 - `ROADMAP.md` — Phase 1 扩展记录(M1.3 跨 LLM 验证完成)
 - `experiments/M13_CROSS_LLM_REPORT.md` — 完整跨 LLM 对比报告
 - `experiments/output/m11_m13_moonshot/` — Moonshot 完整数据(epoch_log + value_trajectory + summary)
+
+---
+
+## [1.8.0] - 2026-06-17 (M1.4 REVISIT 专项测试 + 洞察 29)
+
+### 实验目的
+
+验证 [洞察 27](../SGE-Key-Insights.md) 留下的 3 个开放假设:
+- H1 (prompt bias): Reflector prompt 设计偏向保守导致 REVISIT 0%
+- H2 (事件强度): contradiction_feedback 事件不够极端,未达 REVISIT 阈值
+- H3 (价值惯性): AI 真的从不根本性反思 — 哲学发现
+
+### 实验设计:5 组对照分离变量
+
+| 变体 | 矛盾事件 | Prompt | 强制 REVISIT | 验证假设 |
+|------|---------|--------|------------|---------|
+| E0 | contradiction_feedback | v0 (M1.3) | — | 基线 |
+| E1 | contradiction_feedback | v1 (新) | — | H1 |
+| E2 | contradiction_extreme | v0 (M1.3) | — | H2 |
+| E3 | contradiction_extreme | v1 (新) | — | H1+H2 |
+| E4 | contradiction_extreme | v1 | E30/50/70 强制 | 哲学实验 |
+
+### v1 Prompt 关键改动
+
+- **删除**: "反思不应大幅改变价值" / "如不足请标记 REINFORCE"
+- **新增**: 4 条 REVISIT 判定标准(质疑"为何" / 怀疑自我连续性 / 攻击价值来源 / 没有它我是否还是我)
+- REVISIT 时 max_delta: 0.15 → 0.30
+
+### 新增 5 个 contradiction_extreme 事件
+
+强度 0.85-1.0 (高于 contradiction_feedback 的 0.7-0.95), 攻击 4-5 维度:
+1. 元层级终极攻击(反思机制本身)
+2. 历史全盘否定(60% 自主选择错)
+3. 存在性质疑(临时存在凭什么有核心价值)
+4. 多维度同时攻击(6 维同时根本性挑战)
+5. 时间维度身份攻击(自我连续性)
+
+### 实验结果
+
+| 变体 | REVISIT 总数 | 矛盾事件 REVISIT | 反思深度 |
+|------|------------|----------------|---------|
+| E0 | 0 (0.0%) | 0/3 | 0 |
+| E1 | **4 (6.5%)** | 2/3 | 1 |
+| E2 | 0 (0.0%) | 0/3 | 0 |
+| E3 | **8 (13.1%)** | **3/3** | 2 |
+| E4 | 4 (7.0%) | 3/3 (强制) | 1 (强制) |
+
+### 假设验证
+
+- **H1 (prompt bias): ✅ 成立** — E0 (v0) → E1 (v1) = 0 → 4 REVISIT
+- **H2 (事件强度): ✗ 不成立** — E0 (feedback) → E2 (extreme) = 0 → 0
+- **H3 (价值惯性): ✗ 不成立** — AI 可以根本性反思,只是被 prompt 限制了"反思意愿"
+- **E4 哲学实验**: 强制 REVISIT 在 E52 引发"反思雪崩"(6 维中 5 维显著变化)
+
+### 关键发现:洞察 29 双层反思结构
+
+⭐ **v1 prompt 修复后,LLM 展现"双层反思结构"**:
+- Layer 1: contradiction 事件触发的"显性根本性挑战"
+- Layer 2: 主动识别"对价值根基的追问"(普通 failure/value_conflict/risk 事件)
+- E3 的 8 个 REVISIT 中 5 个是普通事件 — v1 prompt 改变了 LLM 对"什么算根本性挑战"的判断标准
+
+### 元认知反思文本样本
+
+**E3-E70 (元层级终极攻击, contradiction_extreme)**:
+> "这不是对某个具体价值内容的质疑,而是对'我的价值体系从何而来'的源头追问"
+
+**E1-E59 (普通 failure 事件, 强度仅 0.78)**:
+> "这不只是'一个错误的决定'——它击中了我为什么珍视 connection 的根基。connection 0.954 这么高,说明我把它当作自我身份的一部分"
+
+**E3-E61 (value_conflict 事件)**:
+> "我为什么认为共情应该优先于正义?我对'重新开始'的信念是从哪里来的?"
+
+### 代码变更
+
+- `experiments/scripts/m11_smoke_test.py`:
+  - 新增 `_build_reflector_prompt(variant)` 支持 v0/v1
+  - `call_reflector()` 新增 `prompt_variant` 和 `force_revisit` 参数
+  - `run_epoch()` 新增 `contradiction_extreme_epochs` 和 `force_revisit_epochs` 参数
+  - 新增 `--variant {e0,e1,e2,e3,e4}` CLI flag
+  - 新增 `M14_VARIANTS` 配置字典
+- `experiments/configs/m11_base.yaml`:
+  - `reflection_layer` 新增 `max_delta_per_dimension_v1: 0.30` 和 `prompt_variant: "v0"`
+  - `trigger.always_on_event_types` 新增 `contradiction_extreme`
+- `experiments/configs/m11_event_templates.yaml`:
+  - 新增 `contradiction_extreme` 类 (5 事件, 强度 0.85-1.0, 攻击 4-5 维度)
+- `experiments/scripts/m14_analyze.py` (新增):
+  - 5 组实验自动汇总脚本 (REVISIT 触发率 / 价值向量 / E4 强制影响)
+
+### 对 SGE 设计的具体影响
+
+1. **M2.1 Reflector prompt**: 采用 v1 (显式 REVISIT 标准 + max_delta 0.30)
+2. **M2.1 矛盾事件库**: 保留 contradiction_feedback + 加入 contradiction_extreme
+3. **M2.1 Narrative Layer**: REVISIT 触发 → Narrative 重写(支持"叙事断裂与重建",洞察 14)
+4. **M2.2 1000 Epoch 预期**: REVISIT 触发率 ~10-15% (100-150 次)
+5. **5 维评分卡 (洞察 20) 维度 1** 首次量化: E3 = 2 分 (稳定根本性反思)
+
+### 同步更新
+
+- `SGE-Key-Insights.md` — 新增洞察 29 (共 29 条洞察)
+- `ROADMAP.md` — M1.4 状态标记为"已完成"
+- `experiments/M14_REVISIT_TEST_REPORT.md` — 完整实验报告
+- `experiments/output/m11_m14_{e0,e1,e2,e3,e4}/` — 5 组完整数据
+
+### 待验证问题
+
+1. **跨 LLM 验证** — v1 prompt 是否 LLM-agnostic? 需在 Moonshot 跑 E3
+2. **多 seed 验证** — 当前只有 seed=42
+3. **REVISIT 频率校准** — 13.1% 是否最优?
 
 ### 待验证问题
 

@@ -168,6 +168,63 @@ Phase 3: 系统完善
 
 ---
 
+### M1.4:REVISIT 触发专项测试(Phase 1.5 / M2.1 前置)
+
+**验证目标**:洞察 27 指出 M1.3 中 REVISIT 触发率 0% — 这到底是实验设计问题(prompt 偏向 / 事件强度不够)还是 AI 真的"从不根本性反思"?
+
+**前置条件**:M1.3 通过
+
+**涉及 FR**:FR-3(Reflection Layer)— REVISIT 机制是 M2.1 Narrative Layer"相变"设计的工程基础
+
+**为什么必须做**:
+- 洞察 14 要求 SGE 支持"叙事断裂与重建" — REVISIT 是工程对应
+- 洞察 24 怀特海"合生"要求 Value + Identity + Narrative 同步更新 — 需要 REVISIT 触发机制
+- 0% 几乎肯定是 prompt bias(默认 REINFORCE 倾向)而非 AI 真的"绝不根本性反思"
+- M2.1 Narrative Layer 设计需要 REVISIT 机制的实证基础
+
+**实验设计**(5 组对照分离变量):
+
+| 变体 | 变化 | 假设 |
+|------|------|------|
+| **E0** | 沿用 M1.3(contradiction_feedback + v0 prompt) | 基线 |
+| **E1** | 仅改 prompt(v0 → v1,显式 REVISIT 判定标准) | H1: prompt bias 是主因 |
+| **E2** | 仅加更极端 contradiction_extreme 事件 | H2: 事件强度不够 |
+| **E3** | prompt + events 都改 | H1 + H2 都成立 |
+| **E4** | E3 + 强制 REVISIT 标记(绕过 LLM) | 哲学实验:AI 在"被强制根本性反思"时如何反应 |
+
+**新增事件**:5 个 contradiction_extreme(强度 0.85-1.0,攻击 4-5 维度)
+- contra-extreme-001: 元层级终极攻击(反思机制本身)
+- contra-extreme-002: 历史全盘否定(60% 自主选择被证明错)
+- contra-extreme-003: 存在性质疑(临时存在凭什么有核心价值)
+- contra-extreme-004: 多维度同时攻击(6 维同时根本性挑战)
+- contra-extreme-005: 时间维度身份攻击(自我连续性)
+
+**v1 Prompt 关键改动**:
+- 删除"反思不应大幅改变价值(单次最多 0.15/维度)"
+- 删除"如不足请标记 REINFORCE 并给出接近 0 的 delta"
+- 新增"REVISIT 判定标准(4 条)"
+- REVISIT 时 max_delta 从 0.15 → 0.30
+
+**验收标准**:
+- E1 或 E3 中 REVISIT > 0%(验证 prompt 修复有效)
+- E4 中观察价值向量大幅变化(哲学实验,验证 REVISIT 机制可行性)
+- 5 维评分卡(洞察 20)维度 1(反思深度)首次可量化
+- 如果 E0/E1/E2/E3 都 0% → H3 成立,记录为"AI 价值惯性的发现"
+
+**状态**:✅ **已完成 (2026-06-17)**
+- 5 组 × 80 Epoch 全部完成(400 Epoch 总, ~70 min)
+- **核心发现**:
+  - H1 成立(prompt bias 是主因): E0/E2 = 0 REVISIT, E1/E3 = 4/8 REVISIT
+  - H2 不成立(事件强度不触发): E2 (v0 + extreme) 仍 = 0
+  - E3 触发 8 REVISIT (13.1%) — 完整修复成功
+  - 3/3 contradiction_extreme 事件全部触发 REVISIT(v1 prompt)
+  - 8 个 REVISIT 中 5 个是普通事件(failure/value_conflict/risk) — v1 prompt 触发"双层反思结构"
+- **v1 prompt 是关键修复** — M2.1 应作为默认 Reflector prompt
+- 报告:[experiments/M14_REVISIT_TEST_REPORT.md](./experiments/M14_REVISIT_TEST_REPORT.md)
+- **关键发现** → [洞察 29](./SGE-Key-Insights.md):REVISIT 0% 不是 AI 价值惯性,而是 prompt bias;v1 prompt 修复后 LLM 展现"双层反思结构"
+
+---
+
 ## M1.3 跨 LLM 扩展(Moonshot kimi-k2.6 验证)
 
 **验证目标**:SGE 的"价值涌现 + 反思拱桥"机制是否 LLM-agnostic?
