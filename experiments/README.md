@@ -2,6 +2,28 @@
 
 > **本目录是 SGE Phase 1+ 实验代码的存放地**。完整约定见 [CLAUDE.md §实验代码约定](../../CLAUDE.md)，本文件给出操作细节。
 
+## 环境变量设置（必读）
+
+M1.1 需要 LLM API Key。设置方法：
+
+```bash
+# 1. 复制环境变量示例文件
+cp .env.example .env
+
+# 2. 编辑 .env 填入实际 API Key
+# MINIMAX_API_KEY=your-actual-key
+
+# 3. 验证（代码中会读取 .env）
+```
+
+**.env 已被 .gitignore 排除**——不会泄露到 git。
+
+**使用的提供商**：MiniMax（`https://api.minimax.io`）
+**模型**：MiniMax-M3
+**协议**：默认 Anthropic 兼容（`https://api.minimax.io/anthropic`）
+
+详见 [.env.example](../../.env.example) 和 `experiments/configs/m11_base.yaml`。
+
 ---
 
 ## 当前状态

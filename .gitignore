@@ -1,0 +1,125 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.env
+.venv
+
+# 环境变量和密钥
+.env
+.env.local
+.env.*.local
+*.env
+secrets.yaml
+secrets.json
+api_keys.txt
+*.key
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# 实验输出（按 CLAUDE.md §实验代码约定）
+experiments/output/
+experiments/logs/
+experiments/state/
+experiments/checkpoints/
+experiments/reports/
+experiments/data/
+experiments/results/
+experiments/.cache/
+experiments/.tmp/
+experiments/__pycache__/
+experiments/**/__pycache__/
+
+# SGE 状态文件
+state/
+*.tar
+*.tar.gz
+
+# 日志
+*.log
+logs/
+
+# 数据文件
+*.json.bak
+*.tmp
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# OS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+
+# 测试
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# 日志和数据（不要提交到 git）
+*.sqlite
+*.sqlite3
+*.db
+
+# 输出（除非明确提交）
+output/
+dist/
+build/
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# 项目特定
+experiments/cache/
+experiments/local/
+
+# 大型数据文件
+*.pkl
+*.pickle
+*.h5
+*.hdf5
