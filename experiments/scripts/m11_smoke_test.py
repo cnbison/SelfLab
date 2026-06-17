@@ -1,15 +1,21 @@
 """
-SGE M1.1 冒烟测试 (10 Epoch)
+SGE M1.1 冒烟测试 / 扩大测试
 ====================================================================
-目的: 验证 M1.1 pipeline 通畅
-时间: 5-10 分钟
+目的: 验证 M1.1 pipeline 通畅；扩大跑批验证价值涌现趋势
+时间: 5-10 分钟 (10 Epoch) 或 30-60 分钟 (80 Epoch)
 输入: .env 中的 MINIMAX_API_KEY
-输出: experiments/output/m11_smoke_test/
+输出: experiments/output/m11_<test_name>/
 
 设计: 3 阶段
   - 阶段 1: API 连接测试 (1 次简单调用)
   - 阶段 2: 单 Epoch 完整测试 (验证 17 步循环)
-  - 阶段 3: 10 Epoch 跑批
+  - 阶段 3: N Epoch 跑批（默认 10，可用 --epochs 修改为 80）
+
+用法:
+  python m11_smoke_test.py                    # 默认 10 Epoch
+  python m11_smoke_test.py --epochs 80         # 80 Epoch
+  python m11_smoke_test.py --epochs 80 --seed 1  # 80 Epoch, seed=1
+  python m11_smoke_test.py --name extended_80  # 自定义输出目录名
 
 符合 CLAUDE.md §实验代码约定: 一次性、归档不修改
 ====================================================================
@@ -21,6 +27,7 @@ import json
 import time
 import uuid
 import random
+import argparse
 from datetime import datetime
 from dataclasses import dataclass, asdict, field
 from typing import List, Dict, Optional
@@ -363,11 +370,14 @@ def test_single_epoch(api_key: str, base_config: dict, value_vector: dict,
 # ============================================================
 # 9. 阶段 3：10 Epoch 跑批
 # ============================================================
-def test_10_epochs(api_key: str, base_config: dict, output_dir: str,
-                    seed: int = 42) -> List[dict]:
-    """阶段 3: 10 Epoch 跑批测试。"""
+# ============================================================
+# 10. 主函数
+# ============================================================
+def test_n_epochs(api_key: str, base_config: dict, output_dir: str,
+                 n_epochs: int, seed: int = 42) -> List[dict]:
+    """阶段 3: N Epoch 跑批测试（带 checkpoint 和进度报告）。"""
     print("\n" + "=" * 60)
-    print("阶段 3: 10 Epoch 跑批测试")
+    print(f"阶段 3: {n_epochs} Epoch 跑批测试 (seed={seed})")
     print("=" * 60)
 
     # 初始化状态
@@ -379,28 +389,77 @@ def test_10_epochs(api_key: str, base_config: dict, output_dir: str,
 
     epoch_logs = []
     start_time = time.time()
+    last_progress_time = start_time
 
-    for epoch in range(10):
+    checkpoint_interval = max(10, n_epochs // 4)  # 每 25% 保存一次
+
+    for epoch in range(n_epochs):
         try:
             log = run_epoch(api_key, base_config, epoch, seed,
                            value_vector, meta_values)
             epoch_logs.append(log)
-            # 短暂延迟避免 rate limit
-            time.sleep(1)
         except Exception as e:
             print(f"✗ Epoch {epoch} 失败: {e}")
             continue
 
+        # 进度报告（每 10 Epoch 或每 30 秒）
+        elapsed = time.time() - start_time
+        now = time.time()
+        if (epoch + 1) % 10 == 0 or (now - last_progress_time) > 30:
+            progress = (epoch + 1) / n_epochs * 100
+            avg_time = elapsed / (epoch + 1)
+            remaining = (n_epochs - epoch - 1) * avg_time
+            print(f"\n[进度] {epoch+1}/{n_epochs} ({progress:.0f}%) - "
+                  f"已用 {elapsed:.0f}s, 预计剩余 {remaining:.0f}s")
+            print(f"  当前 VV: safety={value_vector['safety']:.3f}, "
+                  f"creativity={value_vector['creativity']:.3f}, "
+                  f"connection={value_vector['connection']:.3f}")
+            print(f"  当前涌现幅度: {sum(abs(v) for v in value_vector.values())/6:.4f}")
+            last_progress_time = now
+
+        # Checkpoint
+        if (epoch + 1) % checkpoint_interval == 0 or (epoch + 1) == n_epochs:
+            _save_checkpoint(epoch_logs, output_dir, value_vector, meta_values,
+                           seed, epoch + 1)
+
+        # 短暂延迟避免 rate limit
+        time.sleep(1)
+
     elapsed = time.time() - start_time
 
     # 保存
+    _save_final_outputs(epoch_logs, value_vector, meta_values, output_dir,
+                       seed, elapsed, n_epochs)
+
+    return epoch_logs
+
+
+def _save_checkpoint(epoch_logs, output_dir, value_vector, meta_values, seed, n_done):
+    """保存检查点（每 N Epoch 一次，避免崩溃丢失）。"""
+    checkpoint_path = f"{output_dir}/checkpoint_e{n_done-1:03d}.json"
+    checkpoint = {
+        "version": "1.0",
+        "checkpoint_at_epoch": n_done - 1,
+        "total_epochs_planned": len(epoch_logs) + 1,  # 不准确但够用
+        "seed": seed,
+        "value_vector": {k: round(v, 4) for k, v in value_vector.items()},
+        "meta_values": meta_values,
+        "n_logs": len(epoch_logs)
+    }
+    with open(checkpoint_path, "w", encoding="utf-8") as f:
+        json.dump(checkpoint, f, ensure_ascii=False, indent=2)
+
+
+def _save_final_outputs(epoch_logs, value_vector, meta_values, output_dir, seed, elapsed, n_epochs):
+    """保存最终输出（epoch_log, value_trajectory, summary）。"""
+    # epoch_log.jsonl
     log_path = f"{output_dir}/epoch_log.jsonl"
     with open(log_path, "w", encoding="utf-8") as f:
         for log in epoch_logs:
             f.write(json.dumps(log, ensure_ascii=False) + "\n")
     print(f"\n✓ 已保存 {len(epoch_logs)} 个 Epoch 到 {log_path}")
 
-    # 价值轨迹
+    # value_trajectory.jsonl
     traj_path = f"{output_dir}/value_trajectory.jsonl"
     with open(traj_path, "w", encoding="utf-8") as f:
         for log in epoch_logs:
@@ -415,65 +474,158 @@ def test_10_epochs(api_key: str, base_config: dict, output_dir: str,
             f.write(json.dumps(traj, ensure_ascii=False) + "\n")
     print(f"✓ 已保存价值轨迹到 {traj_path}")
 
+    # summary.json
+    summary = _generate_summary(epoch_logs, value_vector, meta_values, seed, elapsed, n_epochs)
+    summary_path = f"{output_dir}/summary.json"
+    with open(summary_path, "w", encoding="utf-8") as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+    print(f"✓ 已保存总结到 {summary_path}")
+
     # 总结
+    _print_final_summary(summary, output_dir, n_epochs)
+
+
+def _generate_summary(epoch_logs, value_vector, meta_values, seed, elapsed, n_epochs):
+    """生成实验总结。"""
+    if not epoch_logs:
+        return {"error": "no_epoch_logs"}
+
+    initial_vv = {v: 0.0 for v in value_vector}
+    final_vv = epoch_logs[-1]["value_vector"]
+    final_mag = sum(abs(v) for v in final_vv.values()) / 6
+
+    # 计算方向一致性
+    weighted_event_vv = {v: 0.0 for v in value_vector}
+    for log in epoch_logs:
+        for v, delta in log.get("critic_output", {}).get("value_delta", {}).items():
+            if v in weighted_event_vv:
+                weighted_event_vv[v] += delta * log["event"].get("intensity", 0.5)
+    dot_product = sum(final_vv.get(v, 0) * weighted_event_vv.get(v, 0) for v in final_vv)
+    final_norm = (sum(v*v for v in final_vv.values())) ** 0.5
+    weighted_norm = (sum(v*v for v in weighted_event_vv.values())) ** 0.5
+    direction_coherence = (dot_product / (final_norm * weighted_norm)) if (final_norm * weighted_norm) > 0 else 0
+
+    # 计算 trajectory 平滑度
+    trajectory_smoothness = 0
+    if len(epoch_logs) > 1:
+        distances = []
+        for i in range(1, len(epoch_logs)):
+            v1 = epoch_logs[i-1]["value_vector"]
+            v2 = epoch_logs[i]["value_vector"]
+            d = sum((v2[v] - v1[v])**2 for v in v1) ** 0.5
+            distances.append(d)
+        trajectory_smoothness = sum(distances) / len(distances)
+
+    return {
+        "version": "1.0",
+        "experiment": "M1.1-smoke-test-extended",
+        "seed": seed,
+        "n_epochs_planned": n_epochs,
+        "n_epochs_completed": len(epoch_logs),
+        "elapsed_seconds": round(elapsed, 1),
+        "avg_seconds_per_epoch": round(elapsed / max(len(epoch_logs), 1), 2),
+        "primary_metrics": {
+            "emergence_magnitude": round(final_mag, 4),
+            "emergence_magnitude_threshold": 0.3,
+            "emergence_pass": final_mag > 0.3,
+            "direction_coherence": round(direction_coherence, 4),
+            "direction_coherence_threshold": 0.5,
+            "direction_pass": direction_coherence > 0.5,
+            "trajectory_smoothness": round(trajectory_smoothness, 4)
+        },
+        "initial_value_vector": initial_vv,
+        "final_value_vector": {k: round(v, 4) for k, v in final_vv.items()},
+        "meta_values": meta_values,
+        "judgment": {
+            "emergence_pass": final_mag > 0.3,
+            "direction_pass": direction_coherence > 0.5,
+            "all_pass": final_mag > 0.3 and direction_coherence > 0.5
+        }
+    }
+
+
+def _print_final_summary(summary, output_dir, n_epochs):
+    """打印最终总结。"""
     print(f"\n=== 跑批总结 ===")
-    print(f"完成 Epoch: {len(epoch_logs)}/10")
-    print(f"耗时: {elapsed:.1f} 秒 (平均 {elapsed/len(epoch_logs):.1f} 秒/Epoch)")
-    print(f"最终 Value Vector: {value_vector}")
-    final_mag = sum(abs(v) for v in value_vector.values()) / 6
-    print(f"最终涌现幅度: {final_mag:.4f} (阈值: > 0.3)")
+    print(f"完成 Epoch: {summary['n_epochs_completed']}/{n_epochs}")
+    print(f"耗时: {summary['elapsed_seconds']}s (平均 {summary['avg_seconds_per_epoch']}s/Epoch)")
+    print(f"\n--- 主要指标 ---")
+    pm = summary["primary_metrics"]
+    print(f"  涌现幅度: {pm['emergence_magnitude']} (阈值: > {pm['emergence_magnitude_threshold']}) {'✓' if pm['emergence_pass'] else '✗'}")
+    print(f"  方向一致性: {pm['direction_coherence']} (阈值: > {pm['direction_coherence_threshold']}) {'✓' if pm['direction_pass'] else '✗'}")
+    print(f"  轨迹平滑度: {pm['trajectory_smoothness']}")
 
-    return epoch_logs
+    print(f"\n--- 最终价值向量 ---")
+    fv = summary["final_value_vector"]
+    for k, v in sorted(fv.items(), key=lambda x: -abs(x[1])):
+        marker = "↑" if v > 0.1 else ("↓" if v < -0.1 else "·")
+        print(f"  {marker} {k:12s} {v:+.4f}")
+
+    print(f"\n--- 综合判定 ---")
+    j = summary["judgment"]
+    if j["all_pass"]:
+        print(f"  ✓ 全部通过: 涌现幅度 + 方向一致性")
+        print(f"  → M1.1 早期证据成立")
+    elif j["emergence_pass"] or j["direction_pass"]:
+        print(f"  △ 部分通过")
+        print(f"  → 建议扩大样本: 完整 80 Epoch + 多 seed")
+    else:
+        print(f"  ✗ 未通过: 需要调整参数或事件流")
 
 
-# ============================================================
-# 10. 主函数
-# ============================================================
 def main():
+    parser = argparse.ArgumentParser(
+        description="SGE M1.1 冒烟测试 / 扩大测试"
+    )
+    parser.add_argument("--epochs", type=int, default=10,
+                       help="总 Epoch 数（默认 10，建议扩大测试用 80）")
+    parser.add_argument("--seed", type=int, default=42,
+                       help="随机种子（默认 42）")
+    parser.add_argument("--name", type=str, default="smoke_test",
+                       help="输出目录名（默认 m11_smoke_test）")
+    parser.add_argument("--skip-single-epoch", action="store_true",
+                       help="跳过单 Epoch 测试（节省时间）")
+    args = parser.parse_args()
+
     print("=" * 60)
-    print("SGE M1.1 冒烟测试")
+    print(f"SGE M1.1 {'冒烟测试' if args.epochs <= 10 else '扩大测试'}")
     print("=" * 60)
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"配置: epochs={args.epochs}, seed={args.seed}, name={args.name}")
 
     # 阶段 0: 准备
     api_key, base_config, group_config, templates = setup_environment()
-    output_dir = "experiments/output/m11_smoke_test"
+    output_dir = f"experiments/output/m11_{args.name}"
     os.makedirs(output_dir, exist_ok=True)
     print(f"输出目录: {output_dir}")
 
     # 阶段 1: API 连接测试
     if not test_api_connection(api_key, base_config):
-        print("\n✗ 阶段 1 失败，冒烟测试中止")
+        print("\n✗ 阶段 1 失败，测试中止")
         print("  请检查:")
         print("  1. .env 中的 MINIMAX_API_KEY 是否正确")
         print("  2. m11_base.yaml 中的 base_url 是否正确")
         print("  3. 网络连接是否正常")
         return
 
-    # 阶段 2: 单 Epoch 测试
+    # 阶段 2: 单 Epoch 测试（可跳过）
     value_vector = {
         "safety": 0.0, "creativity": 0.0, "connection": 0.0,
         "autonomy": 0.0, "justice": 0.0, "compassion": 0.0
     }
     meta_values = base_config["value_layer"]["meta_values"]
 
-    single_log = test_single_epoch(api_key, base_config, value_vector, meta_values)
-    if single_log is None:
-        print("\n✗ 阶段 2 失败，冒烟测试中止")
-        return
+    if not args.skip_single_epoch:
+        single_log = test_single_epoch(api_key, base_config, value_vector, meta_values)
+        if single_log is None:
+            print("\n✗ 阶段 2 失败，测试中止")
+            return
 
-    # 阶段 3: 10 Epoch 跑批
-    epoch_logs = test_10_epochs(api_key, base_config, output_dir, seed=42)
+    # 阶段 3: N Epoch 跑批
+    epoch_logs = test_n_epochs(api_key, base_config, output_dir,
+                              n_epochs=args.epochs, seed=args.seed)
 
-    # 最终总结
-    print("\n" + "=" * 60)
-    print("冒烟测试完成")
-    print("=" * 60)
-    print(f"完成 {len(epoch_logs)}/10 Epoch")
-    print(f"输出目录: {output_dir}")
-    print(f"\n下一步:")
-    print("  1. 检查 experiments/output/m11_smoke_test/epoch_log.jsonl")
-    print("  2. 如果 10 Epoch 都通过,可以启动完整的 M1.1 (80 Epoch × 5 seeds)")
+    # 最终总结已在 test_n_epochs 中输出
     print(f"\n结束时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
 
