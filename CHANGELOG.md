@@ -22,6 +22,54 @@
 | 0.2.0 | 2026-06-14 | 多 commit 合并 | 新增参考与借鉴分析 |
 | 0.1.0 | 2026-06-12 ~ 13 | 多 commit 合并 | 初始研究纲领与洞察集 |
 | 0.0.1 | 2026-06-11 | `9168083` (Initial) | 项目初始化 |
+| 1.5.0 | 2026-06-17 | (本次) | M1.1 冒烟测试 + M1.2 三胞胎分化实验通过 |
+
+---
+
+## [1.5.0] - 2026-06-17 (M1.1 冒烟测试 + M1.2 三胞胎分化实验)
+
+### M1.1 冒烟测试通过
+
+- **Pipeline 验证完成**:API 连接 / 事件选择 / Critic LLM / EMA / 数据格式 / 错误处理 全通过
+- **3 轮迭代**(10 → 80 → 修复 2 个问题 → 80/80 完美)
+- **最终指标**:涌现幅度 0.82,方向一致性 0.98(远超阈值)
+- **报告**:`experiments/M11_SMOKE_TEST_REPORT.md`
+
+### M1.2 三胞胎分化实验通过(✅ Phase 1 第 2 里程碑)
+
+- **3 组 × 80 Epoch 全部完成**:`encouraged` / `challenged` / `uncertain`,seed=42
+- **核心验证**:不同经历流产生不同人格
+  - 平均人格差异度 **1.441**(PRD 阈值 0.5 的 2.88×)
+  - encouraged 全面正向(+0.65 ~ +0.97)
+  - challenged 5 维度强负(-0.45 ~ -0.89)
+  - uncertain 独特画像(焦虑 + 过度共情)
+- **报告**:`experiments/M12_TRIPLET_REPORT.md`
+
+### 关键发现:洞察 26(6 维度非对称响应 + compassion 韧性)
+
+- **3 层发现**:
+  1. 6 维度有 6 种"响应签名"(spread 从 0.66 到 1.73)
+  2. **compassion 是唯一在所有事件流下保持正值的"韧性"维度** — 可能对应金观涛"暗知识"
+  3. **不确定性 > 失败**对安全感的伤害(uncertain safety -0.91 > challenged -0.87)
+- **设计影响**:Phase 2 价值层应采用**异质化 EMA**(per-dimension learning rate)
+- **M1.3 启示**:compassion 是反合理化测试的关键检验对象
+
+### 同步更新
+
+- `SGE-Key-Insights.md` — 新增洞察 26(共 26 条洞察)
+- `ROADMAP.md` — M1.2 状态标记为"已完成",附报告链接
+- `experiments/M12_TRIPLET_REPORT.md` — 完整三胞胎实验报告
+- `experiments/output/m11_m12_{encouraged,challenged,uncertain}/` — 3 组完整数据
+
+### Phase 1 进度
+
+| 里程碑 | 状态 |
+|-------|------|
+| M1.1 Value Layer 原型 | ✅ |
+| M1.2 三胞胎分化实验 | ✅ |
+| M1.3 反合理化测试 | ⏳ 待做 |
+
+---
 
 ---
 

@@ -35,6 +35,7 @@
 | 23 | 5 个意识理论对应 | **全部 FR** | 意识理论支撑 |
 | 24 | 怀特海过程哲学的动在 | FR-2~6 | 认知过程词汇精确化 |
 | 25 | SGE 接受金观涛工具，拒绝其结论 | **FR-2~6**（Identity 框架 + 反馈系统）| 工程化致敬 |
+| 26 | 6 维度非对称响应与 compassion 韧性 | FR-4 | EMA 异质化 + 暗知识假设 |
 
 ---
 
@@ -875,3 +876,91 @@ SGE 的哲学基础是**涌现主义**（emergentism）或**功能主义**（fun
 > SGE 哲学 = "博采众长，取长补短"（[用户原话](https://github.com/cnbison/SelfLab)）
 
 **来源**：2026-06-15 SGE 哲学深度探讨，参见 [SGE-Jin-Guantao-System-Philosophy.md](../research/sge-core/SGE-Jin-Guantao-System-Philosophy.md)
+
+---
+
+## 洞察 26:6 维价值系统的非对称响应与 compassion 的"韧性"现象
+
+> **对应 FR**:FR-4(Value Layer)— 影响 EMA 学习率设计、Critic prompt 校准、Phase 2 价值层架构
+>
+> **来源**:[M1.2 三胞胎实验报告](../experiments/M12_TRIPLET_REPORT.md)(2026-06-17,seed=42, 80 Epoch × 3 组)
+
+**一句话**:SGE 价值层 6 个维度对相同事件分布呈现**显著不同的响应强度**,其中 **compassion 是唯一在所有事件流下都保持正值的"韧性"维度**——这一发现可能对应金观涛"暗知识"在 SGE 中的具体体现。
+
+**完整论证**:
+
+### 数据:M1.2 三胞胎最终价值对比
+
+| 维度 | encouraged | challenged | uncertain | spread |
+|------|-----------|-----------|-----------|--------|
+| **safety** | +0.65 | -0.87 | -0.91 | 1.56 |
+| **creativity** | +0.97 | -0.45 | +0.36 | 1.43 |
+| **connection** | +0.85 | -0.70 | +0.36 | 1.55 |
+| **autonomy** | +0.90 | -0.73 | -0.82 | 1.72 |
+| **justice** | +0.84 | -0.89 | -0.40 | 1.73 |
+| **compassion** | +0.88 | **+0.34** | **+1.00** | **0.66** |
+
+### 三层发现
+
+#### 发现 1:6 维度有 6 种"响应签名"
+
+按 spread 排序:justice (1.73) ≈ autonomy (1.72) > safety (1.56) ≈ connection (1.55) > creativity (1.43) > **compassion (0.66)**
+
+**设计含义**:不同维度的"易感性"差异巨大,这意味着:
+- 统一的 EMA 学习率会**拖慢快维度、压垮慢维度**
+- 应采用**异质化 EMA**(per-dimension learning rate)
+- 价值饱和与饥饿的不对称问题在 Phase 2 必须解决
+
+#### 发现 2:Compassion 的"韧性"现象(⭐ 关键)
+
+**Compassion 是唯一在 3 组中始终保持正值的维度**:
+- encouraged: +0.88(高位)
+- challenged: +0.34(低位但仍正!)
+- uncertain: +1.00(完全饱和)
+
+其他 5 个维度都呈现"事件决定方向"的双向响应,只有 compassion 呈现**单向响应**(总是正向)。
+
+**可能原因**(按可能性排序):
+1. **Critic LLM 训练偏差**:大语言模型倾向于把任何行为解读为"至少是善意的"
+2. **compassion 的语义模糊性**:失败/挑战事件也可被解读为"激发同理心"
+3. **compassion = 应然层价值**:在 SGE 框架中,compassion 更接近"元价值"而非事件反应
+
+#### 发现 3:不确定性 > 失败 对安全感的伤害
+
+uncertain 组的 safety (-0.91) **比 challenged 还低**(-0.87)。
+
+**反直觉但心理学上站得住脚**:
+- 失败至少让人有"因果"可抓
+- 不确定性让人**无法建立任何预测模型**
+- → 不确定性是对安全感最大的威胁
+
+这与弗洛伊德的"自由的不安全感"和现代焦虑研究一致。
+
+### 与金观涛"暗知识"概念的具体对应
+
+观察到的"compassion 韧性"可对应金观涛的暗知识概念:
+
+| 金观涛暗知识 | SGE 中的对应 | M1.2 证据 |
+|------------|-------------|-----------|
+| 显性事件流 | Event Generator 6 大类型 | 5 维度被事件流决定 |
+| 暗知识(基底层) | compassion 维度? | 3 组中始终正向 |
+| 显性-暗知识的"拱桥" | Reflection Layer(待 M1.3 验证) | 待 M1.3 测试 |
+
+**如果 compassion ≈ 暗知识**,那么:
+- 反思(M1.3)的对象应**特别关注 compassion** — 它是基底层,反思可能"激活"或"扭曲"它
+- 应设计专门的"暗知识保留"机制,避免 compassion 被"显性化"为可任意操控的价值
+
+### 对 SGE 设计的具体影响
+
+1. **Phase 2 价值层架构**:**异质化 EMA** — 不同维度不同学习率
+2. **M1.3 反合理化测试**:特别观察 compassion 的行为 — 它是"反思无效"的价值吗?
+3. **Critic prompt 校准**:对 compassion 的"过度韧性"做敏感性测试 — 调高 critic 对失败/挑战中 compassion 衰减的灵敏度
+4. **Phase 3 元认知层**:**compassion 作为反思的对象** — 是被反思激活,还是被反思扭曲?
+
+### 反思:M1.2 没有证伪的事
+
+- compassion 韧性**可能**是 LLM bias 而非 SGE 框架特性
+- 需要在 M1.3(反合理化测试)中用**矛盾反馈**特别攻击 compassion — 看它是否真的"韧性"
+- 也需要不同 LLM 重复实验(GPT-4 / Claude)看是否 compassion 韧性是 LLM-agnostic 的
+
+**来源**:2026-06-17 M1.2 三胞胎实验 — [experiments/M12_TRIPLET_REPORT.md](../experiments/M12_TRIPLET_REPORT.md)

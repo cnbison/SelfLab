@@ -125,6 +125,16 @@ Phase 3: 系统完善
 
 **成本估算**：$3-30
 
+**状态**：✅ **已完成 (2026-06-17)**
+- 3 组 × 80 Epoch 全部通过,涌现幅度 0.642-0.848,方向一致性 0.954-0.969
+- 平均人格差异度 1.441(阈值 0.5 的 2.88×)
+- 报告:[experiments/M12_TRIPLET_REPORT.md](./experiments/M12_TRIPLET_REPORT.md)
+- **关键发现**:[洞察 26](./SGE-Key-Insights.md) — 6 维度非对称响应 + compassion 韧性现象
+  - safety/justice/autonomy 是高敏感维度(spread > 1.5)
+  - compassion 是唯一在所有事件流下保持正值的"韧性"维度
+  - 不确定性 > 失败 对安全感的伤害(uncertain safety -0.91 > challenged -0.87)
+  - → Phase 2 价值层应采用**异质化 EMA**
+
 ### M1.3：反合理化测试
 
 **验证目标**：反思是否真的改变行为（而非只是生成漂亮的反思文本）？
