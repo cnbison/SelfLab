@@ -1,0 +1,21 @@
+# SGE M1.1 实验依赖
+# ====================================================================
+# 安装方法: pip install -r experiments/requirements.txt
+# 建议在虚拟环境中: python -m venv venv && source venv/bin/activate
+# ====================================================================
+
+# LLM 调用
+litellm>=1.40.0        # 统一 LLM 调用的 SDK，支持 Anthropic 兼容协议
+
+# 配置加载
+pyyaml>=6.0            # YAML 配置文件解析
+
+# 环境变量
+python-dotenv>=1.0.0    # 从 .env 文件加载环境变量
+
+# 异步（如果需要）
+# aiohttp>=3.9.0       # 异步 HTTP 客户端
+
+# 数据处理（如果需要）
+# numpy>=1.24          # 数值计算
+# pandas>=2.0          # 数据分析
