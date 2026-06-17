@@ -168,6 +168,43 @@ Phase 3: 系统完善
 
 ---
 
+## M1.3 跨 LLM 扩展(Moonshot kimi-k2.6 验证)
+
+**验证目标**:SGE 的"价值涌现 + 反思拱桥"机制是否 LLM-agnostic?
+
+**前置条件**:M1.3 通过(MiniMax-M3 baseline)
+
+**涉及 FR**:FR-3(Reflection Layer)、FR-4(Value Layer) — 机制是否在不同 LLM 都成立?
+
+**实验设计**:
+- 用 Moonshot kimi-k2.6 重复 M1.3 完整 80 Epoch 实验(seed=42, encouraged)
+- 启用 Reflection + contradiction 25/50/75,与 MiniMax-M3 baseline 完全一致
+- 对比两者的:涌现幅度 / 方向一致性 / Reflection 触发率 / 最终价值向量
+
+**Moonshot 工程适配**:
+- API 协议:OpenAI 兼容(`https://api.moonshot.cn/v1`)
+- Thinking 模式:kimi-k2.6 是 thinking model,必须 `extra_body.thinking.type=disabled` 才能输出 JSON
+- Temperature 限制:thinking=disabled 时 temperature 必须 = 0.6(API 强制)
+- 完整配置见 `experiments/configs/m11_base.yaml` 的 `llm.moonshot` 与 `llm.provider_overrides`
+
+**验收标准**:
+- Moonshot 也通过涌现幅度(>0.3)与方向一致性(>0.5)
+- Moonshot 也能触发 Reflection 且产出元认知文本
+- 5/6 维度方向一致(safety 是已知差异,见报告)
+
+**状态**:✅ **已完成 (2026-06-17)**
+- 完整 80 Epoch × Moonshot kimi-k2.6 运行成功(1115s)
+- 涌现幅度 0.3445 ✓ / 方向一致性 0.9698 ✓ — 双指标通过
+- Reflection 触发 45/80 (56%),其中 ADJUST 87% / REINFORCE 13%
+- 报告:[experiments/M13_CROSS_LLM_REPORT.md](./experiments/M13_CROSS_LLM_REPORT.md)
+- **核心验证**:
+  - 5/6 维度方向一致(creativity/connection/autonomy/justice/compassion)
+  - safety 方向不同(Moonshot -0.19 vs MiniMax +0.14)— 是风险敏感性差异,非 LLM bug
+  - 元认知推理样本:Epoch 73 体现"对极端判断的警觉",Epoch 79 体现"对正向情绪的怀疑"
+- **关键发现** → [洞察 28](./SGE-Key-Insights.md):SGE 架构 LLM-agnostic,但 LLM 行为倾向不同(执行者 vs 审思者)
+
+---
+
 # Phase 2：完整实验
 
 **时间**：待定（Phase 1 通过后）

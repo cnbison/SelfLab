@@ -19,23 +19,28 @@ experiment:
 
 # ===== LLM 配置 =====
 llm:
-  # 提供商: MiniMax (https://api.minimax.io)
-  # 模型: MiniMax-M3
-  # 支持两种协议（可通过 protocol 字段切换）
-  provider: "MiniMax"  # 提供商标识
-  protocol: "anthropic_compatible"  # 可选: "anthropic_compatible" | "openai_compatible"
+  # 提供商选择（默认 minimax）
+  # 可选: "minimax" | "moonshot"
+  provider: "minimax"
 
-  # Anthropic 兼容端点（推荐）
+  # Anthropic 兼容端点（MiniMax，推荐）
   anthropic_compatible:
     base_url: "https://api.minimax.io/anthropic"
     model_id: "MiniMax-M3"
     api_key_env: "MINIMAX_API_KEY"  # 从环境变量读取
 
-  # OpenAI 兼容端点（备选）
+  # OpenAI 兼容端点（MiniMax 备选）
   openai_compatible:
     base_url: "https://api.minimax.io/v1"
     model_id: "MiniMax-M3"
     api_key_env: "MINIMAX_API_KEY"  # 同一个 API key
+
+  # Moonshot Kimi 端点（OpenAI 兼容，仅用于跨 LLM 验证）
+  moonshot:
+    base_url: "https://api.moonshot.cn/v1"
+    model_id: "kimi-k2.6"
+    api_key_env: "MOONSHOT_API_KEY"
+    litellm_model_prefix: "openai/"  # litellm 路由前缀
 
   # 模型选择（与 LLM 角色对应）
   # 现阶段 Critic 和 Actor 使用同一个模型（M1.1 简化）
@@ -45,6 +50,18 @@ llm:
   # 温度参数（保持与原 SGE 设计一致）
   critic_temperature: 0.2  # 结构化输出需要稳定性
   actor_temperature: 0.9  # 创造性表达需要随机性
+  reflector_temperature: 0.5
+
+  # Provider 级别的覆盖(用于跨 LLM 验证)
+  # Moonshot kimi-k2.6 在开启 thinking 时仅支持 temperature=1
+  # 关闭 thinking 后仅支持 temperature=0.6（详见 smoke_test.py extra_body）
+  provider_overrides:
+    moonshot:
+      critic_temperature: 0.6      # thinking=disabled 时 API 限制
+      reflector_temperature: 0.6
+    minimax:
+      critic_temperature: 0.2      # 默认
+      reflector_temperature: 0.5
 
   # 调用参数
   max_retries: 3

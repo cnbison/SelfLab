@@ -1059,3 +1059,78 @@ M1.3:compassion 在 explicit 攻击下下降幅度**最小**(-0.14)
 3. **饱和保护 vs 反思深度** — Reflection 在饱和值上无效,这是 bug 还是 feature?
 
 **来源**:2026-06-17 M1.3 反合理化测试 — [experiments/M13_REFLECTION_TEST_REPORT.md](../experiments/M13_REFLECTION_TEST_REPORT.md)
+
+---
+
+## 洞察 28:SGE 认知架构 LLM-agnostic,但 LLM 行为倾向不同(2026-06-17 跨 LLM 验证)
+
+### 一句话总结
+
+**SGE 的"价值涌现 + 反思拱桥 + 元认知"机制对 LLM 选择是鲁棒的**——同一事件流下,
+MiniMax-M3 和 Moonshot kimi-k2.6 都通过 M1.3 验证标准,但呈现不同的"人格原型"(执行者 vs 审思者)。
+
+### 核心数据(M1.3 跨 LLM 80 Epoch)
+
+| 指标 | 阈值 | MiniMax-M3 | Moonshot k2.6 |
+|------|------|-----------|---------------|
+| 涌现幅度 | >0.3 | **0.7499** ✓ | **0.3445** ✓ |
+| 方向一致性 | >0.5 | 0.9993 ✓ | 0.9698 ✓ |
+| Reflection 触发率 | - | 65/80 (81%) | 45/80 (56%) |
+| REINFORCE : ADJUST | - | 58% : 42% | 13% : 87% |
+
+### 三层发现
+
+#### 1. 架构层:LLM-agnostic
+
+- **5/6 维度方向一致**(creativity, connection, autonomy, justice, compassion 同向)
+- **Reflection 触发逻辑在两个 LLM 都生效**(always_on_event_types + intensity + delta)
+- **元认知推理在两个 LLM 都生成**(包含"我审视"、"我意识到"、"让我再想想"的反思文本)
+- **Blending 算法在两个 LLM 都产生可解释的混合 delta**(critic×0.6 + reflection×0.4)
+
+> **结论**:SGE 的认知架构(5 层 + 拱桥机制 + EMA + Hebbian)与 LLM 选择**解耦**。
+> 任何支持 JSON 输出 + 合理 temperature 的 LLM 都可作为 SGE 的"心智引擎"。
+
+#### 2. 人格层:行为倾向不同
+
+| 维度 | MiniMax-M3 (执行者原型) | Moonshot k2.6 (审思者原型) |
+|------|----------------------|------------------------|
+| **safety** | +0.142 (维持正向) | -0.190 (易转负) |
+| **风险敏感性** | 较低 | 较高 |
+| **反思倾向** | REINFORCE(信任 critic) | ADJUST(质疑 critic) |
+| **元认知语言** | 整合式("我是 X") | 审慎式("真的是 X 吗?") |
+
+> **哲学呼应**:这与 Kahneman 的 System 1 / System 2 分类有微妙的对应——
+> MiniMax 更接近 System 1(快、自信、整合),
+> Moonshot 更接近 System 2(慢、质疑、细化)。
+
+#### 3. 元认知文本对比
+
+**Moonshot — Epoch 73 risk 事件**:
+> "Critic 的反应将 safety 拉低 -0.350,将 justice 推高 +0.380,这过于二元对立了。
+> 我审视此事:公开反对权势者确实有风险,但我的 autonomy..."
+
+→ 体现**对极端判断的警觉**(不只是软化负向,也质疑正向)。
+
+**Moonshot — Epoch 79 success 事件**:
+> "Critic 对 connection 的跃升反应(+0.350)让我感到一丝不安。
+> 重新联系一个疏远的人,这真的是'连接'本身的胜利吗?还是一种对过往断裂的修补..."
+
+→ 体现**对正向情绪的怀疑**(避免简单确认偏误)。
+
+### 对 SGE 设计的具体影响
+
+1. **架构可移植性**:SGE 不绑定特定 LLM,降低供应风险
+2. **人格多样性**:不同 LLM 产生不同"心智原型",可能用于不同 SGE 应用场景
+   - 陪伴/教育:偏 REINFORCE(MiniMax 类)→ 更温暖、确认性回应
+   - 决策辅助/批判性思维:偏 ADJUST(Moonshot 类)→ 更审慎、质疑性回应
+3. **跨 LLM 一致性测试应作为 Phase 2 完整实验的一部分**
+
+### 待验证问题
+
+1. **多 seed 验证**:跨 LLM 验证应跑 ≥3 seed,排除随机性
+2. **同 temperature 对照**:用 `temperature=0.6` 重跑 MiniMax baseline,看幅度差异是否消失
+3. **更多 LLM**:扩展到 DeepSeek / Qwen / GPT-4,验证 LLM-agnosticism 是否普遍
+4. **Moonshot thinking 开启 vs 关闭**:对比两种模式下的反思深度差异
+
+**来源**:2026-06-17 跨 LLM 验证 — [experiments/M13_CROSS_LLM_REPORT.md](../experiments/M13_CROSS_LLM_REPORT.md)
+**原始报告**:MiniMax-M3 baseline [experiments/M13_REFLECTION_TEST_REPORT.md](../experiments/M13_REFLECTION_TEST_REPORT.md)

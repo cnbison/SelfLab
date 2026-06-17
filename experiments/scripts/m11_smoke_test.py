@@ -38,15 +38,31 @@ import yaml
 # ============================================================
 # 1. 环境和配置加载
 # ============================================================
-def setup_environment():
-    """加载 .env 和配置文件。"""
+def setup_environment(provider: str = "minimax"):
+    """加载 .env 和配置文件。
+
+    Args:
+        provider: "minimax" (默认) 或 "moonshot"
+    """
     load_dotenv()
-    api_key = os.getenv("MINIMAX_API_KEY")
-    if not api_key:
-        print("✗ MINIMAX_API_KEY 未设置")
-        print("  请在 .env 文件中设置: MINIMAX_API_KEY=your-key")
+
+    # 根据 provider 选择 API key env 名
+    provider_config = {
+        "minimax": ("MINIMAX_API_KEY", "MiniMax-M3"),
+        "moonshot": ("MOONSHOT_API_KEY", "kimi-k2.6"),
+    }
+    if provider not in provider_config:
+        print(f"✗ 未知 provider: {provider}")
+        print(f"  支持: {list(provider_config.keys())}")
         sys.exit(1)
-    print(f"✓ API Key 已加载: {api_key[:8]}...")
+
+    api_key_env, default_model = provider_config[provider]
+    api_key = os.getenv(api_key_env)
+    if not api_key:
+        print(f"✗ {api_key_env} 未设置")
+        print(f"  请在 .env 文件中设置: {api_key_env}=your-key")
+        sys.exit(1)
+    print(f"✓ Provider: {provider} | API Key 已加载: {api_key[:8]}...")
 
     # 加载配置
     try:
@@ -61,7 +77,54 @@ def setup_environment():
         print(f"✗ 配置文件缺失: {e}")
         sys.exit(1)
 
+    # 注入 provider 信息到 base_config
+    base["llm"]["provider"] = provider
+
     return api_key, base, group, templates
+
+
+def get_llm_call_params(base_config: dict) -> dict:
+    """根据当前 provider 返回 litellm 调用所需的 model/base_url/api_key_env。
+
+    Returns:
+        dict with keys: model, base_url, api_key_env, provider, temperature_critic, temperature_reflector
+    """
+    provider = base_config["llm"].get("provider", "minimax")
+    overrides = base_config["llm"].get("provider_overrides", {}).get(provider, {})
+
+    # 默认温度（来自顶层配置）
+    default_critic_temp = base_config["llm"].get("critic_temperature", 0.2)
+    default_reflector_temp = base_config["llm"].get("reflector_temperature", 0.5)
+    critic_temp = overrides.get("critic_temperature", default_critic_temp)
+    reflector_temp = overrides.get("reflector_temperature", default_reflector_temp)
+
+    if provider == "minimax":
+        cfg = base_config["llm"]["anthropic_compatible"]
+        return {
+            "model": f"anthropic/{cfg['model_id']}",  # anthropic/MiniMax-M3
+            "base_url": cfg["base_url"],
+            "api_key_env": cfg["api_key_env"],
+            "provider": provider,
+            "critic_temperature": critic_temp,
+            "reflector_temperature": reflector_temp,
+        }
+    elif provider == "moonshot":
+        cfg = base_config["llm"]["moonshot"]
+        prefix = cfg.get("litellm_model_prefix", "openai/")
+        return {
+            "model": f"{prefix}{cfg['model_id']}",  # openai/kimi-k2.6
+            "base_url": cfg["base_url"],
+            "api_key_env": cfg["api_key_env"],
+            "provider": provider,
+            "critic_temperature": critic_temp,
+            "reflector_temperature": reflector_temp,
+            # 关闭 Moonshot kimi-k2.6 的 thinking 模式，否则它会把全部 token
+            # 用在内部推理上，导致 visible content 为空。
+            # 关闭后 temperature 必须降到 0.6（API 限制）。
+            "extra_body": {"thinking": {"type": "disabled"}},
+        }
+    else:
+        raise ValueError(f"Unknown provider: {provider}")
 
 
 # ============================================================
@@ -184,14 +247,18 @@ def call_critic(api_key: str, base_config: dict, event: dict, value_vector: dict
 }}"""
 
     try:
-        response = completion(
-            model="anthropic/MiniMax-M3",
-            base_url=base_config["llm"]["anthropic_compatible"]["base_url"],
+        llm_params = get_llm_call_params(base_config)
+        completion_kwargs = dict(
+            model=llm_params["model"],
+            base_url=llm_params["base_url"],
             api_key=api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=base_config["llm"]["critic_temperature"],
+            temperature=llm_params["critic_temperature"],
             max_tokens=500,
         )
+        if "extra_body" in llm_params:
+            completion_kwargs["extra_body"] = llm_params["extra_body"]
+        response = completion(**completion_kwargs)
         text = response.choices[0].message.content.strip()
         # 多层容错解析 JSON
         start = text.find("{")
@@ -304,14 +371,18 @@ def call_reflector(api_key: str, base_config: dict, event: dict,
 }}"""
 
     try:
-        response = completion(
-            model="anthropic/MiniMax-M3",
-            base_url=base_config["llm"]["anthropic_compatible"]["base_url"],
+        llm_params = get_llm_call_params(base_config)
+        completion_kwargs = dict(
+            model=llm_params["model"],
+            base_url=llm_params["base_url"],
             api_key=api_key,
             messages=[{"role": "user", "content": prompt}],
-            temperature=reflection_cfg.get("reflector_temperature", 0.5),
+            temperature=llm_params["reflector_temperature"],
             max_tokens=reflection_cfg.get("max_tokens", 600),
         )
+        if "extra_body" in llm_params:
+            completion_kwargs["extra_body"] = llm_params["extra_body"]
+        response = completion(**completion_kwargs)
         text = response.choices[0].message.content.strip()
         start = text.find("{")
         end = text.rfind("}") + 1
@@ -663,14 +734,20 @@ def test_api_connection(api_key: str, base_config: dict) -> bool:
         return False
 
     try:
-        response = completion(
-            model="anthropic/MiniMax-M3",
-            base_url=base_config["llm"]["anthropic_compatible"]["base_url"],
+        llm_params = get_llm_call_params(base_config)
+        # Moonshot kimi-k2.6（thinking=disabled）仅允许 temperature=0.6；MiniMax 允许 0
+        test_temp = llm_params["critic_temperature"] if llm_params["provider"] == "moonshot" else 0.0
+        completion_kwargs = dict(
+            model=llm_params["model"],
+            base_url=llm_params["base_url"],
             api_key=api_key,
             messages=[{"role": "user", "content": "Respond with exactly: API_OK"}],
-            temperature=0.0,
+            temperature=test_temp,
             max_tokens=10,
         )
+        if "extra_body" in llm_params:
+            completion_kwargs["extra_body"] = llm_params["extra_body"]
+        response = completion(**completion_kwargs)
         text = response.choices[0].message.content.strip()
         print(f"✓ API 响应: {text[:50]}")
         if "OK" in text or "ok" in text:
@@ -979,6 +1056,9 @@ def main():
                        help="启用 Reflection Layer (M1.3 拱桥机制)")
     parser.add_argument("--contradiction", type=str, default="", metavar="EPOCHS",
                        help="在指定 Epoch 插入矛盾反馈事件，逗号分隔（如 --contradiction 25,50,75）")
+    parser.add_argument("--provider", type=str, default="minimax",
+                       choices=["minimax", "moonshot"],
+                       help="LLM 提供商（默认 minimax；moonshot 用于跨 LLM 验证）")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -991,7 +1071,7 @@ def main():
           f"reflection={args.reflection}, contradiction={args.contradiction}")
 
     # 阶段 0: 准备
-    api_key, base_config, group_config, templates = setup_environment()
+    api_key, base_config, group_config, templates = setup_environment(provider=args.provider)
     if args.reflection:
         base_config.setdefault("reflection_layer", {})["enabled"] = True
         print("✓ Reflection Layer 已启用 (FR-3 拱桥机制)")

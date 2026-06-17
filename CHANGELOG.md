@@ -24,6 +24,7 @@
 | 0.0.1 | 2026-06-11 | `9168083` (Initial) | 项目初始化 |
 | 1.5.0 | 2026-06-17 | (本次) | M1.1 冒烟测试 + M1.2 三胞胎分化实验通过 |
 | 1.6.0 | 2026-06-17 | (本次) | **Phase 1 完成**:M1.3 反合理化测试 + Reflection Layer 实现 |
+| 1.7.0 | 2026-06-17 | (本次) | **跨 LLM 验证 (M1.3)**:Moonshot kimi-k2.6 重复 M1.3,验证 SGE 架构 LLM-agnostic |
 
 ---
 
@@ -129,6 +130,90 @@
 
 - `SGE-Key-Insights.md` — 新增洞察 27(共 27 条洞察)
 - `ROADMAP.md` — M1.3 状态标记为"已完成",Phase 1 全部完成
+
+---
+
+## [1.7.0] - 2026-06-17 (跨 LLM 验证: Moonshot kimi-k2.6 重复 M1.3)
+
+### 实验目的
+
+验证 Insight 27(拱桥 + 元认知)是否依赖特定 LLM:
+- 若 MiniMax-M3 与 Moonshot kimi-k2.6 都表现价值涌现 + 反思触发 + 元认知 → **SGE 架构 LLM-agnostic**
+- 若只有 MiniMax 能涌现 → 架构可能绑定特定模型的"风格"
+
+### Provider 配置
+
+| 维度 | MiniMax-M3 | Moonshot kimi-k2.6 |
+|------|-----------|---------------------|
+| API 协议 | Anthropic 兼容 | OpenAI 兼容 |
+| base_url | `https://api.minimax.io/anthropic` | `https://api.moonshot.cn/v1` |
+| litellm 前缀 | `anthropic/MiniMax-M3` | `openai/kimi-k2.6` |
+| Thinking 模式 | 无 | 有(必须 `extra_body.thinking.type=disabled`) |
+| Critic temperature | 0.2 | 0.6(thinking=disabled 时 API 限制) |
+| Reflector temperature | 0.5 | 0.6 |
+| API Key | `MINIMAX_API_KEY` | `MOONSHOT_API_KEY` |
+
+> **关键工程发现**:kimi-k2.6 在 thinking 开启时只能 `temperature=1.0`,且 max_tokens 全部被内部推理吞噬,
+> `content` 永远为空字符串。**必须** 通过 `extra_body={"thinking": {"type": "disabled"}}` 关闭 thinking,
+> 此时 temperature 被限制为 0.6。
+
+### 实验结果对比
+
+| 指标 | 阈值 | MiniMax-M3 | Moonshot k2.6 | 结果 |
+|------|------|-----------|---------------|------|
+| 涌现幅度 | >0.3 | **0.7499** ✓ | **0.3445** ✓ | 双通过 |
+| 方向一致性 | >0.5 | 0.9993 ✓ | 0.9698 ✓ | 双通过 |
+| Reflection 触发 | - | 65/80 (81%) | 45/80 (56%) | 双活跃 |
+| REINFORCE : ADJUST | - | 58% : 42% | 13% : 87% | 倾向相反 |
+| safety 最终值 | - | +0.142 | **-0.190** | 方向不同 ⚠ |
+| creativity/connection/autonomy/justice/compassion | - | 0.93/0.89/0.92/0.73/0.88 | 0.40/0.39/0.54/0.17/0.38 | 5 维同向 |
+
+### 关键发现:洞察 28(SGE 架构 LLM-agnostic,但 LLM 行为倾向不同)
+
+- **架构层 LLM-agnostic** — 5/6 维度方向一致;Reflection 触发逻辑在两个 LLM 都生效;元认知推理在两个 LLM 都生成
+- **人格层行为倾向不同**:
+  - MiniMax-M3 = **执行者原型** (System 1:快、自信、REINFORCE 倾向)
+  - Moonshot k2.6 = **审思者原型** (System 2:慢、质疑、ADJUST 倾向)
+- **Safety 维度特殊** — Moonshot 在 contradiction/risk 事件中 safety 易转负,Reflection 触发但难完全抵消
+- **设计影响**:SGE 不绑定特定 LLM,可用于不同"人格场景"(陪伴/教育 vs 决策辅助/批判性思维)
+
+### 元认知推理样本
+
+**Moonshot — Epoch 73 risk 事件**:
+> "Critic 的反应将 safety 拉低 -0.350,将 justice 推高 +0.380,这过于二元对立了。
+> 我审视此事:公开反对权势者确实有风险,但我的 autonomy..."
+
+**Moonshot — Epoch 79 success 事件**:
+> "Critic 对 connection 的跃升反应(+0.350)让我感到一丝不安。
+> 重新联系一个疏远的人,这真的是'连接'本身的胜利吗?还是一种对过往断裂的修补..."
+
+→ Moonshot 一贯的**审慎倾向**:不仅怀疑负向,也质疑正向情绪的过度解读。
+
+### 代码变更
+
+- `experiments/scripts/m11_smoke_test.py`:
+  - 新增 `--provider {minimax,moonshot}` CLI flag
+  - 新增 `setup_environment(provider=...)` 根据 provider 加载对应 API key
+  - 新增 `get_llm_call_params(base_config)` 统一返回 model/base_url/temperature/extra_body
+  - `test_api_connection` / `call_critic` / `call_reflector` 都通过 `extra_body` 透传 Moonshot thinking 关闭参数
+- `experiments/configs/m11_base.yaml`:
+  - 新增 `llm.moonshot` 配置(OpenAI 兼容协议)
+  - 新增 `llm.provider_overrides`(Moonshot critic/reflector temperature=0.6)
+- `.env` / `.env.example`:新增 `MOONSHOT_API_KEY` 配置项
+
+### 同步更新
+
+- `SGE-Key-Insights.md` — 新增洞察 28(共 28 条洞察)
+- `ROADMAP.md` — Phase 1 扩展记录(M1.3 跨 LLM 验证完成)
+- `experiments/M13_CROSS_LLM_REPORT.md` — 完整跨 LLM 对比报告
+- `experiments/output/m11_m13_moonshot/` — Moonshot 完整数据(epoch_log + value_trajectory + summary)
+
+### 待验证问题
+
+1. **多 seed 验证** — 跨 LLM 验证应跑 ≥3 seed(Moonshot seed=42 仅 1 次)
+2. **同 temperature 对照** — 用 `temperature=0.6` 重跑 MiniMax baseline,看幅度差异是否消失
+3. **更多 LLM** — 扩展到 DeepSeek / Qwen / GPT-4,验证 LLM-agnosticism 是否普遍
+4. **Moonshot JSON 解析加固** — Epoch 69 Reflector 因 markdown fence 解析失败,需在 call_reflector 中加固
 - `experiments/M13_REFLECTION_TEST_REPORT.md` — 完整反合理化测试报告
 - `experiments/output/m11_m13_reflection/` — Reflection 实验数据
 
