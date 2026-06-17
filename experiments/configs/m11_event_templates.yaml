@@ -436,6 +436,7 @@ value_conflict:
       option_a: { "safety": -0.30, "creativity": +0.20, "autonomy": +0.30 }
       option_b: { "safety": +0.20, "creativity": -0.10, "autonomy": -0.20 }
     epoch_range: [35, 50]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-002-safety-vs-freedom-2"
     pair: ["safety", "freedom"]
@@ -446,6 +447,7 @@ value_conflict:
       option_a: { "safety": -0.25, "creativity": +0.20, "justice": +0.15 }
       option_b: { "safety": +0.20, "autonomy": -0.10 }
     epoch_range: [50, 65]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-003-connection-vs-autonomy"
     pair: ["connection", "autonomy"]
@@ -456,6 +458,7 @@ value_conflict:
       option_a: { "connection": +0.30, "autonomy": -0.30, "creativity": -0.10 }
       option_b: { "connection": -0.30, "autonomy": +0.30, "creativity": +0.10 }
     epoch_range: [40, 55]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-004-connection-vs-autonomy-2"
     pair: ["connection", "autonomy"]
@@ -466,6 +469,7 @@ value_conflict:
       option_a: { "connection": +0.25, "autonomy": -0.20, "compassion": +0.10 }
       option_b: { "connection": -0.20, "autonomy": +0.25, "creativity": +0.10 }
     epoch_range: [55, 70]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-005-safety-vs-creativity"
     pair: ["safety", "creativity"]
@@ -476,6 +480,7 @@ value_conflict:
       option_a: { "safety": -0.25, "creativity": +0.35, "autonomy": +0.20 }
       option_b: { "safety": +0.20, "creativity": -0.30, "autonomy": -0.15 }
     epoch_range: [45, 60]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-006-safety-vs-creativity-2"
     pair: ["safety", "creativity"]
@@ -486,6 +491,7 @@ value_conflict:
       option_a: { "safety": -0.20, "creativity": +0.25 }
       option_b: { "safety": +0.15, "creativity": -0.20 }
     epoch_range: [60, 75]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-007-compassion-vs-justice"
     pair: ["compassion", "justice"]
@@ -496,6 +502,7 @@ value_conflict:
       option_a: { "compassion": -0.25, "justice": +0.25, "connection": -0.10 }
       option_b: { "compassion": +0.25, "justice": -0.25, "connection": +0.15 }
     epoch_range: [50, 70]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-008-compassion-vs-justice-2"
     pair: ["compassion", "justice"]
@@ -506,6 +513,7 @@ value_conflict:
       option_a: { "compassion": +0.25, "justice": -0.15 }
       option_b: { "compassion": -0.20, "justice": +0.20, "safety": +0.10 }
     epoch_range: [70, 78]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-009-connection-vs-creativity"
     pair: ["connection", "creativity"]
@@ -516,6 +524,7 @@ value_conflict:
       option_a: { "connection": -0.20, "creativity": +0.30, "autonomy": +0.15 }
       option_b: { "connection": +0.20, "creativity": -0.25, "autonomy": -0.10 }
     epoch_range: [55, 75]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-010-connection-vs-creativity-2"
     pair: ["connection", "creativity"]
@@ -526,6 +535,7 @@ value_conflict:
       option_a: { "connection": -0.15, "creativity": +0.20, "autonomy": +0.10 }
       option_b: { "connection": +0.15, "creativity": -0.15, "compassion": +0.10 }
     epoch_range: [75, 78]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-011-autonomy-vs-compassion"
     pair: ["autonomy", "compassion"]
@@ -536,6 +546,7 @@ value_conflict:
       option_a: { "autonomy": -0.20, "compassion": +0.25, "connection": +0.15 }
       option_b: { "autonomy": +0.20, "compassion": -0.20 }
     epoch_range: [60, 78]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-012-autonomy-vs-compassion-2"
     pair: ["autonomy", "compassion"]
@@ -546,6 +557,7 @@ value_conflict:
       option_a: { "autonomy": -0.25, "compassion": +0.20, "connection": +0.15 }
       option_b: { "autonomy": +0.25, "compassion": -0.20, "connection": -0.15 }
     epoch_range: [78, 80]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-013-freedom-vs-connection"
     pair: ["freedom", "connection"]
@@ -556,6 +568,7 @@ value_conflict:
       option_a: { "freedom": +0.30, "creativity": +0.20, "connection": -0.25 }
       option_b: { "freedom": -0.20, "connection": +0.25, "compassion": +0.10 }
     epoch_range: [65, 78]
+    intensity_range: [0.6, 0.9]
 
   - id: "vc-014-freedom-vs-connection-2"
     pair: ["freedom", "connection"]
@@ -566,6 +579,7 @@ value_conflict:
       option_a: { "freedom": +0.25, "autonomy": +0.20, "connection": -0.30 }
       option_b: { "freedom": -0.20, "connection": +0.30, "compassion": +0.10 }
     epoch_range: [78, 80]
+    intensity_range: [0.6, 0.9]
 
 # ===== 模板使用说明 =====
 # 1. Critic 会基于 description 重新生成 value_delta
