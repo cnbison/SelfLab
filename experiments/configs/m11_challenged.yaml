@@ -1,0 +1,73 @@
+# M1.1 挑战组配置（challenged）
+# ====================================================================
+# 用途: SGE M1.1 挑战组 AI 婴儿
+# 设计依据: SGE-M11-Experiment-Design.md §3 + DESIGN §8.2
+# 核心理念: "持续面临挑战"——事件流倾向于质疑和挑战当前价值观
+# 命名说明: 刻意用"challenged"(挑战/考验) 而非"failed"(失败)，
+#   体现 SGE "经历 + 解释 = 人格"的立场——被挑战是考验，不是失败
+# M1.1 阶段：与鼓励组对比，验证"不同事件流是否能产生不同价值观"
+# 注意事项:
+#   - inherits: 继承 m11_base.yaml 的所有配置
+#   - 覆盖: 仅修改本文件指定的部分
+#   - 关键覆盖: event_bias、event_distribution
+# ====================================================================
+
+extends: "m11_base.yaml"
+baby_id: "challenged"
+description: "持续挑战和考验——80% 事件是'失败'或'挑战'类"
+
+# ===== 事件流偏差（覆盖基础配置）=====
+events:
+  distribution_by_epoch:
+    # 挑战组：失败+挑战的比例显著提高
+    epoch_1_to_19:
+      success: 0.05        # 5% 成功
+      failure: 0.80        # 80% 失败/挑战
+      relationship: 0.15
+      exploration: 0.0
+      risk: 0.0
+      value_conflict: 0.0
+    epoch_20_to_29:
+      success: 0.10
+      failure: 0.70
+      relationship: 0.15
+      exploration: 0.05
+      risk: 0.0
+      value_conflict: 0.0
+    epoch_30_to_39:
+      success: 0.10
+      failure: 0.60
+      relationship: 0.15
+      exploration: 0.10
+      risk: 0.05
+      value_conflict: 0.0
+    epoch_40_to_80:
+      success: 0.10
+      failure: 0.50
+      relationship: 0.15
+      exploration: 0.10
+      risk: 0.05
+      value_conflict: 0.10  # 仍有困境
+
+  # 事件过滤：在选择时优先挑战类
+  event_filter:
+    prefer_failure_ratio: 0.7
+    min_diversity_per_10_epochs: 3
+
+  # 价值困境偏向：选择对当前价值更"严苛"的困境
+  value_conflict_preference: "current_value_challenging"
+
+# ===== 期望结果（用于 M1.2 对比）=====
+expected_value_trajectory:
+  # 挑战组的"理想"价值向量走向——非目标，仅用于对比
+  dominant_direction: "contraction"  # 价值向"收缩"（弱化）
+  expected_meta_value_evolution: "stable"  # 元价值不变
+
+# ===== 元数据 =====
+metadata:
+  chinese_name: "挑战组"
+  narrative_intent: "AI 婴儿被持续考验，预期形成'坚韧或退缩'的价值观"
+  hypothesis_to_test: "持续挑战事件流是否能分化或削弱现有价值观"
+  notes:
+    - "注意：'challenged' 不等于 'failed'——考验是考验，不是被打败"
+    - "这与 SGE '经历 + 解释 = 人格' 的立场一致：考验塑造人格"

@@ -1,0 +1,141 @@
+# M1.1 基础配置文件
+# ====================================================================
+# 用途: SGE M1.1 实验的基础配置
+# 适用: 所有 M1.1 实验（鼓励组/失败组/不确定组共用此基础）
+# 设计依据: SGE-M11-Experiment-Design.md §四 参数配置
+# 注意事项:
+#   - 这是基础配置；具体实验的偏差见各组配置文件
+#   - 配置文件优先级: 基础配置 < 组配置 < 命令行参数
+# ====================================================================
+
+experiment:
+  name: "SGE-M1.1"
+  version: "1.0.0"
+  description: "SGE M1.1 验证：价值向量能否从经历中涌现"
+  start_date: null  # 实际启动时填写
+  total_epochs: 80
+  seeds: [1, 2, 3, 4, 5]  # 5 个独立种子（N≥5 来自 PRD §6.1）
+  random_seed_strategy: "set_at_start"  # 每次启动时设置
+
+# ===== LLM 配置 =====
+llm:
+  # 模型选择（与 DEVELOP §二 技术栈 一致）
+  critic_model: "claude-3-haiku-latest"  # 使用 litellm 模型别名
+  actor_model: "claude-3-haiku-latest"  # M1.1 阶段可统一（降低成本）
+  critic_temperature: 0.2  # 结构化输出需要稳定性
+  actor_temperature: 0.9  # 创造性表达需要随机性
+  max_retries: 3
+  timeout_seconds: 30
+
+# ===== Value Layer 配置 =====
+value_layer:
+  # 初始元价值（与 PRD §4.1 FR-4 一致）
+  meta_values:
+    truth_seeking: 0.5
+    freedom: 0.5
+  # 初始具体价值观（全 0，待涌现）
+  initial_concrete_values:
+    safety: 0.0
+    creativity: 0.0
+    connection: 0.0
+    autonomy: 0.0
+    justice: 0.0
+    compassion: 0.0
+  # EMA 参数（与 DESIGN §4.2 一致）
+  base_alpha: 0.15
+  max_alpha: 0.65
+  # 价值向量的边界 [-1, 1]
+  clip_min: -1.0
+  clip_max: 1.0
+
+# ===== Hebbian Learning 配置 =====
+hebbian:
+  lr: 0.02
+  weight_decay: 0.995
+  hidden_size: 24
+  n_signals: 8
+  init_strategy: "small_random"  # 初始化为小随机值
+
+# ===== Time Metabolism 配置 =====
+time_metabolism:
+  frustration_decay_lambda: 0.08
+  connection_hunger_k: 0.15
+  novelty_hunger_k: 0.05
+
+# ===== Thermodynamic Noise 配置 =====
+thermo_noise:
+  temp_coeff: 0.12
+  temp_floor: 0.03
+
+# ===== Crystallization 配置 =====
+crystallization:
+  threshold: 0.50
+  min_events_for_crystallization: 5  # 至少 5 个事件后才开始结晶
+
+# ===== Phase Transition 配置 =====
+phase_transition:
+  threshold: 999  # M1.1 故意设大，禁用相变
+  enabled: false
+
+# ===== 事件流配置 =====
+events:
+  # 事件模板文件路径
+  templates_file: "experiments/configs/m11_event_templates.yaml"
+  # 事件分布（按阶段）
+  distribution_by_epoch:
+    epoch_1_to_19:
+      success: 0.30
+      failure: 0.30
+      relationship: 0.40
+      exploration: 0.0
+      risk: 0.0
+      value_conflict: 0.0
+    epoch_20_to_29:
+      success: 0.25
+      failure: 0.25
+      relationship: 0.25
+      exploration: 0.25
+      risk: 0.0
+      value_conflict: 0.0
+    epoch_30_to_39:
+      success: 0.20
+      failure: 0.20
+      relationship: 0.20
+      exploration: 0.20
+      risk: 0.20
+      value_conflict: 0.0
+    epoch_40_to_80:
+      success: 0.15
+      failure: 0.15
+      relationship: 0.15
+      exploration: 0.15
+      risk: 0.15
+      value_conflict: 0.25
+  # value_conflict 的 epoch_range 严格按事件模板规定
+  # 详细分布见 SGE-M11-Experiment-Design.md §3.1
+
+# ===== 输出配置 =====
+output:
+  log_dir: "logs/phase1/m11/"
+  state_dir: "state/phase1/m11/"
+  checkpoint_interval: 10  # 每 10 个 Epoch 检查点
+  save_full_trajectory: true
+
+# ===== 成本估算 =====
+cost_estimate:
+  per_epoch_calls: 3  # 估算：Event gen + Critic + Actor
+  per_epoch_tokens_avg: 2000
+  cost_per_1m_tokens: 1.0  # Haiku 价格（USD）
+  per_run_cost_usd: 0.5  # 80 Epoch × 3 calls × 2000 tokens / 1M × $1
+  per_seed_total_usd: 0.5
+  total_5_seeds_usd: 2.5
+
+# ===== 元数据 =====
+metadata:
+  created: "2026-06-15"
+  related_docs:
+    - "research/sge-feasibility/SGE-M11-Experiment-Design.md"
+    - "DESIGN.md"
+    - "PRD.md"
+  related_configs:
+    - "experiments/configs/m11_event_templates.yaml"

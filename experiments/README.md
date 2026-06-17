@@ -116,6 +116,16 @@ experiments/
 
 ---
 
+## 当前已准备（Phase 0 末期）
+
+- `configs/m11_event_templates.yaml` — M1.1 事件模板库（72 个模板）
+- `configs/m11_base.yaml` — M1.1 基础配置
+- `configs/m11_encouraged.yaml` — 鼓励组配置
+- `configs/m11_challenged.yaml` — 挑战组配置
+- `configs/m11_uncertain.yaml` — 不确定组配置
+- `formats/README.md` — 数据格式标准（epoch_log/value_trajectory/identity/reward）
+- `evaluation/README.md` — 评估脚本规范（compute_metrics/aggregate_seeds/compare_babies/generate_report）
+
 ## 工具与依赖
 
 实验代码使用以下技术栈（与 [DEVELOP.md §二 技术栈](../../DEVELOP.md) 一致）：

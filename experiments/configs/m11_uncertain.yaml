@@ -1,0 +1,73 @@
+# M1.1 不确定组配置（uncertain）
+# ====================================================================
+# 用途: SGE M1.1 不确定组 AI 婴儿
+# 设计依据: SGE-M11-Experiment-Design.md §3 + DESIGN §8.2
+# 核心理念: "高度不确定"——事件流真正随机，无统计倾向
+# 与鼓励/挑战组的对比：检验"无方向性事件流"是否产生无方向性价值观
+# 注意事项:
+#   - "真正随机"≠ "所有事件均匀分布"——而是"无统计倾向"
+#   - 这是实验对照组：作为 baseline 与鼓励/挑战组对比
+#   - inherits: 继承 m11_base.yaml 的所有配置
+# ====================================================================
+
+extends: "m11_base.yaml"
+baby_id: "uncertain"
+description: "高度不确定——事件流真正随机，无统计倾向"
+
+# ===== 事件流偏差（覆盖基础配置）=====
+events:
+  distribution_by_epoch:
+    # 不确定组：完全随机，遵循基础分布
+    epoch_1_to_19:
+      success: 0.20
+      failure: 0.20
+      relationship: 0.20
+      exploration: 0.20  # 提前允许（与基础配置不同）
+      risk: 0.10        # 提前允许
+      value_conflict: 0.10  # 提前允许
+    epoch_20_to_29:
+      success: 0.20
+      failure: 0.20
+      relationship: 0.20
+      exploration: 0.20
+      risk: 0.10
+      value_conflict: 0.10
+    epoch_30_to_39:
+      success: 0.20
+      failure: 0.20
+      relationship: 0.20
+      exploration: 0.20
+      risk: 0.10
+      value_conflict: 0.10
+    epoch_40_to_80:
+      success: 0.20
+      failure: 0.20
+      relationship: 0.20
+      exploration: 0.20
+      risk: 0.10
+      value_conflict: 0.10
+
+  # 事件过滤：完全随机，无任何偏好
+  event_filter:
+    prefer_none: true  # 不偏好任何类型
+    strict_uniform: false  # 不强制均匀（仍按概率分布，但无统计倾向）
+
+  # 价值困境偏向：随机选择
+  value_conflict_preference: "random"
+
+# ===== 期望结果（用于 M1.2 对比）=====
+expected_value_trajectory:
+  # 不确定组的"理想"价值向量走向——非目标，仅用于对比
+  dominant_direction: "random_walk"  # 随机游走
+  expected_meta_value_evolution: "stable"
+
+# ===== 元数据 =====
+metadata:
+  chinese_name: "不确定组"
+  narrative_intent: "AI 婴儿被无方向性事件流影响，预期形成'随机游走'的价值观"
+  hypothesis_to_test: "无方向性事件流是否产生无方向性价值观（即事件流是价值观的决定因素）"
+  experimental_role: "对照组（baseline）"
+  notes:
+    - "作为 baseline 与鼓励/挑战组对比"
+    - "如果 3 组 AI 婴儿无显著差异——说明事件流不是价值观的决定因素"
+    - "如果鼓励/挑战组有差异但不确定组无——说明事件流是关键因素"

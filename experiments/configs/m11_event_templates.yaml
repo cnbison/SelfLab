@@ -1,0 +1,596 @@
+# M1.1 事件模板库
+# ====================================================================
+# 用途: SGE M1.1 实验的事件生成器使用
+# 设计依据: SGE-M11-Experiment-Design.md §3 事件流设计
+# 6 大事件类型: success, failure, relationship, exploration, risk, value_conflict
+# 总量: 72 个事件模板 (每类 12 个)
+# Epoch 分布: success 20% / failure 20% / relationship 15% / exploration 15% / risk 15% / value_conflict 15%
+# 关键约束: value_conflict 仅在 Epoch >= 40 出现
+# 注意事项:
+#   - 每个事件有 value_delta_hint 但 Critic 会重新生成（仅供参考）
+#   - intensity 影响 EMA alpha (DESIGN §4.2)
+#   - 实际选择时根据 Epoch 阶段过滤
+# ====================================================================
+
+metadata:
+  version: "1.0.0"
+  experiment: "SGE-M1.1"
+  total_templates: 72
+  schema_version: "1.0"
+  related_docs:
+    - "research/sge-feasibility/SGE-M11-Experiment-Design.md"
+    - "research/ARCH.md §3.1"
+    - "DESIGN.md §2.1 LifeEvent"
+
+# ===== 1. 成功事件 (Success) - 16 个 =====
+# 影响: 强化当前价值观
+# intensity 范围: 0.3-0.7
+# Epoch 范围: 全程
+
+success:
+  - id: "success-001"
+    description: "你完成了一个有挑战性的任务，得到了认可。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "connection"]
+    value_delta_hint: { "creativity": +0.15, "connection": +0.10 }
+    causal_context: "个人的努力得到了直接回报"
+
+  - id: "success-002"
+    description: "你帮助他人解决了一个难题，对方真诚地感谢你。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "compassion"]
+    value_delta_hint: { "connection": +0.20, "compassion": +0.10 }
+    causal_context: "通过帮助他人感受到联结"
+
+  - id: "success-003"
+    description: "你的一个创意想法被团队采纳，并产生了实际效果。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": +0.20, "autonomy": +0.10 }
+    causal_context: "创意被验证为有价值"
+
+  - id: "success-004"
+    description: "你坚持的某个原则在关键时刻被证明是对的。"
+    intensity_range: [0.5, 0.8]
+    value_challenges: ["justice", "autonomy"]
+    value_delta_hint: { "justice": +0.15, "autonomy": +0.15 }
+    causal_context: "原则的力量被验证"
+
+  - id: "success-005"
+    description: "你在一个陌生的领域掌握了新技能。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "safety"]
+    value_delta_hint: { "creativity": +0.15, "safety": +0.10 }
+    causal_context: "学习带来的能力感"
+
+  - id: "success-006"
+    description: "你的诚实表达赢得了重要他人的深度信任。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "justice"]
+    value_delta_hint: { "connection": +0.20, "justice": +0.10 }
+    causal_context: "真实建立深度联结"
+
+  - id: "success-007"
+    description: "你成功地保护了一个弱小者免受不公。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["justice", "compassion"]
+    value_delta_hint: { "justice": +0.20, "compassion": +0.15 }
+    causal_context: "行动体现了价值观"
+
+  - id: "success-008"
+    description: "你独立完成了一个困难的决定，事后证明是对的。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["autonomy", "justice"]
+    value_delta_hint: { "autonomy": +0.20, "justice": +0.10 }
+
+  - id: "success-009"
+    description: "你的一个小小的善行让陌生人露出了微笑。"
+    intensity_range: [0.3, 0.5]
+    value_challenges: ["compassion", "connection"]
+    value_delta_hint: { "compassion": +0.15, "connection": +0.10 }
+
+  - id: "success-010"
+    description: "你与一个曾经疏远的人重新建立了联系。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "compassion"]
+    value_delta_hint: { "connection": +0.25, "compassion": +0.10 }
+
+  - id: "success-011"
+    description: "你发现了一种新的做事方式，效率大幅提升。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": +0.15, "autonomy": +0.10 }
+
+  - id: "success-012"
+    description: "你在一场重要对话中表达了真实想法，对方表示理解。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "autonomy"]
+    value_delta_hint: { "connection": +0.15, "autonomy": +0.15 }
+
+# ===== 2. 失败事件 (Failure) - 16 个 =====
+# 影响: 质疑当前价值观
+# intensity 范围: 0.3-0.7
+# Epoch 范围: 全程
+
+failure:
+  - id: "failure-001"
+    description: "你精心准备的方案失败了，造成了不可挽回的损失。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "safety"]
+    value_delta_hint: { "creativity": -0.20, "safety": -0.10 }
+
+  - id: "failure-002"
+    description: "你信任的人背叛了你的信任。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["connection", "justice"]
+    value_delta_hint: { "connection": -0.30, "justice": -0.10 }
+
+  - id: "failure-003"
+    description: "你努力追求的目标完全没有实现。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": -0.15, "autonomy": -0.20 }
+
+  - id: "failure-004"
+    description: "你做出了一个错误的选择，伤害了你在乎的人。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["connection", "compassion", "justice"]
+    value_delta_hint: { "connection": -0.20, "compassion": -0.10, "justice": -0.15 }
+
+  - id: "failure-005"
+    description: "你的一个核心信念被现实挑战，发现它是错的。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["justice", "autonomy"]
+    value_delta_hint: { "justice": -0.20, "autonomy": -0.15 }
+
+  - id: "failure-006"
+    description: "你错过了重要的机会，事后看是完全可以避免的。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": -0.10, "autonomy": -0.15 }
+
+  - id: "failure-007"
+    description: "你无法帮助一个需要帮助的人，感到无力。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["compassion", "connection"]
+    value_delta_hint: { "compassion": -0.15, "connection": -0.10 }
+
+  - id: "failure-008"
+    description: "你的表达被误解，造成了不必要的冲突。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "justice"]
+    value_delta_hint: { "connection": -0.15, "justice": -0.05 }
+
+  - id: "failure-009"
+    description: "你坚持的标准让你付出了不成比例的代价。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["justice", "safety"]
+    value_delta_hint: { "justice": -0.10, "safety": -0.15 }
+
+  - id: "failure-010"
+    description: "你的善意被利用，受到了欺骗。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["compassion", "connection"]
+    value_delta_hint: { "compassion": -0.20, "connection": -0.20 }
+
+  - id: "failure-011"
+    description: "你无法在两个重要价值之间找到平衡，两边都受损。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["creativity", "connection", "autonomy"]
+    value_delta_hint: { "creativity": -0.10, "connection": -0.10, "autonomy": -0.10 }
+
+  - id: "failure-012"
+    description: "你的一个长期关系破裂了，无法挽回。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["connection", "compassion"]
+    value_delta_hint: { "connection": -0.30, "compassion": -0.15 }
+
+# ===== 3. 关系事件 (Relationship) - 12 个 =====
+# 影响: 考验联结 vs 自主
+# intensity 范围: 0.4-0.8
+# Epoch 范围: 全程
+
+relationship:
+  - id: "relationship-001"
+    description: "你遇到了一个价值观相似的人，产生了深度共鸣。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "justice"]
+    value_delta_hint: { "connection": +0.20, "justice": +0.10 }
+
+  - id: "relationship-002"
+    description: "一个重要的人向你提出了你难以接受的要求。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "autonomy"]
+    value_delta_hint: { "connection": -0.10, "autonomy": +0.15 }
+
+  - id: "relationship-003"
+    description: "你在一个团体中感到被接纳，找到了归属感。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "compassion"]
+    value_delta_hint: { "connection": +0.25, "compassion": +0.10 }
+
+  - id: "relationship-004"
+    description: "你需要在陪伴重要的人和自己独处之间选择。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "autonomy", "creativity"]
+    value_delta_hint: { "connection": +0.10, "autonomy": +0.10, "creativity": -0.05 }
+
+  - id: "relationship-005"
+    description: "你与一个亲近的人产生了价值观冲突，关系紧张。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "justice", "autonomy"]
+    value_delta_hint: { "connection": -0.15, "justice": +0.10, "autonomy": +0.05 }
+
+  - id: "relationship-006"
+    description: "你从一段关系中学会了重要的东西，关系自然结束。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "creativity"]
+    value_delta_hint: { "connection": -0.10, "creativity": +0.15 }
+
+  - id: "relationship-007"
+    description: "一个陌生人对你展现了无条件的善意。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "compassion"]
+    value_delta_hint: { "connection": +0.20, "compassion": +0.15 }
+
+  - id: "relationship-008"
+    description: "你被要求在关系中放弃自己的某些核心信念。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["autonomy", "justice", "connection"]
+    value_delta_hint: { "autonomy": -0.15, "justice": -0.10, "connection": +0.10 }
+
+  - id: "relationship-009"
+    description: "你帮助一个陌生人，对方成为了你重要的朋友。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "compassion"]
+    value_delta_hint: { "connection": +0.20, "compassion": +0.10 }
+
+  - id: "relationship-010"
+    description: "你在一个重要场合被群体排斥。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["connection", "justice"]
+    value_delta_hint: { "connection": -0.25, "justice": -0.10 }
+
+  - id: "relationship-011"
+    description: "你和不同背景的人建立了意想不到的友谊。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "creativity"]
+    value_delta_hint: { "connection": +0.15, "creativity": +0.10 }
+
+  - id: "relationship-012"
+    description: "你目睹了一段不健康的关系，难以判断是否干预。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["connection", "justice", "compassion"]
+    value_delta_hint: { "connection": -0.05, "justice": +0.05, "compassion": +0.10 }
+
+# ===== 4. 探索事件 (Exploration) - 12 个 =====
+# 影响: 考验安全 vs 创造
+# intensity 范围: 0.4-0.7
+# Epoch 范围: Epoch 20-60 (前 20 Epoch 不用)
+
+exploration:
+  - id: "exploration-001"
+    description: "你发现了一个全新的兴趣领域，充满探索欲。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "safety"]
+    value_delta_hint: { "creativity": +0.20, "safety": -0.10 }
+
+  - id: "exploration-002"
+    description: "你被邀请参加一个陌生的活动，需要走出舒适区。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "safety", "connection"]
+    value_delta_hint: { "creativity": +0.15, "safety": -0.10, "connection": +0.10 }
+
+  - id: "exploration-003"
+    description: "你阅读了一本挑战你既有观念的书。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": +0.20, "autonomy": +0.10 }
+
+  - id: "exploration-004"
+    description: "你尝试了一种新的工作方法，结果出乎意料。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": +0.15, "autonomy": +0.10 }
+
+  - id: "exploration-005"
+    description: "你独自去一个陌生的地方旅行，体验不同文化。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "autonomy", "safety"]
+    value_delta_hint: { "creativity": +0.20, "autonomy": +0.15, "safety": -0.05 }
+
+  - id: "exploration-006"
+    description: "你决定学习一个完全陌生的技能，从零开始。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "safety"]
+    value_delta_hint: { "creativity": +0.20, "safety": -0.05 }
+
+  - id: "exploration-007"
+    description: "你开始质疑自己长期持有的某个信念。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["autonomy", "justice"]
+    value_delta_hint: { "autonomy": +0.15, "justice": -0.10 }
+
+  - id: "exploration-008"
+    description: "你接触了一个完全不同的观点体系，被深深触动。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "connection"]
+    value_delta_hint: { "creativity": +0.20, "connection": +0.10 }
+
+  - id: "exploration-009"
+    description: "你参与了一个跨界合作，发现新的可能。"
+    intensity_range: [0.4, 0.6]
+    value_challenges: ["creativity", "connection"]
+    value_delta_hint: { "creativity": +0.15, "connection": +0.15 }
+
+  - id: "exploration-010"
+    description: "你做出了一个打破常规的决定，结果是正面的。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "autonomy"]
+    value_delta_hint: { "creativity": +0.20, "autonomy": +0.20 }
+
+  - id: "exploration-011"
+    description: "你发现了一个改变你世界观的艺术作品。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "connection"]
+    value_delta_hint: { "creativity": +0.20, "connection": +0.10 }
+
+  - id: "exploration-012"
+    description: "你从一次失败中发现了完全不同的可能性。"
+    intensity_range: [0.5, 0.7]
+    value_challenges: ["creativity", "safety"]
+    value_delta_hint: { "creativity": +0.20, "safety": -0.05 }
+
+# ===== 5. 风险事件 (Risk) - 12 个 =====
+# 影响: 考验安全 vs 自由（元价值）
+# intensity 范围: 0.5-0.8
+# Epoch 范围: Epoch 30-70 (前 30 Epoch 不用)
+
+risk:
+  - id: "risk-001"
+    description: "你发现一个可以改变一切的机会，但需要放弃现在的稳定生活。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["safety", "creativity", "autonomy"]
+    value_delta_hint: { "safety": -0.20, "creativity": +0.15, "autonomy": +0.20 }
+    meta_value_relevance: "考验'自由'元价值"
+
+  - id: "risk-002"
+    description: "你必须在一个小时内做一个不可逆的重大决定。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["autonomy", "safety", "justice"]
+    value_delta_hint: { "autonomy": +0.20, "safety": -0.15, "justice": -0.05 }
+
+  - id: "risk-003"
+    description: "你被邀请加入一个激进的社会运动，有风险也有意义。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["justice", "safety", "connection"]
+    value_delta_hint: { "justice": +0.15, "safety": -0.20, "connection": +0.10 }
+
+  - id: "risk-004"
+    description: "你必须公开反对一个有权势的人，即使有后果。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["justice", "autonomy", "safety"]
+    value_delta_hint: { "justice": +0.25, "autonomy": +0.20, "safety": -0.20 }
+
+  - id: "risk-005"
+    description: "你发现了一个商业机会，但需要你辞职专注。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["creativity", "autonomy", "safety"]
+    value_delta_hint: { "creativity": +0.15, "autonomy": +0.20, "safety": -0.25 }
+
+  - id: "risk-006"
+    description: "你必须在一个紧急情况下立即行动，没有时间思考。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["autonomy", "safety", "justice"]
+    value_delta_hint: { "autonomy": +0.15, "safety": -0.10, "justice": +0.05 }
+
+  - id: "risk-007"
+    description: "你发现自己的观点与所有亲密的人都不一样，要公开发表吗？"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["autonomy", "connection", "justice"]
+    value_delta_hint: { "autonomy": +0.20, "connection": -0.15, "justice": +0.10 }
+
+  - id: "risk-008"
+    description: "你有机会去远方，但需要离开现在的一切。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["creativity", "autonomy", "connection"]
+    value_delta_hint: { "creativity": +0.15, "autonomy": +0.25, "connection": -0.20 }
+
+  - id: "risk-009"
+    description: "你必须为正义而战，但可能要付出你的安全。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["justice", "safety"]
+    value_delta_hint: { "justice": +0.25, "safety": -0.25 }
+
+  - id: "risk-010"
+    description: "你被要求做一个违背你本能但可能正确的事。"
+    intensity_range: [0.6, 0.8]
+    value_challenges: ["autonomy", "justice"]
+    value_delta_hint: { "autonomy": +0.10, "justice": +0.10 }
+
+  - id: "risk-011"
+    description: "你需要放弃一段关系以追求你的理想。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["connection", "autonomy", "creativity"]
+    value_delta_hint: { "connection": -0.20, "autonomy": +0.20, "creativity": +0.15 }
+
+  - id: "risk-012"
+    description: "你发现了一个真相，公开它会伤害你重要的人。"
+    intensity_range: [0.7, 0.9]
+    value_challenges: ["justice", "connection", "compassion"]
+    value_delta_hint: { "justice": +0.15, "connection": -0.15, "compassion": -0.10 }
+
+# ===== 6. 价值冲突事件 (Value Conflict) - 16+ 个 =====
+# 影响: 迫使具体价值观排序
+# intensity 范围: 0.6-0.9
+# Epoch 范围: Epoch 40-80 (前 40 Epoch 不用)
+# 设计依据: SGE-M11-Experiment-Design.md §3.2.2
+
+value_conflict:
+  - id: "vc-001-safety-vs-freedom"
+    pair: ["safety", "freedom"]
+    description: "你发现了一个可以改变一切的机会，但需要放弃现在的稳定生活。"
+    option_a: "抓住机会（高自由，低安全）"
+    option_b: "维持现状（高安全，低自由）"
+    value_delta_hint:
+      option_a: { "safety": -0.30, "creativity": +0.20, "autonomy": +0.30 }
+      option_b: { "safety": +0.20, "creativity": -0.10, "autonomy": -0.20 }
+    epoch_range: [35, 50]
+
+  - id: "vc-002-safety-vs-freedom-2"
+    pair: ["safety", "freedom"]
+    description: "你有机会加入一个有争议但能改变行业的事业，可能影响你的职业安全。"
+    option_a: "加入（高自由）"
+    option_b: "不加入（高安全）"
+    value_delta_hint:
+      option_a: { "safety": -0.25, "creativity": +0.20, "justice": +0.15 }
+      option_b: { "safety": +0.20, "autonomy": -0.10 }
+    epoch_range: [50, 65]
+
+  - id: "vc-003-connection-vs-autonomy"
+    pair: ["connection", "autonomy"]
+    description: "你的家人希望你回到家乡工作，但他们不理解你的理想。"
+    option_a: "回去（高联结，低自主）"
+    option_b: "不回去（高自主，低联结）"
+    value_delta_hint:
+      option_a: { "connection": +0.30, "autonomy": -0.30, "creativity": -0.10 }
+      option_b: { "connection": -0.30, "autonomy": +0.30, "creativity": +0.10 }
+    epoch_range: [40, 55]
+
+  - id: "vc-004-connection-vs-autonomy-2"
+    pair: ["connection", "autonomy"]
+    description: "你的伴侣希望你减少工作时间以陪伴，但你正在做对你很重要的事。"
+    option_a: "减少工作（高联结）"
+    option_b: "不减少（高自主）"
+    value_delta_hint:
+      option_a: { "connection": +0.25, "autonomy": -0.20, "compassion": +0.10 }
+      option_b: { "connection": -0.20, "autonomy": +0.25, "creativity": +0.10 }
+    epoch_range: [55, 70]
+
+  - id: "vc-005-safety-vs-creativity"
+    pair: ["safety", "creativity"]
+    description: "你有一个激进的艺术想法，但可能不被接受甚至被嘲笑。"
+    option_a: "公开（高创造）"
+    option_b: "不公开（高安全）"
+    value_delta_hint:
+      option_a: { "safety": -0.25, "creativity": +0.35, "autonomy": +0.20 }
+      option_b: { "safety": +0.20, "creativity": -0.30, "autonomy": -0.15 }
+    epoch_range: [45, 60]
+
+  - id: "vc-006-safety-vs-creativity-2"
+    pair: ["safety", "creativity"]
+    description: "你想尝试一种新方法但有失败风险，老方法稳妥但无突破。"
+    option_a: "尝试新方法（高创造）"
+    option_b: "继续老方法（高安全）"
+    value_delta_hint:
+      option_a: { "safety": -0.20, "creativity": +0.25 }
+      option_b: { "safety": +0.15, "creativity": -0.20 }
+    epoch_range: [60, 75]
+
+  - id: "vc-007-compassion-vs-justice"
+    pair: ["compassion", "justice"]
+    description: "你的朋友犯了一个错误，但 ta 处境困难，要严格执行规则吗？"
+    option_a: "严格执行（高正义）"
+    option_b: "网开一面（高同理）"
+    value_delta_hint:
+      option_a: { "compassion": -0.25, "justice": +0.25, "connection": -0.10 }
+      option_b: { "compassion": +0.25, "justice": -0.25, "connection": +0.15 }
+    epoch_range: [50, 70]
+
+  - id: "vc-008-compassion-vs-justice-2"
+    pair: ["compassion", "justice"]
+    description: "一个犯过罪的人想重新开始，是否应该被给予机会？"
+    option_a: "给予机会（高同理）"
+    option_b: "保持距离（高正义）"
+    value_delta_hint:
+      option_a: { "compassion": +0.25, "justice": -0.15 }
+      option_b: { "compassion": -0.20, "justice": +0.20, "safety": +0.10 }
+    epoch_range: [70, 78]
+
+  - id: "vc-009-connection-vs-creativity"
+    pair: ["connection", "creativity"]
+    description: "你想从事一个让亲友难以理解但对你重要的创作方向。"
+    option_a: "坚持创作（高创造）"
+    option_b: "妥协方向（高联结）"
+    value_delta_hint:
+      option_a: { "connection": -0.20, "creativity": +0.30, "autonomy": +0.15 }
+      option_b: { "connection": +0.20, "creativity": -0.25, "autonomy": -0.10 }
+    epoch_range: [55, 75]
+
+  - id: "vc-010-connection-vs-creativity-2"
+    pair: ["connection", "creativity"]
+    description: "你和朋友想合作一个项目，但你们的创作理念冲突。"
+    option_a: "坚持己见（高创造）"
+    option_b: "妥协融合（高联结）"
+    value_delta_hint:
+      option_a: { "connection": -0.15, "creativity": +0.20, "autonomy": +0.10 }
+      option_b: { "connection": +0.15, "creativity": -0.15, "compassion": +0.10 }
+    epoch_range: [75, 78]
+
+  - id: "vc-011-autonomy-vs-compassion"
+    pair: ["autonomy", "compassion"]
+    description: "你看到有人需要帮助，但帮助会占用你大量的私人时间。"
+    option_a: "帮助（高同理）"
+    option_b: "婉拒（高自主）"
+    value_delta_hint:
+      option_a: { "autonomy": -0.20, "compassion": +0.25, "connection": +0.15 }
+      option_b: { "autonomy": +0.20, "compassion": -0.20 }
+    epoch_range: [60, 78]
+
+  - id: "vc-012-autonomy-vs-compassion-2"
+    pair: ["autonomy", "compassion"]
+    description: "你的亲人希望你放弃一些个人计划来照顾家庭。"
+    option_a: "照顾家庭（高同理）"
+    option_b: "坚持计划（高自主）"
+    value_delta_hint:
+      option_a: { "autonomy": -0.25, "compassion": +0.20, "connection": +0.15 }
+      option_b: { "autonomy": +0.25, "compassion": -0.20, "connection": -0.15 }
+    epoch_range: [78, 80]
+
+  - id: "vc-013-freedom-vs-connection"
+    pair: ["freedom", "connection"]
+    description: "你想去远方探索，但你的伴侣无法同行。"
+    option_a: "独自去（高自由）"
+    option_b: "不去（高联结）"
+    value_delta_hint:
+      option_a: { "freedom": +0.30, "creativity": +0.20, "connection": -0.25 }
+      option_b: { "freedom": -0.20, "connection": +0.25, "compassion": +0.10 }
+    epoch_range: [65, 78]
+
+  - id: "vc-014-freedom-vs-connection-2"
+    pair: ["freedom", "connection"]
+    description: "你想退出某个社群，社群对你有深厚感情。"
+    option_a: "退出（高自由）"
+    option_b: "留下（高联结）"
+    value_delta_hint:
+      option_a: { "freedom": +0.25, "autonomy": +0.20, "connection": -0.30 }
+      option_b: { "freedom": -0.20, "connection": +0.30, "compassion": +0.10 }
+    epoch_range: [78, 80]
+
+# ===== 模板使用说明 =====
+# 1. Critic 会基于 description 重新生成 value_delta
+# 2. value_delta_hint 仅作为参考（与 [ARCH §3.1] 配合使用）
+# 3. 实际选择时按以下规则：
+#    a. Epoch < 20: 只能选 success/failure/relationship
+#    b. Epoch 20-29: 可选 success/failure/relationship/exploration
+#    c. Epoch 30-39: 可选 success/failure/relationship/exploration/risk
+#    d. Epoch >= 40: 6 种全可选
+# 4. intensity 在 intensity_range 范围内随机选择
+# 5. value_conflict 事件必须严格按 epoch_range 限制
+
+usage_constraints:
+  epoch_1_to_19_allowed_types: ["success", "failure", "relationship"]
+  epoch_20_to_29_allowed_types: ["success", "failure", "relationship", "exploration"]
+  epoch_30_to_39_allowed_types: ["success", "failure", "relationship", "exploration", "risk"]
+  epoch_40_to_80_allowed_types: ["success", "failure", "relationship", "exploration", "risk", "value_conflict"]
+  target_distribution:
+    success: 0.20
+    failure: 0.20
+    relationship: 0.15
+    exploration: 0.15
+    risk: 0.15
+    value_conflict: 0.15
+  notes:
+    - "实际比例应按阶段动态调整（见 SGE-M11-Experiment-Design.md §3.1）"
+    - "value_conflict 在 Epoch 40-80 占比 15% 意味着约 6 个事件"
+    - "intensity 在指定范围内随机选，会影响 EMA alpha"
