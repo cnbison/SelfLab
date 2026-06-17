@@ -19,11 +19,34 @@ experiment:
 
 # ===== LLM 配置 =====
 llm:
-  # 模型选择（与 DEVELOP §二 技术栈 一致）
-  critic_model: "claude-3-haiku-latest"  # 使用 litellm 模型别名
-  actor_model: "claude-3-haiku-latest"  # M1.1 阶段可统一（降低成本）
+  # 提供商: MiniMax (https://api.minimax.io)
+  # 模型: MiniMax-M3
+  # 支持两种协议（可通过 protocol 字段切换）
+  provider: "MiniMax"  # 提供商标识
+  protocol: "anthropic_compatible"  # 可选: "anthropic_compatible" | "openai_compatible"
+
+  # Anthropic 兼容端点（推荐）
+  anthropic_compatible:
+    base_url: "https://api.minimax.io/anthropic"
+    model_id: "MiniMax-M3"
+    api_key_env: "MINIMAX_API_KEY"  # 从环境变量读取
+
+  # OpenAI 兼容端点（备选）
+  openai_compatible:
+    base_url: "https://api.minimax.io/v1"
+    model_id: "MiniMax-M3"
+    api_key_env: "MINIMAX_API_KEY"  # 同一个 API key
+
+  # 模型选择（与 LLM 角色对应）
+  # 现阶段 Critic 和 Actor 使用同一个模型（M1.1 简化）
+  critic_model: "MiniMax-M3"
+  actor_model: "MiniMax-M3"
+
+  # 温度参数（保持与原 SGE 设计一致）
   critic_temperature: 0.2  # 结构化输出需要稳定性
   actor_temperature: 0.9  # 创造性表达需要随机性
+
+  # 调用参数
   max_retries: 3
   timeout_seconds: 30
 
@@ -125,17 +148,29 @@ output:
 cost_estimate:
   per_epoch_calls: 3  # 估算：Event gen + Critic + Actor
   per_epoch_tokens_avg: 2000
-  cost_per_1m_tokens: 1.0  # Haiku 价格（USD）
+  cost_per_1m_tokens: 1.0  # MiniMax-M3 价格（USD，参考值）
   per_run_cost_usd: 0.5  # 80 Epoch × 3 calls × 2000 tokens / 1M × $1
   per_seed_total_usd: 0.5
   total_5_seeds_usd: 2.5
+  notes:
+    - "MiniMax-M3 的实际价格请参考 https://api.minimax.io 的最新定价"
+    - "以上为粗略估算，实际成本可能因输入长度而异"
 
 # ===== 元数据 =====
 metadata:
   created: "2026-06-15"
+  updated: "2026-06-15"
+  llm_change: "M1.1 改用 MiniMax-M3 (Anthropic 兼容或 OpenAI 兼容协议)"
   related_docs:
     - "research/sge-feasibility/SGE-M11-Experiment-Design.md"
     - "DESIGN.md"
     - "PRD.md"
   related_configs:
     - "experiments/configs/m11_event_templates.yaml"
+  llm_provider_info:
+    provider_name: "MiniMax"
+    model_id: "MiniMax-M3"
+    endpoint_options:
+      - "https://api.minimax.io/anthropic (Anthropic 兼容，推荐)"
+      - "https://api.minimax.io/v1 (OpenAI 兼容，备选)"
+    api_key_env: "MINIMAX_API_KEY"
