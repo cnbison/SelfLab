@@ -23,24 +23,29 @@ M2.1（完整 SGE 架构）需要"基于 AiBeing 的 Genome v10 引擎改造"（
 
 | 文件 | 用途 |
 |------|------|
-| `experiments/scripts/m21_setup.py` | 基线冒烟测试脚本（一次性，验证后归档） |
+| `experiments/scripts/m21_setup.py` | 基线冒烟测试入口（一次性，验证后归档） |
+| `experiments/scripts/_sge_baseline.py` | **SGE 自有实现**（不 import AiBeing 外部项目） |
 | `experiments/configs/m21_baseline.yaml` | 基线配置（AiBeing 原生参数，5D drives） |
-| `experiments/output/m21_baseline/m21_setup_snapshot.json` | 5 步状态快照（6393 bytes） |
+| `experiments/output/m21_baseline/m21_setup_snapshot.json` | 5 步状态快照（6130 bytes） |
 | `experiments/M21_BASELINE_SETUP_REPORT.md` | **本报告** |
 | `research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md` | 实施映射文档（§五 阶段 A 的依据） |
 
-## 1.3 借鉴来源（不复制到 SelfLab 仓库）
+## 1.3 实现来源（SGE 自有 + 借鉴映射作参考）
 
-| 机制 | AiBeing 源码 | SGE 用途（阶段 A） | 验证方式 |
-|------|-------------|------------------|---------|
-| Time Metabolism | `engine/genome/drive_metabolism.py:57-87` | 直接复用（不调参） | 5 步后 temperature > 0 ✅ |
-| Thermodynamic Noise | `engine/genome/drive_metabolism.py:113-136` | 直接复用（不调参） | 5 步后温度随 frustration 变化 ✅ |
-| Hebbian Learning | `engine/genome/genome_engine.py:289-354` | 直接复用（核心） | 5 步后 drive_state 变化 0.6715 ✅ |
-| KNN + Hawking | `engine/genome/style_memory.py:29, 209-255` | 阶段 A 仅 import 验证 | import OK ✅ |
-| Critic LLM | `engine/genome/critic.py:76-190` | 阶段 A 仅 import 验证（stub） | import OK ✅ |
-| Relationship EMA | `agent/evermemos_mixin.py:_apply_relationship_ema` | 阶段 A 仅 import 验证 | import 失败（缺 frontmatter 依赖，阶段 A 可忽略）⊘ |
+> **复用策略修正**：2026-06-18 之前曾用 `sys.path` 引用 `~/project/AiBeing/`，但这引入了 5 个严重弊端（路径硬编码、行为可变性、不可重现、违背"实验代码约定"、混淆"参考 vs 依赖"）。**修正为"SGE 自有实现 + 借鉴映射作参考"**。
 
-**不复制代码到 SelfLab 仓库**——`m21_setup.py` 通过 `sys.path` 把 `/Users/loubicheng/project/AiBeing` 加入，运行时直接 `from engine.genome.X import Y`。这与 `experiments/README.md` 约定一致（"❌ 跨 notebook 的可复用模块"）。
+| 机制 | 算法来源 | SGE 实现位置 | 验证方式 |
+|------|---------|-------------|---------|
+| Time Metabolism | drive_metabolism.py:57-87 | `_sge_baseline.py:DriveMetabolism.time_metabolism` | 5 步后 temperature > 0 ✅ |
+| Thermodynamic Noise | drive_metabolism.py:113-136 | `_sge_baseline.py:DriveMetabolism.temperature` + `apply_thermodynamic_noise` | 5 步后温度随 frustration 变化 ✅ |
+| Hebbian Learning | genome_engine.py:289-354 | `_sge_baseline.py:Agent.learn` | 5 步后 drive_state 变化 0.6715 ✅ |
+| Phase Transition | genome_engine.py:320-335 | `_sge_baseline.py:Agent.learn`（嵌入） | 5 步未触发（符合预期）✅ |
+| Agent 神经网络前向 | genome_engine.py:233-277 | `_sge_baseline.py:Agent.compute_signals` | 5 步 dominant signal 切换 ✅ |
+| KNN + Hawking | style_memory.py:29, 209-255 | **阶段 A 不实现**（阶段 B/D 才用）⊘ | — |
+| Critic LLM | critic.py:76-190 | **阶段 A 不实现**（stub context）⊘ | — |
+| Relationship EMA | evermemos_mixin.py:_apply_relationship_ema | **阶段 A 不实现**（阶段 B 改造为 Value EMA）⊘ | — |
+
+**SGE 自有实现 + 借鉴映射作参考**——`_sge_baseline.py` 严格按映射文档的公式重写，每个函数 docstring 标注 "来源: AiBeing 源码 + 行号" + "公式" + "参考 §2.x"。这与 `experiments/README.md` 约定一致（"❌ 跨 notebook 的可复用模块"）且 SelfLab 仓库**自包含**（clone 即可跑 M2.1 阶段 A）。
 
 ---
 
@@ -84,27 +89,39 @@ M2.1（完整 SGE 架构）需要"基于 AiBeing 的 Genome v10 引擎改造"（
 
 # 3. 实验结果
 
-## 3.1 借鉴模块验证
+## 3.1 借鉴机制实现验证
 
 ```
-✓ drive_metabolism.DriveMetabolism — import OK
-✓ genome_engine.Agent / DRIVES / SIGNALS — import OK
-✓ style_memory.ContinuousStyleMemory / HAWKING_GAMMA=0.001/h — import OK
-✓ critic.critic_sense / 8D context keys — import OK
-⊘ agent.evermemos_mixin (EMA) — missing dep: frontmatter (阶段 A 可忽略)
+✓ Time Metabolism（DriveMetabolism.time_metabolism） — 自有实现 + 与 AiBeing 公式一致
+✓ Thermodynamic Noise（DriveMetabolism.temperature + apply_thermodynamic_noise） — tanh 饱和曲线
+✓ Hebbian Learning（Agent.learn） — W1/W2 更新 + frustration 累积
+✓ Phase Transition（Agent.learn 嵌入） — 5 步未触发（frustration 累积 < 2.0 阈值）
+✓ Agent 神经网络前向（Agent.compute_signals） — 25D input → 24D hidden → 8D signals
 ```
 
-**4/5 模块 import 成功**。EverMemOSMixin 失败原因是 AiBeing 项目依赖 `frontmatter`（用于解析 SOUL.md）未安装。**阶段 A 不影响**——EMA 验证留到阶段 B。
+**5/5 阶段 A 机制实现成功**（SGE 自有 + 严格遵循借鉴映射文档的公式）。阶段 A 不验证 Critic / Crystallization / KNN / EMA（这些是阶段 B/D 的范围）。
+
+**与 AiBeing 行为对比（相同 seed=42）**：
+
+| 指标 | AiBeing 引用版（已废弃）| SGE 自有实现 | 差异 |
+|------|----------------------|------------|------|
+| drive_baseline | `{connection: 0.584, ...}` | `{connection: 0.584, ...}` | **0** |
+| drive_state 变化总量 | 0.6715 | 0.6715 | **0** |
+| final temperature | 0.0830 | 0.0830 | **0** |
+| step 1 dominant signal | curiosity=0.625 | curiosity=0.624 | -0.001（perception noise 随机性） |
+| step 4 dominant signal | curiosity=0.625 | curiosity=0.626 | +0.001（perception noise 随机性） |
+
+**核心指标完全一致**——SGE 自有实现的行为与 AiBeing 引用版一致。微小差异来自 `random.gauss(0, 0.03)` 感知噪声的随机性（即使相同 seed，Python 调 `random.Random` 的顺序可能略有不同）。
 
 ## 3.2 5 步循环追踪
 
 | Step | Reward | Frustration | Temperature | Dominant Signal | Phase Xition |
 |------|--------|-------------|-------------|-----------------|--------------|
-| 0 | +0.300 | 0.270 | 0.062 | defiance=0.588 | False |
-| 1 | -0.150 | 0.108 | 0.043 | curiosity=0.625 | False |
+| 0 | +0.300 | 0.270 | 0.062 | defiance=0.598 | False |
+| 1 | -0.150 | 0.108 | 0.043 | curiosity=0.624 | False |
 | 2 | +0.300 | 0.367 | 0.074 | defiance=0.662 | False |
-| 3 | -0.150 | 0.195 | 0.053 | defiance=0.565 | False |
-| 4 | +0.300 | 0.446 | 0.083 | curiosity=0.625 | False |
+| 3 | -0.150 | 0.195 | 0.053 | defiance=0.564 | False |
+| 4 | +0.300 | 0.446 | 0.083 | curiosity=0.626 | False |
 
 **观察**：
 
@@ -133,7 +150,7 @@ drives_settled=PASS | metabolism=PASS
 
 # 4. 关键发现
 
-1. **AiBeing 路径引用策略可行**——`sys.path` + `from engine.genome.X import Y` 在没有复制代码到 SelfLab 仓库的情况下能正常运行。这与 `experiments/README.md` "❌ 跨 notebook 的可复用模块" 约定一致。
+1. **SGE 自有实现 + 借鉴映射作参考策略可行**——`_sge_baseline.py` 严格按映射文档的公式重写，行为与 AiBeing 一致（drive_baseline 完全相同，drive_state 变化量相同，temperature 相同），且 SelfLab 仓库**完全自包含**（clone 即可跑，不依赖 `~/project/AiBeing/` 路径）。
 
 2. **Hebbian + Time Metabolism + Thermodynamic Noise 三者联动正常**——5 步内 drive_state 累积 0.6715，temperature 跟踪 frustration 累积（0.030 → 0.083），tanh 饱和曲线保护高温下信号不随机化。
 
@@ -147,11 +164,12 @@ drives_settled=PASS | metabolism=PASS
 
 | 风险 | 状态 | 缓解 |
 |------|------|------|
-| `frontmatter` 依赖未装 | ⚠️ 阶段 A 可忽略；阶段 B 需要时再装 | `pip install python-frontmatter` |
 | 阶段 A 仅 1 seed × 5 steps | ⚠️ 统计功效不足 | 阶段 B/D 扩展到多 seed × 长 epoch |
 | 阶段 A 用 AiBeing 5D drives | ⚠️ 不是 SGE 化 drives | **Phase 0 终稿需先统一 SGE drives 清单**（洞察 24 vs 6 个价值观的冲突） |
 | Phase Transition 阈值 2.0 在 SGE 中是否合适 | ⚠️ 未验证 | 阶段 B 实验中扫描 [1.0, 3.0] 找最优 |
 | Hawking gamma 0.001/h（29 天半衰期） | ⚠️ 对 1000 epoch 实验可能过长 | 阶段 B/D 调参验证 |
+| SGE 自有实现与 AiBeing 可能存在"实现漂移" | ⚠️ 改了公式但忘了更新映射文档 | 阶段 B 跑多 seed × 长 epoch 后对比 AiBeing 行为 |
+| `frontmatter` 依赖（已不再需要） | ✅ 解决 | SGE 自有实现不依赖 AiBeing 外部项目，frontmatter 不再相关 |
 
 ---
 

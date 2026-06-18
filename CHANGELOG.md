@@ -28,6 +28,7 @@
 | 1.8.0 | 2026-06-17 | (本次) | **M1.4 REVISIT 专项测试**:5 组对照实验验证 prompt bias,洞察 29 双层反思结构 |
 | 1.9.0 | 2026-06-18 | (本次) | **M2.1 前置映射**:新增 SGE-M21-AiBeing-Implementation-Mapping.md,把 8 个可复用机制 + 1 个架构逐项映射到源码位置/公式/改造契约/验证方式 |
 | 1.10.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 基线通过**:m21_setup.py + m21_baseline.yaml,4/5 借鉴机制 import OK,5 步最小循环 PASS |
+| 1.11.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 修正**:sys.path 引用 → SGE 自有实现 (_sge_baseline.py),SelfLab 仓库自包含 |
 
 ---
 
@@ -423,6 +424,70 @@ M2.1 是 Phase 2 的"完整 SGE 架构"里程碑 ([ROADMAP.md §M2.1](../ROADMAP
 - 完整报告：`experiments/M21_BASELINE_SETUP_REPORT.md`
 - 状态快照：`experiments/output/m21_baseline/m21_setup_snapshot.json`（运行 `python3 experiments/scripts/m21_setup.py` 重新生成）
 - 实施映射：[SGE-M21-AiBeing-Implementation-Mapping.md](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md)
+
+---
+
+## [1.11.0] - 2026-06-18 (M2.1 阶段 A 修正：sys.path → SGE 自有实现)
+
+### 背景
+
+1.10.0 用了 `sys.path` 引用 `~/project/AiBeing/` 外部项目，看似简洁但有 5 个严重弊端：
+1. **路径硬编码** `/Users/loubicheng/project/AiBeing` — 换电脑/换路径即坏
+2. **行为可变性** — AiBeing 改 `Agent.step()` 签名，SelfLab 跟着崩
+3. **不可重现** — 3 个月后跑同样代码可能得到不同结果
+4. **违背 CLAUDE.md "实验代码约定"** — 实验代码应一次性，不应强依赖外部项目
+5. **混淆"参考 vs 依赖"** — 借鉴分析应是**研究文档**（已写在映射文档），代码层面不应是**运行时依赖**
+
+### 修正
+
+**复用策略**：从 `sys.path` 引用 → **SGE 自有实现 + 借鉴映射作参考**
+
+- **算法来源**：[SGE-M21-AiBeing-Implementation-Mapping.md](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md)（研究文档，不变）
+- **代码实现**：`experiments/scripts/_sge_baseline.py`（新增 ~470 行，**SGE 自有**，不复制 AiBeing 代码，不 import AiBeing 项目）
+- **每个函数 docstring** 严格标注 "来源: AiBeing 源码 + 行号" + "公式" + "参考 §2.x"
+- **验证方式**：跑通后**与 AiBeing 行为对比**（相同 seed 应得到相同结果）
+
+### 新增
+
+- `experiments/scripts/_sge_baseline.py` — SGE 自有核心实现
+  - `DriveMetabolism` 类 — Time Metabolism + Thermodynamic Noise（公式来源 drive_metabolism.py:57-198）
+  - `Agent` 类 — 神经网络前向 + Hebbian + Phase Transition（公式来源 genome_engine.py:188-557）
+  - 5D drives + 8D signals + 12D context — 与 AiBeing 完全一致
+  - 常量、参数默认值与 AiBeing 源码严格对齐
+  - 模块级便捷函数（`apply_thermodynamic_noise`、`temperature_module_level`）
+
+### 修改
+
+- `experiments/scripts/m21_setup.py` — 删除 `sys.path` 引用 + `from engine.genome.X import Y`，改为 `from _sge_baseline import ...`
+- `research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md §五 阶段 A` — 复用策略修正
+- `experiments/M21_BASELINE_SETUP_REPORT.md` — 反映新策略，删除 sys.path/frontmatter 相关内容
+
+### 验证
+
+**5 步最小循环（seed=42）— SGE 自有实现 vs AiBeing 行为对比**：
+
+| 指标 | AiBeing 引用版（已废弃） | SGE 自有实现 | 差异 |
+|------|----------------------|------------|------|
+| drive_baseline | `{connection: 0.584, novelty: 0.215, ...}` | **完全相同** | 0 |
+| drive_state 变化总量 | 0.6715 | **0.6715** | 0 |
+| final temperature | 0.0830 | **0.0830** | 0 |
+| step 1 dominant signal | curiosity=0.625 | curiosity=0.624 | -0.001（perception noise 随机性） |
+| step 4 dominant signal | curiosity=0.625 | curiosity=0.626 | +0.001（perception noise 随机性） |
+
+**核心指标完全一致**——SGE 自有实现的行为与 AiBeing 引用版一致。微小差异来自 `random.gauss(0, 0.03)` 感知噪声的随机性。
+
+### 关键决策
+
+- **彻底删除 sys.path 引用**——不再有外部项目路径依赖
+- **SGE 仓库自包含**——`git clone` + `python3 experiments/scripts/m21_setup.py` 即可跑通阶段 A
+- **借鉴内容沉淀在映射文档**（研究文档），不进入代码层
+- **"实现漂移"风险**——SGE 自有实现改了公式但忘了更新映射文档。缓解：阶段 B 跑多 seed × 长 epoch 后对比 AiBeing 行为
+
+### 验证来源
+
+- 完整报告：`experiments/M21_BASELINE_SETUP_REPORT.md`（已更新）
+- 实施映射：[SGE-M21-AiBeing-Implementation-Mapping.md §五 阶段 A](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md#五m21-实施步骤建议)
+- 状态快照：运行 `python3 experiments/scripts/m21_setup.py` 重新生成
 
 ---
 

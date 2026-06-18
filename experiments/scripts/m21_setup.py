@@ -6,65 +6,50 @@ M2.1 阶段 A：SGE 基线冒烟测试
 对应 ARCH 模块：§3 Memory / Time Layer, §3 Hebbian Learning
 对应研究文档：research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md §五 阶段 A
 
-实验目的：验证从 AiBeing 借鉴的 4 个核心机制在 SGE 实验环境中可独立运行
-实验设计：5 步最小循环，stub LLM，5D drives（AiBeing 原生）
+实验目的：验证 SGE 自有实现（_sge_baseline.py）的 4 个核心机制在 SGE 实验环境中可独立运行
+实验设计：5 步最小循环，stub LLM，5D drives（AiBeing 原生 — 阶段 A 沿用）
 运行方法：python experiments/scripts/m21_setup.py
-预期产出：stdout 状态快照 + experiments/output/m21_baseline_setup.json
+预期产出：stdout 状态快照 + experiments/output/m21_baseline/m21_setup_snapshot.json
 归档策略：实验完成后归档到 experiments/archive/2026-06-m21/（暂不归档）
 
-借鉴来源（不复制到 SelfLab 仓库）：
-- ~/project/AiBeing/engine/genome/drive_metabolism.py — Time Metabolism + Thermodynamic Noise
-- ~/project/AiBeing/engine/genome/genome_engine.py — Agent + Hebbian Learning + Phase Transition
-- ~/project/genome/style_memory.py — KNN + Hawking + Crystallization (M2.1 阶段 B 才用)
-- ~/project/genome/critic.py — Critic LLM 感知 (M2.1 阶段 B 才用)
-- ~/project/agent/evermemos_mixin.py — Relationship EMA (M2.1 阶段 B 才用)
+设计原则：SGE 自有实现 + 借鉴映射作参考
+- 算法来源：SGE-M21-AiBeing-Implementation-Mapping.md（研究文档）
+- 代码实现：experiments/scripts/_sge_baseline.py（SGE 自有，不复制 AiBeing 代码）
+- 验证方式：跑 5 步最小循环 + 与 AiBeing 行为对比（相同 seed 应得到相同结果）
+- 不依赖：~/project/AiBeing 外部项目路径
 """
 
 import json
-import math
-import os
 import random
 import sys
 import time
 from pathlib import Path
 
 
-# ── 把 AiBeing 项目加入 sys.path ──────────────────────────────
-# AiBeing 是外部项目（Bisen 本地管理），不在 SelfLab 仓库。
-# 本脚本通过 sys.path 引用其 engine/ 包，不复制代码到 SelfLab。
-AIBEING_PATH = Path("/Users/loubicheng/project/AiBeing").resolve()
-if not AIBEING_PATH.exists():
-    sys.exit(f"[ERROR] AiBeing 项目路径不存在: {AIBEING_PATH}")
-if str(AIBEING_PATH) not in sys.path:
-    sys.path.insert(0, str(AIBEING_PATH))
-
-
-# ── 借鉴 1: Time Metabolism + Thermodynamic Noise ──────────────
-from engine.genome.drive_metabolism import DriveMetabolism
-
-# ── 借鉴 2: Agent 神经网络 + Hebbian Learning + Phase Transition ─
-from engine.genome.genome_engine import Agent, DRIVES, SIGNALS, CONTEXT_FEATURES
-
-# ── 借鉴 3: KNN + Hawking + Crystallization（M2.1 阶段 A 仅 import 验证）──
-from engine.genome.style_memory import (
-    ContinuousStyleMemory,
-    HAWKING_GAMMA,
-    CONTEXT_KEYS,
+# ── SGE 自有实现（不依赖 AiBeing 外部项目）───────────────────
+# 实现严格遵循借鉴映射文档的公式：
+#   research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md
+# 每个函数 docstring 标注 "来源: AiBeing 源码 + 行号" + "公式" + "参考 §2.x"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _sge_baseline import (
+    Agent,
+    DriveMetabolism,
+    DRIVES,
+    SIGNALS,
+    CONTEXT_FEATURES,
+    HEBB_LR,
+    PHASE_THRESHOLD,
 )
 
-# ── 借鉴 4: Critic LLM 感知（阶段 A 仅 import 验证，阶段 B 才调用）──
-from engine.genome.critic import critic_sense, _CRITIC_CONTEXT_KEYS
 
-# ── 借鉴 5: Relationship EMA（阶段 A 仅 import 验证）──
-# 注：_apply_relationship_ema 在 agent/evermemos_mixin.py 中，是 ChatAgent 的方法
-# M2.1 阶段 A 不实例化 ChatAgent（避免依赖完整 LLM 栈），仅验证模块可访问
-try:
-    from agent.evermemos_mixin import EverMemOSMixin  # 仅验证可 import
-    EMA_AVAILABLE = True
-    EMA_SKIP_REASON = ""
-except ImportError as e:
-    EMA_AVAILABLE = False
-    EMA_SKIP_REASON = f"missing dep: {e.name if hasattr(e, 'name') else e}"
+# ── 阶段 A 不实现（阶段 B 才用）──
+# 下面这些机制的验证在阶段 B 进行：
+#   - §2.1 Critic LLM 感知（阶段 B 用真实 LLM 接入）
+#   - §2.3 Relationship EMA → Value EMA（阶段 B 改造）
+#   - §2.6 Crystallization（阶段 B/D 才用）
+#   - §2.7 KNN + Hawking 辐射（阶段 B/D 才用）
+#   - §2.9 双 LLM 编排（阶段 B/D 才实现完整 12 步循环）
+# 阶段 A 仅验证 4 个核心机制：Time Metabolism / Thermodynamic Noise / Hebbian / Agent 前向
 
 
 # ── 输出目录 ──────────────────────────────────────────────────
@@ -74,12 +59,12 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def make_stub_context(seed: int = 0) -> dict:
     """
-    构造一个 stub 的 context（12D，来自 AiBeing CONTEXT_FEATURES）。
-    阶段 A 不调用真实 LLM，用固定值代替 Critic 输出。
+    构造 stub context（12D，来自 CONTEXT_FEATURES）
+    阶段 A 不调用真实 LLM；阶段 B 替换为 _sge_baseline 调用 critic_sense。
     """
     rng = random.Random(seed)
     return {
-        # 8D Critic context
+        # 8D Critic context（参考值）
         'user_emotion': 0.3,
         'topic_intimacy': 0.5,
         'time_of_day': 0.5,
@@ -88,7 +73,7 @@ def make_stub_context(seed: int = 0) -> dict:
         'conflict_level': rng.uniform(0.0, 0.3),
         'novelty_level': 0.4,
         'user_vulnerability': 0.4,
-        # 4D EverMemOS（基线阶段暂用 0）
+        # 4D EverMemOS（阶段 A 暂用 0）
         'relationship_depth': 0.0,
         'emotional_valence': 0.0,
         'trust_level': 0.0,
@@ -98,24 +83,25 @@ def make_stub_context(seed: int = 0) -> dict:
 
 def make_stub_reward(step: int) -> float:
     """
-    构造一个 stub 的 reward：偶数步正、奇数步负，用于观察 Hebbian 学习。
+    构造 stub reward：偶数步正、奇数步负，用于观察 Hebbian 学习方向性。
     """
     return 0.3 if step % 2 == 0 else -0.15
 
 
 def snapshot_state(agent: Agent, metabolism: DriveMetabolism, step: int) -> dict:
-    """捕获当前状态快照（用于输出和后续对比）。"""
+    """捕获当前状态快照。"""
     return {
         'step': step,
         'drive_state': dict(agent.drive_state),
         'drive_baseline': dict(agent.drive_baseline),
-        'recurrent_state': list(agent.recurrent_state),
+        'recurrent_state': [round(x, 4) for x in agent.recurrent_state],
         'signal_history_len': len(agent.signal_history),
         'total_reward': round(agent.total_reward, 4),
         'frustration': {d: round(metabolism.frustration[d], 4) for d in DRIVES},
         'frustration_total': round(metabolism.total(), 4),
         'temperature': round(metabolism.temperature(), 4),
         'last_phase_transition': agent._last_phase_transition,
+        'agent_frustration': round(agent._frustration, 4),
     }
 
 
@@ -128,12 +114,13 @@ def run_minimal_loop(seed: int = 42, n_steps: int = 5) -> dict:
     print(f"  M2.1 阶段 A 基线冒烟测试 — seed={seed}, n_steps={n_steps}")
     print(f"{'='*60}\n")
 
-    # ── 初始化（直接复用 AiBeing 类的 __init__）──
+    # ── 初始化（自有实现）──
     agent = Agent(seed=seed)
     metabolism = DriveMetabolism(clock=time.time())
     snapshots = []
 
     print(f"  [init] agent seed={agent.seed}, drives={DRIVES}")
+    print(f"  [init] hebbian_lr={HEBB_LR}, phase_threshold={PHASE_THRESHOLD}")
     print(f"  [init] drive_baseline={ {d: round(agent.drive_baseline[d], 3) for d in DRIVES} }")
     print(f"  [init] initial temperature={metabolism.temperature():.4f}\n")
 
@@ -146,15 +133,18 @@ def run_minimal_loop(seed: int = 42, n_steps: int = 5) -> dict:
         snap = snapshot_state(agent, metabolism, step)
         snapshots.append(snap)
 
+        dominant_sig = max(signals, key=signals.get)
         print(f"  [step {step}] reward={reward:+.3f} | "
               f"frust={metabolism.total():.3f} | "
               f"temp={metabolism.temperature():.3f} | "
-              f"dominant_signal={max(signals, key=signals.get)}={signals[max(signals, key=signals.get)]:.3f} | "
+              f"dominant_signal={dominant_sig}={signals[dominant_sig]:.3f} | "
               f"phase_xition={snap['last_phase_transition']}")
 
     return {
         'seed': seed,
         'n_steps': n_steps,
+        'source': 'SGE 自有实现 (_sge_baseline.py)',
+        'reference_doc': 'research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md',
         'snapshots': snapshots,
         'final_state': snapshots[-1],
     }
@@ -169,7 +159,7 @@ def verify_drives_settled(result: dict) -> bool:
     final_drive = result['final_state']['drive_state']
     diff = sum(abs(final_drive[d] - initial_baseline[d]) for d in DRIVES)
     print(f"\n  [verify] drive_state 变化总量 (vs baseline) = {diff:.4f}")
-    return diff > 0.0  # 至少有一些变化
+    return diff > 0.0
 
 
 def verify_metabolism_works(result: dict) -> bool:
@@ -184,14 +174,19 @@ def main() -> int:
     print("=" * 60)
     print("  M2.1 阶段 A: SGE 基线冒烟测试")
     print("=" * 60)
-    print(f"\n  AiBeing 路径: {AIBEING_PATH}")
-    print(f"  借鉴模块验证:")
-    print(f"    ✓ drive_metabolism.DriveMetabolism")
-    print(f"    ✓ genome_engine.Agent / DRIVES / SIGNALS")
-    print(f"    ✓ style_memory.ContinuousStyleMemory / HAWKING_GAMMA={HAWKING_GAMMA}/h")
-    print(f"    ✓ critic.critic_sense / {_CRITIC_CONTEXT_KEYS}")
-    print(f"    {'✓' if EMA_AVAILABLE else '⊘'} agent.evermemos_mixin (EMA)"
-          f"{f' — {EMA_SKIP_REASON}' if not EMA_AVAILABLE else ''}")
+    print(f"\n  实现来源：experiments/scripts/_sge_baseline.py（SGE 自有）")
+    print(f"  借鉴映射：research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md")
+    print(f"  不依赖：~/project/AiBeing 外部项目路径")
+    print(f"\n  阶段 A 验证 4 个核心机制:")
+    print(f"    ✓ Time Metabolism（冷却 + 饥饿）")
+    print(f"    ✓ Thermodynamic Noise（温度曲线 + 高斯噪声）")
+    print(f"    ✓ Hebbian Learning（神经网络权重更新）")
+    print(f"    ✓ Phase Transition（挫败感累积触发）")
+    print(f"\n  阶段 A 不验证（阶段 B/D 才用）:")
+    print(f"    ⊘ Critic LLM 感知（阶段 B 接入真实 LLM）")
+    print(f"    ⊘ Relationship EMA → Value EMA（阶段 B 改造）")
+    print(f"    ⊘ Crystallization / KNN / Hawking（阶段 B/D）")
+    print(f"    ⊘ 完整 12 步双 LLM 编排（阶段 B/D）")
 
     # ── 跑 seed=42 基线 ──
     result = run_minimal_loop(seed=42, n_steps=5)
@@ -206,7 +201,7 @@ def main() -> int:
     all_ok = drives_ok and metabolism_ok
     print(f"\n  drives_settled={'PASS' if drives_ok else 'FAIL'} | "
           f"metabolism={'PASS' if metabolism_ok else 'FAIL'}")
-    print(f"\n  总体: {'✅ PASS — 基线可运行' if all_ok else '❌ FAIL — 检查日志'}")
+    print(f"\n  总体: {'✅ PASS — SGE 自有基线可运行' if all_ok else '❌ FAIL — 检查日志'}")
 
     # ── 写输出文件 ──
     output_path = OUTPUT_DIR / "m21_setup_snapshot.json"

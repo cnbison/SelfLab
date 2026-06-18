@@ -547,15 +547,27 @@ noisy[key] = clip(base_signals[key] + gauss(0, temperature), 0, 1)
 
 # 五、M2.1 实施步骤建议
 
-按"借鉴-改造"边界，M2.1 的实施应该**先复用、后改造**，避免一上来就改维度：
+按"借鉴-改造"边界，M2.1 的实施应该**先复用、后改造**，避免一上来就改维度。
 
-## 阶段 A：复制 + 直接复用（1-2 周）
+> **复用策略修正（2026-06-18）**：
+> 原计划"复制 AiBeing 源代码到 `experiments/sge_core/`"是错误的——这会引入 5 个严重弊端（路径硬编码、行为可变性、不可重现、违背"实验代码约定"、混淆"参考 vs 依赖"）。
+> **修正为"自有实现 + 借鉴映射作参考"**：
+> - 算法来源：**SGE-M21-AiBeing-Implementation-Mapping.md**（本研究文档）
+> - 代码实现：**SGE 自有**（不复制 AiBeing 代码，不 import AiBeing 项目）
+> - 验证方式：跑通后**与 AiBeing 行为对比**（相同 seed 应得到相同结果）
+> - SelfLab 仓库**自包含**（clone 即可跑 M2.1 阶段 A）
 
-1. **A1**：在 `experiments/scripts/m21_setup.py` 中设置项目骨架（不依赖 sge/ 包）
-2. **A2**：复制 `drive_metabolism.py` 中的 `time_metabolism()` 和 `temperature()` 到 `experiments/sge_core/time.py`（**直接复用**，不修改）
-3. **A3**：复制 `genome_engine.py` 中的 `Agent.learn()`（仅 Hebbian 部分）到 `experiments/sge_core/hebbian.py`
-4. **A4**：复制 `style_memory.py` 中的 `retrieve()` + `HAWKING_GAMMA` 到 `experiments/sge_core/memory.py`
-5. **A5**：用 AiBeing 的 5D drives（connection, novelty, ...）跑通基础循环，**先验证复用机制的正确性**
+## 阶段 A：自有实现 + 跑通基线（1 周）
+
+1. **A1**：在 `experiments/scripts/m21_setup.py` 中设置项目骨架（**不依赖 `sge/` 包**）
+2. **A2**：在 `experiments/scripts/_sge_baseline.py` 中**自有实现** 4 个核心机制：
+   - `time_metabolism()`（公式来源：drive_metabolism.py:57-87）
+   - `apply_thermodynamic_noise()` + `temperature()`（公式来源：drive_metabolism.py:113-136）
+   - `Agent.compute_signals()`（公式来源：genome_engine.py:233-277）
+   - `Agent.learn()` 含 Hebbian + Phase Transition（公式来源：genome_engine.py:289-354）
+3. **A3**：每个函数 docstring **严格标注** "来源: AiBeing 源码 + 行号" + "公式" + "参考 §2.x"
+4. **A4**：跑通 5 步最小循环，**与 AiBeing 行为对比**（同 seed 应得到相同结果）
+5. **A5**：用 AiBeing 的 5D drives（connection, novelty, ...）跑通基础循环，**先验证机制的正确性**（不验证 SGE 假设）
 
 ## 阶段 B：低改造（2-3 周）
 
