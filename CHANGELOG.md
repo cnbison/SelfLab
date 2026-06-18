@@ -29,6 +29,7 @@
 | 1.9.0 | 2026-06-18 | (本次) | **M2.1 前置映射**:新增 SGE-M21-AiBeing-Implementation-Mapping.md,把 8 个可复用机制 + 1 个架构逐项映射到源码位置/公式/改造契约/验证方式 |
 | 1.10.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 基线通过**:m21_setup.py + m21_baseline.yaml,4/5 借鉴机制 import OK,5 步最小循环 PASS |
 | 1.11.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 修正**:sys.path 引用 → SGE 自有实现 (_sge_baseline.py),SelfLab 仓库自包含 |
+| 1.12.0 | 2026-06-18 | (本次) | **Phase 0 收尾决策文档**:SGE-Phase0-Closeout.md 起草,澄清 drives vs values 概念差异,列出 M2.1 阶段 B 启动前 6 个待决问题 |
 
 ---
 
@@ -488,6 +489,76 @@ M2.1 是 Phase 2 的"完整 SGE 架构"里程碑 ([ROADMAP.md §M2.1](../ROADMAP
 - 完整报告：`experiments/M21_BASELINE_SETUP_REPORT.md`（已更新）
 - 实施映射：[SGE-M21-AiBeing-Implementation-Mapping.md §五 阶段 A](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md#五m21-实施步骤建议)
 - 状态快照：运行 `python3 experiments/scripts/m21_setup.py` 重新生成
+
+---
+
+## [1.12.0] - 2026-06-18 (Phase 0 收尾决策文档：drives vs values 澄清 + 6 决策点)
+
+### 背景
+
+M2.1 阶段 A 已通过（[1.11.0]），但阶段 B（SGE 化改造）卡在**6 个待决问题**上。其中最核心的是 **drives vs values 的概念混淆**——之前的报告把"5 个 drives vs 6 个价值观"当成冲突，事实是**两个独立的维度**。
+
+### 关键概念澄清
+
+| 维度 | Drives（本能需求）| Values（道德/伦理价值）|
+|------|------------------|----------------------|
+| **回答** | "我想要什么" | "什么是对的" |
+| **功能** | 产生行为动力 | 指导应然选择 |
+| **来源** | 初始化/本能 | 从经历涌现 |
+| **可累积** | ✅ 是（frustration 累积）| ❌ 否（连续 EMA 演化）|
+| **可被反思** | ❌ 否 | ✅ 是 |
+| **哲学对应** | 怀特海"动在"的主观形式 | 怀特海"永恒客体"的形式空间 |
+| **例子** | "我想要连接" | "我重视 safety" |
+
+### 新增
+
+- `research/sge-core/SGE-Phase0-Closeout.md` — Phase 0 → Phase 2 桥梁文档
+  - §0 现状盘点（M2.1 阶段 B 阻塞问题）
+  - §1 Drives vs Values 概念澄清（最重要章节）
+  - §2 6 个待决问题（drives 清单、Value scale、Phase 阈值、Hawking gamma、Crystallize 阈值、LLM 选型）
+  - §3 决策的相互依赖（决策点 1 是核心阻塞）
+  - §4 决策时间窗（启动前必须 vs 实施中可调）
+  - §5 决策模板（Bisen 填写）
+  - §6 一句话总结："SGE 的价值结构是单层/双层/三层？"
+
+### 6 个待决问题
+
+1. **SGE drives 维度清单**（核心阻塞）— 4 候选：A 保留 AiBeing 5D / B SGE 化 5D / C 合并到 values / D 3 层
+2. **Value scale 范围** — [-1, 1] vs [0, 1] vs 其他
+3. **Phase Transition 阈值** — 2.0 / 扫描 / 动态
+4. **Hawking gamma** — 0.001/h / 0.01/h / 扫描
+5. **Crystallize 距离阈值** — 0.25 / 维度归一化 / 扫描
+6. **M2.1 阶段 B LLM 选型** — MiniMax-M3 / Sonnet / GPT-4o / 双模型
+
+### 决策建议顺序
+
+```
+决策点 1 (drives 清单)  ←── 决策点 6 (LLM 选型)
+        ↓
+决策点 2 (Value scale) ←── 决策点 3 (Phase 阈值)
+        ↓
+决策点 4 (Hawking gamma) ←── 决策点 5 (Crystallize 阈值)
+```
+
+### 关键决策
+
+- **drives 与 values 是两个独立维度** — 之前的"5 vs 6 冲突"是误诊
+- **决策点 1（drives 清单）是 M2.1 阶段 B 的核心阻塞** — 其他决策都依赖它
+- **建议默认**：决策点 2 选 A（[-1, 1]，与涌现哲学一致）
+
+### 状态
+
+- ⏳ **等待 Bisen 填写 §5 决策模板**
+- M2.1 阶段 B 启动前**必须**完成决策点 1、2
+- 决策点 3、4、5、6 实施中可调
+
+### 关联文档
+
+- [SGE-Phase0-Closeout.md](../research/sge-core/SGE-Phase0-Closeout.md) — 本次新增
+- [SGE-Key-Insights.md §洞察 15、24、26](../SGE-Key-Insights.md) — 相关洞察
+- [PRD.md §FR-4](../PRD.md) — 8 个 value 维度的权威定义
+- [SGE-M21-AiBeing-Implementation-Mapping.md §六](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md) — 5 个原开放问题
+- [SGE-Learning-from-AiBeing.md §3.2](../research/sge-learning/SGE-Learning-from-AiBeing.md) — drives 替换的初步想法
 
 ---
 
