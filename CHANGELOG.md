@@ -27,6 +27,7 @@
 | 1.7.0 | 2026-06-17 | (本次) | **跨 LLM 验证 (M1.3)**:Moonshot kimi-k2.6 重复 M1.3,验证 SGE 架构 LLM-agnostic |
 | 1.8.0 | 2026-06-17 | (本次) | **M1.4 REVISIT 专项测试**:5 组对照实验验证 prompt bias,洞察 29 双层反思结构 |
 | 1.9.0 | 2026-06-18 | (本次) | **M2.1 前置映射**:新增 SGE-M21-AiBeing-Implementation-Mapping.md,把 8 个可复用机制 + 1 个架构逐项映射到源码位置/公式/改造契约/验证方式 |
+| 1.10.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 基线通过**:m21_setup.py + m21_baseline.yaml,4/5 借鉴机制 import OK,5 步最小循环 PASS |
 
 ---
 
@@ -370,6 +371,58 @@ M2.1 是 Phase 2 的"完整 SGE 架构"里程碑 ([ROADMAP.md §M2.1](../ROADMAP
   - `engine/genome/genome_engine.py` (557 行) — Agent 神经网络 + Hebbian + Phase Transition
   - `engine/genome/style_memory.py` (427 行) — KNN 检索 + Hawking 辐射 + 结晶
   - `agent/evermemos_mixin.py:_apply_relationship_ema()` — Relationship EMA 公式
+
+---
+
+## [1.10.0] - 2026-06-18 (M2.1 阶段 A 基线)
+
+### 背景
+
+按 [SGE-M21-AiBeing-Implementation-Mapping.md §五 阶段 A](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md#五m21-实施步骤建议) 跑 M2.1 第一波：建立可比基线——把 AiBeing 4 个核心机制原样跑通，验证机制可独立运行。
+
+### 新增
+
+- `experiments/scripts/m21_setup.py` — M2.1 阶段 A 基线冒烟测试脚本
+  - 通过 `sys.path` 引用 `~/project/AiBeing/` 外部项目（**不复制代码到 SelfLab 仓库**）
+  - 5 步最小循环：sense → compute_signals → learn → tick_drives → metabolism
+  - stub LLM（不调用真实 LLM，避免 API 成本）
+  - stub reward：偶数步 +0.3、奇数步 -0.15（用于观察 Hebbian 学习方向性）
+- `experiments/configs/m21_baseline.yaml` — 基线配置（AiBeing 原生 5D drives + 原生参数）
+- `experiments/M21_BASELINE_SETUP_REPORT.md` — 基线冒烟测试报告
+
+### 文档修正
+
+- `CLAUDE.md` — 删除错误的"Phase 0（理论奠基，当前阶段）"标注，改为"Phase 0/1 已完成，Phase 2 当前"，并指向 ROADMAP 为权威状态源
+- `experiments/README.md` — "当前状态"小节从"Phase 0（当前）"改为以 ROADMAP 为准
+
+### 实验结果
+
+- **4/5 借鉴机制 import OK**（critic / drive_metabolism / genome_engine / style_memory）
+- **EverMemOSMixin import 失败**（缺 `frontmatter` 依赖；阶段 A 可忽略，阶段 B 时 `pip install python-frontmatter`）
+- **5 步循环 PASS**：
+  - drive_state 变化总量 0.6715（vs baseline）
+  - final temperature 0.0830（floor 0.03 + frustration 累积）
+  - 5 步 frustration 累积 0.030 → 0.446
+  - phase transition 未触发（5 步未达阈值 2.0，符合预期）
+- **状态快照已保存**：`experiments/output/m21_baseline/m21_setup_snapshot.json`（6393 bytes，已被 .gitignore 排除）
+
+### 关键决策
+
+- **不复制 AiBeing 代码到 SelfLab**——保留 CLAUDE.md "实验代码约定"边界
+- **用 sys.path 引用**——`m21_setup.py` 运行时把 `/Users/loubicheng/project/AiBeing` 加入 sys.path，直接 import
+- **基线用 AiBeing 原生参数**（不调参）——为 M2.1 阶段 B 的 SGE 化改造提供"对照"
+- **阶段 A 跳过 LLM**——stub 简化，避免 API 成本
+
+### 下一步
+
+- M2.1 阶段 B（SGE 化改造）：替换 drives 维度、Value scale、Critic prompt、Relationship EMA → Value EMA
+- 须先做 Phase 0 收尾决策：SGE drives 清单（5 个 vs 6 个冲突）、Value scale、Hawking gamma 调参依据
+
+### 验证来源
+
+- 完整报告：`experiments/M21_BASELINE_SETUP_REPORT.md`
+- 状态快照：`experiments/output/m21_baseline/m21_setup_snapshot.json`（运行 `python3 experiments/scripts/m21_setup.py` 重新生成）
+- 实施映射：[SGE-M21-AiBeing-Implementation-Mapping.md](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md)
 
 ---
 

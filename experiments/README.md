@@ -28,9 +28,11 @@ cp .env.example .env
 
 ## 当前状态
 
-- **Phase 0（当前）**：本目录为空，仅有 README 和子目录结构
-- **Phase 1（即将）**：本目录将存放 M1.1/M1.2/M1.3 等里程碑的实验代码
-- **Phase 2+**：本目录继续扩展，承载 1000 Epoch 完整实验
+- **Phase 0（已完成，2026-06-15 之前）**：本目录建立（README、子目录结构、命名约定、约束规则）
+- **Phase 1（已完成，2026-06-17）**：M1.1~M1.4 实验代码 + 报告已归档
+- **Phase 2（当前，2026-06-18+）**：M2.1 启动中（[SGE-M21-AiBeing-Implementation-Mapping.md](../../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md)）
+
+权威阶段状态：[ROADMAP.md §Phase 进度](../../ROADMAP.md)。本 README 不维护"当前阶段"标注——以 ROADMAP 为准。
 
 ---
 

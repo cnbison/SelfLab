@@ -1,0 +1,128 @@
+# M2.1 阶段 A 基线配置文件
+# ====================================================================
+# 用途: SGE M2.1 实施第一波——基线冒烟测试
+# 适用: M2.1 阶段 A（复制 + 直接复用 AiBeing 原生参数，建立可比基线）
+# 设计依据:
+#   - research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md §五 阶段 A
+#   - research/sge-feasibility/SGE-Technology-Stack-Overview.md §一（8 个可复用机制）
+# 注意事项:
+#   - 这是**基线配置**：用 AiBeing 原生 5D drives（connection/novelty/expression/safety/play）
+#     和原生参数跑通认知循环，不做 SGE 化改造
+#   - 阶段 B 才开始 SGE 化（替换 drives 维度、Value scale 等）
+#   - 阶段 A 不调用真实 LLM（用 stub），避免 API 成本
+# ====================================================================
+
+experiment:
+  name: "SGE-M2.1-PhaseA-Baseline"
+  version: "1.0.0"
+  description: "M2.1 阶段 A：基线冒烟测试——验证 4 个借鉴机制可独立运行"
+  start_date: "2026-06-18"
+  total_epochs: 5  # 阶段 A 仅 5 步，验证机制可运行即可
+  seeds: [42]     # 阶段 A 用单 seed 验证；阶段 B/D 用多 seed
+  random_seed_strategy: "set_at_start"
+
+# ===== 借鉴来源 =====
+# 不复制代码到 SelfLab 仓库，scripts/m21_setup.py 通过 sys.path 引用
+borrowed_from:
+  project: "AiBeing (Genome v10 Hybrid)"
+  path: "/Users/loubicheng/project/AiBeing"
+  modules:
+    - "engine/genome/drive_metabolism.py — Time Metabolism + Thermodynamic Noise"
+    - "engine/genome/genome_engine.py — Agent + Hebbian Learning + Phase Transition"
+    - "engine/genome/style_memory.py — KNN + Hawking + Crystallization (M2.1-B 才用)"
+    - "engine/genome/critic.py — Critic LLM 感知 (M2.1-B 才用)"
+    - "agent/evermemos_mixin.py — Relationship EMA (M2.1-B 才用)"
+  reference_doc: "research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md"
+
+# ===== LLM 配置（阶段 A 不调用，阶段 B 才启用） =====
+llm:
+  enabled: false  # 阶段 A 用 stub
+  # 阶段 B 启用时填入（M2.1 阶段 B 的 LLM 配置）
+  provider: "minimax"
+  critic_model: "MiniMax-M3"
+  critic_temperature: 0.2
+  actor_model: "MiniMax-M3"
+  actor_temperature: 0.9
+
+# ===== Drives 配置 =====
+# 阶段 A 用 AiBeing 原生 5D drives（**不**用 SGE 化 drives）
+# 阶段 B 才替换为 SGE drives（待 Phase 0 终稿确定）
+drives:
+  list: ['connection', 'novelty', 'expression', 'safety', 'play']
+  scale: [0.0, 5.0]  # AiBeing 原生范围
+  initialization: "random_uniform_0.2_to_0.8"  # 与 AiBeing Agent.__init__ 一致
+
+# ===== Time Metabolism 配置（直接复用 AiBeing 默认值） =====
+time_metabolism:
+  frustration_decay_lambda: 0.08  # /h，约 8.7h 半衰期
+  connection_hunger_k: 0.15       # /h，联结渴望累积
+  novelty_hunger_k: 0.05          # /h，新鲜感渴望累积
+  decay_rate: 0.1                 # 每轮（apply_llm_delta 后的衰减）
+  source: "engine/genome/drive_metabolism.py:24-26"
+
+# ===== Thermodynamic Noise 配置（直接复用 AiBeing 默认值） =====
+thermo_noise:
+  temp_coeff: 0.12                # 温度斜率
+  temp_floor: 0.03                # 温度下限
+  saturation_strategy: "tanh"     # tanh 饱和曲线（避免高温时信号完全随机）
+  source: "engine/genome/drive_metabolism.py:27-28, 113-123"
+
+# ===== Hebbian Learning 配置（直接复用 AiBeing 默认值） =====
+hebbian:
+  lr: 0.02                        # 基础学习率
+  weight_decay: 0.995             # L2 衰减（每步）
+  hidden_size: 24                 # 隐藏层维度
+  recurrent_size: 8               # 循环状态维度
+  n_signals: 8                    # 输出信号维度
+  w2_clamp: [-1.5, 1.5]           # 输出层权重裁剪
+  w1_clamp: [-2.0, 2.0]           # 隐藏层权重裁剪
+  source: "engine/genome/genome_engine.py:84-87, 346-353"
+
+# ===== Phase Transition 配置（阶段 A 不触发，验证机制存在） =====
+phase_transition:
+  threshold: 2.0                  # 挫败感 > 此值触发相变
+  enabled_in_baseline: false      # 阶段 A 不触发（避免随机 reward 引起意外相变）
+  kick_formula: "b2 += -0.3*(sig-0.5) + gauss(0, 0.15)"
+  b1_noise: "gauss(0, 0.1)"
+  source: "engine/genome/genome_engine.py:204, 320-335"
+
+# ===== Crystallization 配置（阶段 A 不调用，验证 import） =====
+crystallization:
+  enabled_in_baseline: false      # 阶段 A 不调用
+  distance_threshold: 0.25        # 距离 < 此值合并增厚
+  new_memory_mass: 2.0            # 新记忆 mass 起点
+  merge_mass_increment: 1.0       # 合并时 mass 增量
+  source: "engine/genome/style_memory.py:274-337"
+
+# ===== KNN + Hawking 辐射（阶段 A 不调用，验证 import） =====
+memory_retrieval:
+  enabled_in_baseline: false      # 阶段 A 不调用
+  top_k: 3
+  distance_metric: "L2"
+  hawking_gamma: 0.001            # /h，约 29 天半衰期
+  source: "engine/genome/style_memory.py:29, 209-255"
+
+# ===== 输出配置 =====
+output:
+  log_dir: "experiments/output/m21_baseline/logs/"
+  state_dir: "experiments/output/m21_baseline/state/"
+  snapshot_file: "experiments/output/m21_baseline/m21_setup_snapshot.json"
+
+# ===== 验证标准（阶段 A 最低标准） =====
+validation:
+  drives_settled: true            # drive_state 在 5 步后有变化
+  metabolism_works: true          # temperature > 0
+  no_exceptions: true             # 整个循环无异常
+
+# ===== 元数据 =====
+metadata:
+  created: "2026-06-18"
+  updated: "2026-06-18"
+  phase: "M2.1 阶段 A — 基线"
+  purpose: "建立可比基线（用 AiBeing 原生参数），不验证 SGE 假设"
+  related_docs:
+    - "research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md"
+    - "research/sge-feasibility/SGE-Technology-Stack-Overview.md"
+    - "research/sge-learning/SGE-Learning-from-AiBeing.md"
+    - "ROADMAP.md §M2.1"
+  next_phase: "M2.1 阶段 B — SGE 化改造（替换 drives 维度、Value scale、Relationship EMA → Value EMA）"
