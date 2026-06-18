@@ -15,7 +15,7 @@
 ## 提交索引
 
 | 版本 | 日期 | commit hash | 主要内容 |
-|------|------|-------------|---------|
+|------|------|-------------|----------|
 | 0.5.0 | 2026-06-15 | `8c12195` | P1 批次修正 |
 | 0.4.0 | 2026-06-15 | `1b98b4f` | P0 批次修正 |
 | 0.3.0 | 2026-06-15 | `c509c95` (主) + 多次 | 新增项目级文档、哲学立场明确 |
@@ -26,6 +26,7 @@
 | 1.6.0 | 2026-06-17 | (本次) | **Phase 1 完成**:M1.3 反合理化测试 + Reflection Layer 实现 |
 | 1.7.0 | 2026-06-17 | (本次) | **跨 LLM 验证 (M1.3)**:Moonshot kimi-k2.6 重复 M1.3,验证 SGE 架构 LLM-agnostic |
 | 1.8.0 | 2026-06-17 | (本次) | **M1.4 REVISIT 专项测试**:5 组对照实验验证 prompt bias,洞察 29 双层反思结构 |
+| 1.9.0 | 2026-06-18 | (本次) | **M2.1 前置映射**:新增 SGE-M21-AiBeing-Implementation-Mapping.md,把 8 个可复用机制 + 1 个架构逐项映射到源码位置/公式/改造契约/验证方式 |
 
 ---
 
@@ -327,6 +328,48 @@
 - `experiments/output/m11_m13_reflection/` — Reflection 实验数据
 
 ---
+
+## [1.9.0] - 2026-06-18 (M2.1 前置映射)
+
+### 背景
+
+M2.1 是 Phase 2 的"完整 SGE 架构"里程碑 ([ROADMAP.md §M2.1](../ROADMAP.md))。ROADMAP 明确技术方案是"**基于 AiBeing 的 Genome v10 引擎改造**"。`SGE-Technology-Stack-Overview.md` §一 列了 8 个可复用机制 + 1 个架构，但只有机制简介和源码模块名，缺少**实施层**的"借鉴-改造"边界。
+
+### 新增
+
+- `research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md` — M2.1 实施映射文档
+  - §一 总览：借鉴-改造矩阵（9 个借鉴 + 4 个新增）
+  - §二 逐机制映射：每节"源码位置 → 关键公式 → SGE 改造契约 → 验证方式"
+    - §2.1 Critic 感知 → SGE Event 感知层
+    - §2.2 Time Metabolism → SGE 时间动力学
+    - §2.3 Relationship EMA → SGE Value Layer 演化
+    - §2.4 Hebbian Learning → SGE Value Layer 行为偏好
+    - §2.5 Phase Transition → SGE 叙事/价值观相变
+    - §2.6 Crystallization → SGE Memory 筛选门
+    - §2.7 KNN + Hawking 辐射 → SGE Memory 检索
+    - §2.8 Thermodynamic Noise → SGE 行为噪声
+    - §2.9 双 LLM 架构 → SGE Critic + Actor 编排
+  - §三 关键参数速查表（18 个默认参数，附源码位置）
+  - §四 与现有 SelfLab 文档的关联
+  - §五 M2.1 实施步骤建议（4 阶段：复制+复用 → 低改造 → 新增 → 集成验证）
+  - §六 风险与开放问题（5 个需要 Phase 0 终稿或 M2.1 实验回答的问题）
+  - §七 一句话总结
+
+### 关键决策
+
+- **不复制 AiBeing 代码到 SelfLab 仓库**——保留 CLAUDE.md "实验代码约定"边界（一次性实验代码，验证后归档不演进）
+- **不重写已验证算法**——EMA 公式、Hebbian 学习、Phase Transition 直接复用 AiBeing 实现
+- **明确借鉴-改造契约**——每个机制都标注"直接复用 / 低改造 / 中改造 / 新增"四档之一，避免实施时模糊
+- **不调参**——SGE drives 清单、Value scale、Hawking gamma 等 5 个开放问题留到 Phase 0 终稿或 M2.1 实验再决定
+
+### 验证来源
+
+- 阅读了 AiBeing 项目 4 个核心源文件 + 1 个 EMA 实现（共 ~1500 行 Python）：
+  - `engine/genome/critic.py` (239 行) — Critic LLM 感知
+  - `engine/genome/drive_metabolism.py` (198 行) — 时间代谢 + 温度噪声
+  - `engine/genome/genome_engine.py` (557 行) — Agent 神经网络 + Hebbian + Phase Transition
+  - `engine/genome/style_memory.py` (427 行) — KNN 检索 + Hawking 辐射 + 结晶
+  - `agent/evermemos_mixin.py:_apply_relationship_ema()` — Relationship EMA 公式
 
 ---
 
