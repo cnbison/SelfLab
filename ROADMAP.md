@@ -292,13 +292,13 @@ Phase 3: 系统完善
 | 阶段 | 范围 | 状态 |
 |------|------|------|
 | **阶段 A（基线）** | AiBeing 4 个核心机制原样跑通，验证可独立运行 | ✅ [1.10.0/1.11.0]（5 步循环 PASS）|
-| **阶段 B（SGE 化改造）** | drives 替换（候选 B）+ Value Layer 引入 + Value EMA + Critic LLM 接入 + Phase/Hawking/Crystallize 阈值调参 | 📋 [实施计划](../research/sge-feasibility/SGE-M21-Phase-B-Implementation-Plan.md)（7 个子任务，6-7 天）|
-| **阶段 C（新增组件）** | Identity Layer + Narrative Builder MVP + Event Generator + Value Conflict Generator | ⏳ 待阶段 B 完成 |
+| **阶段 B（SGE 化改造）** | drives 替换（候选 B）+ Value Layer 引入 + Value EMA + Critic LLM 接入 + Phase/Hawking/Crystallize 阈值调参 | ✅ [1.17.0]（7 子任务全 PASS，[实施计划](../research/sge-feasibility/SGE-M21-Phase-B-Implementation-Plan.md)，[报告](../../experiments/M21_PHASE_B_REPORT.md)）|
+| **阶段 C（新增组件）** | Identity Layer（FR-5）+ Narrative Builder MVP（FR-6）+ Event Generator 完整化（FR-1）+ Value Conflict Generator | 📋 [实施计划](../research/sge-feasibility/SGE-M21-Phase-C-Implementation-Plan.md)（4 子任务，5-6 天）|
 | **阶段 D（集成 + 验证）** | 完整 12 步双 LLM 编排 + 100 epoch 冒烟 + 1000 epoch 三胞胎（M2.2 预备）| ⏳ 待阶段 C 完成 |
 
 **关键决策依据**：[SGE-Phase0-Closeout.md §5](../research/sge-core/SGE-Phase0-Closeout.md#5-决策结果基于-05-三原则推导2026-06-19-填写)（基于三原则推导的 6 决策点 + 2 元问题）
 
-**当前状态（2026-06-19）**：阶段 A 完成、阶段 B 实施计划就绪、待 Bisen 评审后启动阶段 B 实施
+**当前状态（2026-06-19）**：阶段 A ✅、阶段 B ✅（commit `bc42a47`）、阶段 C 实施计划就绪（待 Bisen 评审后启动）、阶段 D ⏳
 
 ### M2.2：1000 Epoch 三胞胎实验
 
