@@ -175,34 +175,24 @@ def real_critic_sense(
     event: dict,
     drives: Optional[dict] = None,
     values: Optional[dict] = None,
-    api_key: Optional[str] = None,
-    base_url: str = "https://api.minimax.io/anthropic",
-    model: str = "anthropic/MiniMax-M3",
+    llm=None,
     temperature: float = 0.2,
     max_tokens: int = 1024,
 ) -> tuple[dict, dict]:
-    """调用真实 Critic LLM（MiniMax-M3）感知事件
+    """调用真实 Critic LLM（SGELLMClient）感知事件
 
     Args:
         event: 事件字典
         drives, values: 当前状态（注入 prompt）
-        api_key: MINIMAX_API_KEY 环境变量（默认从环境读）
-        base_url: API endpoint
-        model: litellm 模型名
+        llm: SGELLMClient 实例（阶段 D 统一接口）
         temperature: LLM 温度
         max_tokens: 最大输出 token
 
     Returns:
         (context_dict, value_delta_dict) 元组
     """
-    try:
-        from litellm import completion
-    except ImportError:
-        raise ImportError("litellm 未安装，请运行: pip install litellm")
-
-    api_key = api_key or os.environ.get("MINIMAX_API_KEY")
-    if not api_key:
-        raise ValueError("MINIMAX_API_KEY 环境变量未设置")
+    if llm is None:
+        raise ValueError("real_critic_sense requires llm (SGELLMClient) parameter")
 
     # 构造 prompt
     vv_str = ", ".join(f"{k}={v:.3f}" for k, v in (values or {}).items())
@@ -215,32 +205,16 @@ def real_critic_sense(
         event_intensity=event.get('intensity', 0.5),
     )
 
-    # 调用 LLM
-    response = completion(
-        model=model,
+    # 调用 LLM（统一客户端，自动 JSON 解析）
+    parsed = llm.chat_json(
         messages=[{"role": "user", "content": prompt}],
-        api_key=api_key,
-        base_url=base_url,
         temperature=temperature,
         max_tokens=max_tokens,
+        fallback_value=None,
     )
 
-    content = response.choices[0].message.content.strip()
-
-    # 解析 JSON（处理 markdown fence）
-    if content.startswith('```'):
-        # 提取 ```json ... ``` 内容
-        lines = content.split('\n')
-        content = '\n'.join(lines[1:-1]) if lines[-1].strip() == '```' else content
-        if content.startswith('json'):
-            content = content[4:].lstrip()
-
-    try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError as e:
-        # 解析失败 → 回退到 stub（避免实验中断）
-        print(f"[WARN] Critic JSON parse failed: {e}")
-        print(f"[WARN] Raw content: {content[:200]}")
+    if parsed is None:
+        # LLM 失败或 JSON 解析失败 → 回退到 stub（避免实验中断）
         return stub_critic_sense(event, drives, values)
 
     # Schema 校验
@@ -274,19 +248,23 @@ def critic_sense(
     values: Optional[dict] = None,
     use_real_llm: bool = False,
     seed: int = 0,
+    llm=None,
     **kwargs,
 ) -> tuple[dict, dict]:
     """统一 Critic SENSE 入口
 
     Args:
         event, drives, values: 见 stub_critic_sense
-        use_real_llm: True → 调用 MiniMax-M3；False → stub
+        use_real_llm: True → 调用 SGELLMClient；False → stub
         seed: stub 随机种子
+        llm: SGELLMClient 实例（use_real_llm=True 时必需）
         **kwargs: 传给 real_critic_sense 的参数
 
     Returns:
         (context_dict, value_delta_dict)
     """
     if use_real_llm:
-        return real_critic_sense(event, drives, values, **kwargs)
+        if llm is None:
+            raise ValueError("critic_sense: use_real_llm=True requires llm (SGELLMClient)")
+        return real_critic_sense(event, drives, values, llm=llm, **kwargs)
     return stub_critic_sense(event, drives, values, seed)

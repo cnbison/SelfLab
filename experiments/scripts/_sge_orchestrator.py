@@ -57,6 +57,7 @@ from _sge_actor import actor_express, ActorOutput
 from _sge_event import EventGenerator, LifeEvent
 from _sge_identity import IdentityLayer
 from _sge_narrative import NarrativeBuilder
+from _sge_llm_client import SGELLMClient, make_llm_client
 
 
 # ══════════════════════════════════════════════
@@ -136,7 +137,9 @@ class SGEOrchestrator:
         crystallize_every: int = 10,
         hours_per_epoch: float = 1.0,
         use_real_llm: bool = False,
-        llm=None,
+        llm: Optional[SGELLMClient] = None,
+        llm_provider: str = 'minimax',
+        verbose: bool = False,
     ):
         self.agent = agent
         self.value_layer = value_layer
@@ -149,7 +152,18 @@ class SGEOrchestrator:
         self.crystallize_every = crystallize_every
         self.hours_per_epoch = hours_per_epoch
         self.use_real_llm = use_real_llm
-        self.llm = llm
+        self.verbose = verbose
+        self._n_epochs_hint = 0  # 由 run() 在循环前设置；step() 单调用时为 0
+
+        # 自动加载 LLM 客户端（如果 use_real_llm=True 且未提供）
+        if use_real_llm:
+            if llm is None:
+                self.llm = make_llm_client(provider=llm_provider, verbose=verbose)
+                print(f"✓ Orchestrator auto-loaded LLM: {self.llm.stats()}")
+            else:
+                self.llm = llm
+        else:
+            self.llm = None
 
         # 注入 Memory Layer 到 Agent（如果未注入）
         if self.hawking is not None and self.agent.hawking is None:
@@ -293,12 +307,21 @@ class SGEOrchestrator:
             recent_events = [
                 evt.to_dict() for (_, evt) in self.event_generator.event_history[-5:]
             ]
+            # 临时设置 IdentityLayer 为真实 LLM 模式（如果 orchestrator 是）
+            prev_use_real = self.identity_layer.use_real_llm
+            prev_llm = self.identity_layer.llm
+            if self.use_real_llm:
+                self.identity_layer.use_real_llm = True
+                self.identity_layer.llm = self.llm
             identity = self.identity_layer.crystallize(
                 value_layer=self.value_layer,
                 key_memories=recent_events,
                 epoch=epoch,
                 seed=hash((epoch, 'identity')) % (2**31),
             )
+            # 恢复（保持 IdentityLayer 的独立性）
+            self.identity_layer.use_real_llm = prev_use_real
+            self.identity_layer.llm = prev_llm
 
         # ── Step 14: Narrative Build（每 M epoch 触发）──
         narrative = None
@@ -306,12 +329,19 @@ class SGEOrchestrator:
             recent_events = [
                 evt.to_dict() for (_, evt) in self.event_generator.event_history[-10:]
             ]
+            prev_use_real = self.narrative_builder.use_real_llm
+            prev_llm = self.narrative_builder.llm
+            if self.use_real_llm:
+                self.narrative_builder.use_real_llm = True
+                self.narrative_builder.llm = self.llm
             narrative = self.narrative_builder.build(
                 crystallized_events=recent_events,
                 current_identity=self.identity_layer.get_current(),
                 epoch=epoch,
                 seed=hash((epoch, 'narrative')) % (2**31),
             )
+            self.narrative_builder.use_real_llm = prev_use_real
+            self.narrative_builder.llm = prev_llm
 
         # ── Step 15: Phase Transition 联动 Narrative 重建 ──
         if phase_xition and self.narrative_builder.current_narrative:
@@ -323,6 +353,25 @@ class SGEOrchestrator:
                 current_identity=self.identity_layer.get_current(),
                 epoch=epoch,
                 seed=hash((epoch, 'phase_xition')) % (2**31),
+            )
+
+        if self.verbose:
+            flags = []
+            if phase_xition:
+                flags.append('PT')
+            if identity is not None:
+                flags.append('IDENTITY')
+            if narrative is not None:
+                flags.append('NARRATIVE')
+            if crystallize_result is not None:
+                flags.append('CRYSTAL')
+            flag_str = f' [{" ".join(flags)}]' if flags else ''
+            actor_label = actor_output.behavior_label if actor_output else 'n/a'
+            print(
+                f'[epoch {epoch + 1}/{self._n_epochs_hint}] '
+                f'event={event.event_type} actor={actor_label} '
+                f'|val|={self.value_layer.magnitude():.3f}{flag_str}',
+                flush=True,
             )
 
         return OrchestratorStep(
@@ -355,6 +404,10 @@ class SGEOrchestrator:
             list[OrchestratorStep]
         """
         traces = []
+        self._n_epochs_hint = n_epochs
+        if self.verbose:
+            print(f'[orchestrator] running {n_epochs} epochs '
+                  f'(use_real_llm={self.use_real_llm})', flush=True)
         for epoch in range(n_epochs):
             trace = self.step(epoch)
             traces.append(trace)

@@ -255,20 +255,28 @@ class IdentityLayer:
         identity_history: Optional[list] = None,
         crystallize_every_n_epochs: int = 20,  # DESIGN §5.1 触发条件
         use_real_llm: bool = False,
+        llm=None,
     ):
         """
         Args:
             identity_history: 初始化历史（None 则空）
             crystallize_every_n_epochs: 每 N 个 Epoch 触发一次
             use_real_llm: True 调用真实 LLM，False 用 stub
+            llm: SGELLMClient 实例（阶段 D 统一接口）
         """
         self.identity_history = identity_history or []
         self.crystallize_every_n_epochs = crystallize_every_n_epochs
         self.use_real_llm = use_real_llm
+        self.llm = llm
 
     def should_crystallize(self, epoch: int) -> bool:
-        """DESIGN §5.1 触发条件：每 N 个 Epoch"""
-        return epoch > 0 and epoch % self.crystallize_every_n_epochs == 0
+        """DESIGN §5.1 触发条件：每 N 个 Epoch（跑完第 N 个 epoch 后触发）
+
+        epoch 从 0 开始（orchestrator.run 用 range(n_epochs)），所以
+        "跑完 20 个 epoch"对应 epoch=19，应触发一次。
+        公式：(epoch + 1) % N == 0  → epoch ∈ {N-1, 2N-1, ...}
+        """
+        return (epoch + 1) % self.crystallize_every_n_epochs == 0
 
     def crystallize(
         self,
@@ -294,13 +302,50 @@ class IdentityLayer:
         """
         # 1. 生成 identity
         if self.use_real_llm:
-            identity = real_crystallize_identity(value_layer, key_memories, **kwargs)
+            if self.llm is not None:
+                # 阶段 D：使用统一 SGELLMClient
+                vv_desc = _value_vector_to_description(value_layer)
+                memories_desc = _memories_to_description(key_memories)
+                prompt = SGE_IDENTITY_PROMPT.format(vv_desc=vv_desc, memories_desc=memories_desc)
+                parsed = self.llm.chat_json(
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.3,
+                    max_tokens=256,
+                    fallback_value=None,
+                )
+                if parsed is None:
+                    identity = None
+                elif isinstance(parsed, dict):
+                    identity = parsed.get('identity', str(parsed)[:50])
+                elif isinstance(parsed, str):
+                    identity = parsed  # LLM 直接返回字符串（真实 LLM 常见）
+                else:
+                    identity = str(parsed)[:50]  # 兜底
+            else:
+                # 向后兼容：旧接口（kwargs 里有 api_key / base_url）
+                identity = real_crystallize_identity(value_layer, key_memories, **kwargs)
         else:
             identity = stub_crystallize_identity(value_layer, key_memories, seed=seed)
 
+        if identity is None:
+            return None
+
         # 2. 验证
         if self.use_real_llm or force_validate:
-            if self.use_real_llm:
+            if self.use_real_llm and self.llm is not None:
+                # 阶段 D：使用统一 SGELLMClient
+                vv_desc = _value_vector_to_description(value_layer)
+                memories_desc = _memories_to_description(key_memories)
+                prompt = SGE_VALIDATE_PROMPT.format(
+                    identity=identity, vv_desc=vv_desc, memories_desc=memories_desc,
+                )
+                content = self.llm.chat(
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0,
+                    max_tokens=16,
+                )
+                valid = "YES" in content.upper()
+            elif self.use_real_llm:
                 valid = real_validate_identity(identity, value_layer, key_memories, **kwargs)
             else:
                 valid = stub_validate_identity(identity, value_layer, key_memories)

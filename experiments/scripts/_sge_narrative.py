@@ -254,6 +254,7 @@ class NarrativeBuilder:
         build_every_n_epochs: int = 50,
         use_real_llm: bool = False,
         consistency_threshold: float = 0.5,
+        llm=None,
     ):
         """
         Args:
@@ -261,16 +262,23 @@ class NarrativeBuilder:
             build_every_n_epochs: 每 N 个 Epoch 触发 build
             use_real_llm: True 调用真实 LLM
             consistency_threshold: 重建叙事的一致性阈值（DESIGN §6.3 规定 0.5）
+            llm: SGELLMClient 实例（阶段 D 统一接口）
         """
         self.current_narrative = current_narrative
         self.build_every_n_epochs = build_every_n_epochs
         self.use_real_llm = use_real_llm
         self.consistency_threshold = consistency_threshold
+        self.llm = llm
         self.narrative_history = []  # [(epoch, narrative, coherence_score), ...]
 
     def should_build(self, epoch: int) -> bool:
-        """DESIGN §六 触发条件：每 N 个 Epoch"""
-        return epoch > 0 and epoch % self.build_every_n_epochs == 0
+        """DESIGN §六 触发条件：每 N 个 Epoch（跑完第 N 个 epoch 后触发）
+
+        epoch 从 0 开始（orchestrator.run 用 range(n_epochs)），所以
+        "跑完 50 个 epoch"对应 epoch=49，应触发一次。
+        公式：(epoch + 1) % N == 0  → epoch ∈ {N-1, 2N-1, ...}
+        """
+        return (epoch + 1) % self.build_every_n_epochs == 0
 
     def build(
         self,
@@ -292,9 +300,30 @@ class NarrativeBuilder:
             叙事字符串
         """
         if self.use_real_llm:
-            narrative = real_build_narrative(
-                crystallized_events, current_identity, **kwargs,
-            )
+            if self.llm is not None:
+                # 阶段 D：使用统一 SGELLMClient
+                events_timeline = _format_events_timeline(crystallized_events)
+                prompt = SGE_NARRATIVE_PROMPT.format(
+                    current_identity=current_identity or '（暂无身份）',
+                    events_timeline=events_timeline,
+                )
+                parsed = self.llm.chat_json(
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.5,
+                    max_tokens=800,
+                    fallback_value=None,
+                )
+                if parsed is None:
+                    narrative = stub_build_narrative(
+                        crystallized_events, current_identity, seed=seed,
+                    )
+                else:
+                    narrative = parsed.get('narrative', str(parsed)[:500])
+            else:
+                # 向后兼容
+                narrative = real_build_narrative(
+                    crystallized_events, current_identity, **kwargs,
+                )
         else:
             narrative = stub_build_narrative(
                 crystallized_events, current_identity, seed=seed,
@@ -325,9 +354,31 @@ class NarrativeBuilder:
             [0, 1] 范围的分数
         """
         if self.use_real_llm:
-            score = real_check_narrative_consistency(
-                narrative, crystallized_events, **kwargs,
-            )
+            if self.llm is not None:
+                # 阶段 D：使用统一 SGELLMClient
+                events_timeline = _format_events_timeline(crystallized_events)
+                prompt = SGE_CONSISTENCY_PROMPT.format(
+                    narrative=narrative, events_timeline=events_timeline,
+                )
+                parsed = self.llm.chat_json(
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.0,
+                    max_tokens=16,
+                    fallback_value=None,
+                )
+                if parsed is None:
+                    score = 0.5  # 默认中等一致性
+                elif isinstance(parsed, (int, float)):
+                    score = float(parsed)  # LLM 直接返回数字（真实 LLM 常见）
+                elif isinstance(parsed, dict):
+                    score = float(parsed.get('score', parsed.get('coherence', 0.5)))
+                else:
+                    score = 0.5  # 未知类型 → 中性
+            else:
+                # 向后兼容
+                score = real_check_narrative_consistency(
+                    narrative, crystallized_events, **kwargs,
+                )
         else:
             score = stub_check_narrative_consistency(
                 narrative, crystallized_events, seed=seed,

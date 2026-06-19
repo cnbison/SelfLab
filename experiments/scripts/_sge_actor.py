@@ -222,7 +222,7 @@ def real_actor_express(
     llm=None,
     seed: int = 0,
 ) -> ActorOutput:
-    """真实 LLM Actor — 用 MiniMax-M3 生成
+    """真实 LLM Actor — 用 MiniMax-M3 生成（统一 SGELLMClient）
 
     prompt 模板（基于 m11_smoke_test.py:actor_single）:
       基于当前 signals + values + retrieved memories + narrative
@@ -230,14 +230,14 @@ def real_actor_express(
 
     Args:
         signals, value_vector, retrieved_memories, current_narrative: 同 stub
-        llm: LLM 客户端（如 anthropic.Anthropic()）
+        llm: SGELLMClient 实例
         seed: 随机种子
 
     Returns:
         ActorOutput
     """
     if llm is None:
-        raise ValueError("real_actor_express requires llm parameter")
+        raise ValueError("real_actor_express requires llm (SGELLMClient) parameter")
 
     # 构造 prompt
     sig_str = ', '.join(f'{k}={v:.2f}' for k, v in signals.items())
@@ -271,38 +271,16 @@ def real_actor_express(
 输出 JSON 格式：
 {{"inner_monologue": "...", "behavior_label": "...", "intention": "...", "confidence": 0.X}}"""
 
-    # 调用 LLM
-    try:
-        response = llm.chat(
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.9,  # 高温度 → 多样性表达
-            max_tokens=300,
-        )
-        # 解析 JSON（兼容多种格式）
-        content = response.content if hasattr(response, 'content') else str(response)
-        # 提取 JSON 块
-        if '```json' in content:
-            content = content.split('```json')[1].split('```')[0]
-        elif '```' in content:
-            content = content.split('```')[1].split('```')[0]
-        parsed = json.loads(content.strip())
+    # 调用 LLM（统一客户端）
+    parsed = llm.chat_json(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.9,  # 高温度 → 多样性表达
+        max_tokens=300,
+        fallback_value=None,
+    )
 
-        # 字段保护
-        behavior = parsed.get('behavior_label', '敷衍回应')
-        if behavior not in BEHAVIOR_LABELS:
-            behavior = '敷衍回应'
-        confidence = float(parsed.get('confidence', 0.5))
-        confidence = max(0.0, min(1.0, confidence))
-
-        return ActorOutput(
-            inner_monologue=str(parsed.get('inner_monologue', '')),
-            behavior_label=behavior,
-            intention=str(parsed.get('intention', '')),
-            confidence=confidence,
-        )
-    except Exception as e:
-        # LLM 失败 → 回退到 stub
-        print(f"[WARN] real_actor_express failed: {e}, fallback to stub")
+    if parsed is None:
+        # LLM 失败或 JSON 解析失败 → 回退到 stub
         return stub_actor_express(
             signals=signals,
             value_vector=value_vector,
@@ -310,6 +288,20 @@ def real_actor_express(
             current_narrative=current_narrative,
             seed=seed,
         )
+
+    # 字段保护
+    behavior = parsed.get('behavior_label', '敷衍回应')
+    if behavior not in BEHAVIOR_LABELS:
+        behavior = '敷衍回应'
+    confidence = float(parsed.get('confidence', 0.5))
+    confidence = max(0.0, min(1.0, confidence))
+
+    return ActorOutput(
+        inner_monologue=str(parsed.get('inner_monologue', '')),
+        behavior_label=behavior,
+        intention=str(parsed.get('intention', '')),
+        confidence=confidence,
+    )
 
 
 # ══════════════════════════════════════════════
