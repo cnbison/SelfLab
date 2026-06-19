@@ -69,7 +69,7 @@ Phase 1 验证了"有内心"，但那只是 **0-1 岁** 的脊髓反射。Phase 
 | **M2.2**（1000 Epoch 长期跟踪） | 跑 1000 个 epoch，相当于跟踪**从婴儿到少年** | 它能形成**稳定的"我是谁"**和**连贯的"我的人生故事"**吗？|
 | **M2.3**（个人真实测试） | 直接问它"你最看重什么？你后悔过什么？" | 它的回答能**从人生档案追溯到**吗？（→ 不是编故事，是真心的自传）|
 
-**当前状态**：M2.1 阶段 A 完成（基线通过），阶段 B 启动中——把 AiBeing 的 5 drives 替换为 SGE 的 5 drives（`exploration, safety, creativity, connection, autonomy` + 代码层 schema 化）、Value EMA 改造、接入真实 LLM。详见 [research/sge-core/SGE-Phase0-Closeout.md §5 决策结果](./research/sge-core/SGE-Phase0-Closeout.md)。
+**当前状态（2026-06-19）**：M2.1 全部 4 个阶段（A 基线 + B SGE 化改造 + C 新增组件 + D 集成验证）已完成。D 含 stub 模式 100 epoch 验证 + 真实 LLM（D6）1 baby × 20 epoch / 44 次 LLM 调用 / 5/5 硬性验收 PASS。下一步进入 M2.2 的 1000 epoch 三胞胎实验（**真实 LLM 模式**，因 stub 系统性低估 Value 累积速率 ~8 倍）。详见 [ROADMAP.md §M2.1](./ROADMAP.md) + [阶段 D 报告 §3.5](./experiments/M21_PHASE_D_REPORT.md)。
 
 ### Phase 3 系统完善 — "成人期 + 社会化"
 
