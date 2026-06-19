@@ -29,7 +29,7 @@ from __future__ import annotations
 import random
 import uuid
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Dict
 
 
 # ══════════════════════════════════════════════
@@ -242,6 +242,7 @@ class EventGenerator:
         seed: int = 0,
         value_conflict_prob: float = 0.3,
         clock: Optional[float] = None,
+        distribution_by_epoch: Optional[Dict[int, Dict[str, float]]] = None,
     ):
         """
         Args:
@@ -249,9 +250,16 @@ class EventGenerator:
             seed: 随机种子
             value_conflict_prob: value_conflict 事件概率（DESIGN §2.2 规定 0.3）
             clock: 起始时间戳
+            distribution_by_epoch: 可选 — 按 epoch 区间的事件类型分布（M2.2 E1 引入）。
+              格式: {start_epoch: {event_type: weight}}
+              例: {1: {'success': 0.8, 'failure': 0.05, ...}, 20: {...}, 500: {...}}
+              行为: 在 epoch=N 时找最大 key ≤ N 的分布；若没匹配 key → 均匀分布。
+              **仅影响 70% 常规事件的类型选择**（30% value_conflict 不受影响），
+              这样 value_conflict_prob 仍独立可控（M2.2 主实验可单独调整）。
         """
         self.baby_id = baby_id
         self.value_conflict_prob = value_conflict_prob
+        self.distribution_by_epoch = distribution_by_epoch
         self.rng = random.Random(seed)
         self.event_history = []  # [(epoch, LifeEvent), ...]
         self._clock = clock or 0.0
@@ -302,6 +310,51 @@ class EventGenerator:
         weakest = min(values.items(), key=lambda x: x[1])
         return (strongest[0], weakest[0])
 
+    def _get_distribution(self, epoch: int) -> Optional[Dict[str, float]]:
+        """查找当前 epoch 适用的分布（最近的前序 key）
+
+        Returns:
+            分布 dict 或 None（表示无配置 → 均匀分布）
+        """
+        if not self.distribution_by_epoch:
+            return None
+        applicable_keys = [k for k in self.distribution_by_epoch if k <= epoch]
+        if not applicable_keys:
+            return None
+        return self.distribution_by_epoch[max(applicable_keys)]
+
+    def _sample_event_type_from_distribution(
+        self, distribution: Dict[str, float]
+    ) -> str:
+        """从分布采样事件类型（自动归一化 weights）
+
+        Args:
+            distribution: {event_type: weight} dict
+
+        Returns:
+            事件类型字符串
+
+        Notes:
+            - 空 dict 或全 0 weights → fallback 均匀分布（防御性）
+            - weights 总和不为 1 → litellm/random 自动归一化
+        """
+        REGULAR_TYPES = ['success', 'failure', 'relationship', 'exploration', 'risk']
+        event_types = list(distribution.keys())
+        weights = list(distribution.values())
+
+        if not event_types or sum(weights) <= 0:
+            # 空分布或全 0 → 均匀（防御性 fallback）
+            return self.rng.choice(REGULAR_TYPES)
+
+        # 过滤未知 event_type（只保留在 REGULAR_TYPES 中的）
+        filtered = [(t, w) for t, w in zip(event_types, weights)
+                    if t in REGULAR_TYPES and w > 0]
+        if not filtered:
+            return self.rng.choice(REGULAR_TYPES)
+
+        types, wts = zip(*filtered)
+        return self.rng.choices(list(types), weights=list(wts), k=1)[0]
+
     def generate(self, epoch: int, value_vector=None) -> LifeEvent:
         """生成下一事件
 
@@ -311,11 +364,16 @@ class EventGenerator:
 
         Returns:
             LifeEvent 实例
+
+        M2.2 E1 改造：
+          - 70% 常规事件时，若 distribution_by_epoch 配置覆盖此 epoch → 用分布采样
+          - 否则保持原行为（均匀随机 5 种常规事件）
+          - 30% value_conflict 不受影响（独立可控）
         """
         event_id = make_event_id(self.baby_id, epoch)
         timestamp = self._advance_clock()
 
-        # 30% 概率 value_conflict（C2）
+        # 30% 概率 value_conflict（C2）—— 不受 distribution_by_epoch 影响
         if self.rng.random() < self.value_conflict_prob and value_vector is not None:
             strongest, weakest = self._identify_value_strengths(value_vector)
             event = generate_value_conflict(
@@ -327,8 +385,16 @@ class EventGenerator:
                 rng=self.rng,
             )
         else:
-            # 70% 概率常规事件
-            event_type = self.rng.choice(['success', 'failure', 'relationship', 'exploration', 'risk'])
+            # 70% 概率常规事件 —— 检查分布配置
+            distribution = self._get_distribution(epoch)
+            if distribution is not None:
+                event_type = self._sample_event_type_from_distribution(distribution)
+            else:
+                # 无配置 → 与 M2.1 行为一致（均匀随机 5 种）
+                event_type = self.rng.choice(
+                    ['success', 'failure', 'relationship', 'exploration', 'risk']
+                )
+
             description = self.rng.choice(EVENT_TEMPLATES[event_type])
             intensity = 0.3 + self.rng.random() * 0.5  # [0.3, 0.8]
             # value_challenges: 简单随机选 1-2 个 values
