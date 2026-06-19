@@ -187,8 +187,8 @@ class SGELLMClient:
             litellm.ServiceUnavailableError,
         )
 
-        max_retries = 3
-        base_delay = 1.0
+        max_retries = 5  # M2.2 提升：server 持续不稳定时 3 次不够（pilot v2 crashed）
+        base_delay = 1.5  # base 略增，配合指数退避 → 1.5/3/6/12s
         last_error: Optional[Exception] = None
 
         for attempt in range(max_retries):
@@ -206,11 +206,11 @@ class SGELLMClient:
             except RETRYABLE_EXCEPTIONS as e:
                 last_error = e
                 if attempt < max_retries - 1:
-                    # 指数退避：1s, 2s, 4s
+                    # 指数退避：1.5s, 3s, 6s, 12s
                     wait = base_delay * (2 ** attempt)
                     print(
                         f"[LLM retry {attempt + 1}/{max_retries - 1}] "
-                        f"{type(e).__name__}: {str(e)[:100]} ... waiting {wait:.1f}s",
+                        f"{type(e).__name__}: {str(e)[:80]} ... waiting {wait:.1f}s",
                         flush=True,
                     )
                     time.sleep(wait)
