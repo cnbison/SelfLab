@@ -320,6 +320,9 @@ class Agent:
         phase_threshold: float = PHASE_THRESHOLD,
         drives: Optional[list[str]] = None,
         value_layer: Optional[object] = None,
+        hawking: Optional["HawkingDecay"] = None,
+        crystallizer: Optional["MemoryCrystallizer"] = None,
+        crystallize_every: int = 10,
     ):
         rng = random.Random(seed)
         self.seed = seed
@@ -335,6 +338,17 @@ class Agent:
         # 来源: SGE-Phase0-Closeout.md §5 决策点 2（Value scale [-1, 1]）
         # 参考: SGE-M21-AiBeing-Implementation-Mapping.md §2.3
         self.value_layer = value_layer  # None 时 step 不更新 values
+
+        # 阶段 D: Memory Layer 接入（D1 集成）
+        # HawkingDecay：每步 tick（连续衰减）
+        # MemoryCrystallizer：每 N 步 insert_or_merge（事件合并）
+        # 参考: SGE-M21-Phase-D-Implementation-Plan.md §D1
+        self.hawking = hawking
+        self.crystallizer = crystallizer
+        self.crystallize_every = crystallize_every
+        self._last_crystallize_step = 0
+        self._last_hawking_removed = 0
+        self._last_crystallize_result = None  # 'merged' / 'created' / None
 
         # Drive 参数（来源: genome_engine.py:206-209）
         self.drive_baseline = {d: rng.uniform(0.2, 0.8) for d in self.drives}
@@ -509,15 +523,24 @@ class Agent:
         for d in self.drives:
             self.drive_state[d] = min(1.0, self.drive_state[d] + self.drive_accumulation_rate[d])
 
-    def step(self, context: dict, reward: float = 0.0, critic_value_delta: Optional[dict] = None) -> dict:
+    def step(self, context: dict, reward: float = 0.0, critic_value_delta: Optional[dict] = None, epoch: Optional[int] = None, now: Optional[float] = None) -> dict:
         """
-        一步完整循环：compute_signals → learn → tick_drives → value_layer.update
+        一步完整循环：compute_signals → learn → tick_drives → value_layer.update → memory_layer
 
         阶段 B 改造: 新增 critic_value_delta 参数，每步应用 Critic 输出的 value delta
+        阶段 D 改造 (D1): 集成 HawkingDecay + MemoryCrystallizer
+
+        Args:
+            context: 12D context (8D Critic + 4D EverMemOS)
+            reward: 标量 reward（来自 DriveMetabolism）
+            critic_value_delta: 6D value delta dict（来自 Critic LLM）
+            epoch: 当前 epoch（用于 Crystallize 触发判断）
+            now: 受控模拟时间戳（小时），传给 HawkingDecay.tick
 
         来源: AiBeing engine/genome/genome_engine.py:355-362
         参考: SGE-M21-AiBeing-Implementation-Mapping.md §2.9（12 步循环中的核心步骤）
               + §2.3（Value EMA）
+              + SGE-M21-Phase-D-Implementation-Plan.md §D1（Memory Layer）
         """
         signals = self.compute_signals(context)
         self.learn(signals, reward)
@@ -525,6 +548,33 @@ class Agent:
         # ValueLayer 更新（阶段 B）
         if self.value_layer is not None and critic_value_delta is not None:
             self.value_layer.update(critic_value_delta)
+
+        # Memory Layer 更新（阶段 D1）
+        # Step 5: Hawking Tick — 记忆衰减
+        if self.hawking is not None:
+            self._last_hawking_removed = self.hawking.tick(now=now)
+        # Step 6: Crystallize Gate — 记忆合并（每 N 步）
+        if (
+            self.crystallizer is not None
+            and epoch is not None
+            and self.crystallize_every > 0
+            and epoch > 0
+            and epoch % self.crystallize_every == 0
+        ):
+            # 打包当前 value_state (6D) + signals (8D) = 14D 向量
+            # N=14 → threshold = 0.25/sqrt(14) ≈ 0.067
+            if self.value_layer is not None:
+                value_vec = self.value_layer.to_vec()
+            else:
+                value_vec = [0.0] * 6
+            signal_vec = [signals[s] for s in SIGNALS]
+            combined_vec = value_vec + signal_vec  # 14D
+            self._last_crystallize_result = self.crystallizer.insert_or_merge(
+                vec=combined_vec,
+                weight=1.0,
+            )
+            self._last_crystallize_step = epoch
+
         return signals
 
 

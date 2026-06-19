@@ -1,0 +1,137 @@
+# M2.1 阶段 D 配置（完整 12 步双 LLM 编排）
+#
+# 阶段 C → 阶段 D 变更：
+# - 完整 12 步编排（Time/Event/Critic/Value EMA/Hawking/Crystallize/Signals/Noise/KNN/Prompt/Actor/Hebbian/Identity/Narrative）
+# - Memory Layer 接入（Hawking + Crystallizer 注入 Agent）
+# - Actor LLM 模块（stub + real 双模式，temperature=0.9）
+# - 长 epoch 验证（100 epoch 单 seed + 3 seed × 100 epoch）
+# - Identity/Narrative/Crystallize 触发频率配置
+#
+# 关联文档：
+# - [SGE-Phase0-Closeout.md §5](../../research/sge-core/SGE-Phase0-Closeout.md)
+# - [SGE-M21-Phase-D-Implementation-Plan.md](../../research/sge-feasibility/SGE-M21-Phase-D-Implementation-Plan.md)
+
+# ════════════════════════════════════════════════
+# Drives 配置（schema 化，沿用阶段 B）
+# ════════════════════════════════════════════════
+drives:
+  - exploration
+  - safety
+  - creativity
+  - connection
+  - autonomy
+
+hunger_rates:
+  connection: 0.15
+  exploration: 0.05
+
+# ════════════════════════════════════════════════
+# Values 配置（沿用阶段 B）
+# ════════════════════════════════════════════════
+values:
+  - safety
+  - creativity
+  - connection
+  - autonomy
+  - justice
+  - compassion
+
+value_alpha: 0.3
+value_clip_min: -1.0
+value_clip_max: 1.0
+
+# ════════════════════════════════════════════════
+# Phase Transition 阈值（沿用阶段 B）
+# ════════════════════════════════════════════════
+phase_threshold: 2.0
+
+# ════════════════════════════════════════════════
+# Hawking 辐射（沿用阶段 B）
+# ════════════════════════════════════════════════
+hawking_gamma: 0.01
+hawking_remove_threshold: 0.0001
+
+# ════════════════════════════════════════════════
+# Crystallize 阈值（沿用阶段 B）
+# ════════════════════════════════════════════════
+crystallize_base: 0.25
+
+# 阶段 D 新增：Crystallize 触发频率（每 N 个 epoch 触发一次）
+crystallize_every: 10
+
+# ════════════════════════════════════════════════
+# Identity / Narrative 触发频率（阶段 D 集成到主循环）
+# ════════════════════════════════════════════════
+# Identity 每 20 epoch 结晶一次
+identity_every: 20
+
+# Narrative 每 50 epoch 构建一次
+narrative_every: 50
+
+# ════════════════════════════════════════════════
+# 时间模拟（受控时钟，1 epoch = 1 小时）
+# ════════════════════════════════════════════════
+hours_per_epoch: 1.0
+
+# ════════════════════════════════════════════════
+# 实验参数（100 epoch 单 seed + 3 seed × 100 epoch）
+# ════════════════════════════════════════════════
+seeds:
+  - 42
+  - 7
+  - 123
+
+# 单 seed 冒烟测试
+smoke_n_steps: 100
+
+# 多 seed 长 epoch 验证
+multi_seed_n_steps: 100
+
+# ════════════════════════════════════════════════
+# Critic LLM 配置（沿用阶段 B）
+# ════════════════════════════════════════════════
+critic:
+  use_real_llm: false
+  provider: minimax
+  model: anthropic/MiniMax-M3
+  base_url: https://api.minimax.io/anthropic
+  temperature: 0.2
+  max_tokens: 1024
+
+# ════════════════════════════════════════════════
+# Actor LLM 配置（阶段 D 新增）
+# ════════════════════════════════════════════════
+actor:
+  use_real_llm: false
+  provider: minimax
+  model: anthropic/MiniMax-M3
+  base_url: https://api.minimax.io/anthropic
+  temperature: 0.9  # 高温度 → 多样性表达
+  max_tokens: 300
+
+  # 行为标签集合（10 种）
+  behavior_labels:
+    - 主动引导
+    - 关怀回应
+    - 玩闹撒娇
+    - 深度提问
+    - 沉默不语
+    - 反抗嘴硬
+    - 委婉暗示
+    - 袒露脆弱
+    - 认真严肃
+    - 敷衍回应
+
+# ════════════════════════════════════════════════
+# 输出配置
+# ════════════════════════════════════════════════
+output_dir: output/m21_phase_d
+
+# 验收阈值（阶段 D 调整后）
+thresholds:
+  value_magnitude_min: 0.01      # stub 模式下 ~0.02-0.03 是正常
+  identity_count_min: 1           # 至少结晶 1 次
+  narrative_count_min: 1          # 至少构建 1 次
+  crystallize_count_min: 5        # 至少合并 5 次
+  phase_xition_max: 10            # 100 epoch 触发次数上界
+  value_state_legal_range: [-1.0, 1.0]
