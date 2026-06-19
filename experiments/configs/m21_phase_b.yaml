@@ -1,0 +1,80 @@
+# M2.1 阶段 B 配置（SGE 化改造后）
+#
+# 阶段 A → 阶段 B 变更：
+# - drives: AiBeing 原生 5 个 → SGE 候选 B 5 个（schema 化）
+# - values: 引入 6 个（独立于 drives）
+# - phase_threshold: 改为可配置（扫描 [1.0, 3.0]）
+# - hawking_gamma: 0.001/h → 0.01/h（半衰期 ~3 天）
+# - crystallize_threshold: 0.25 → 0.25/sqrt(N)（维度归一化）
+#
+# 关联文档：
+# - [SGE-Phase0-Closeout.md §5](../../research/sge-core/SGE-Phase0-Closeout.md)
+# - [SGE-M21-Phase-B-Implementation-Plan.md](../../research/sge-feasibility/SGE-M21-Phase-B-Implementation-Plan.md)
+
+# ════════════════════════════════════════════════
+# Drives 配置（schema 化）
+# ════════════════════════════════════════════════
+drives:
+  - exploration
+  - safety
+  - creativity
+  - connection
+  - autonomy
+
+# 默认饥饿率（drives 的"渴望"累积速率 /h）
+hunger_rates:
+  connection: 0.15
+  exploration: 0.05
+
+# ════════════════════════════════════════════════
+# Values 配置（Value Layer — 6D，独立于 drives）
+# ════════════════════════════════════════════════
+values:
+  - safety
+  - creativity
+  - connection
+  - autonomy
+  - justice
+  - compassion
+
+# Value EMA 学习率（M1.x baseline）
+value_alpha: 0.3
+
+# Value 范围 [-1, 1]
+value_clip_min: -1.0
+value_clip_max: 1.0
+
+# ════════════════════════════════════════════════
+# Phase Transition 阈值（可配置；扫描 [1.0, 3.0]）
+# ════════════════════════════════════════════════
+phase_threshold: 2.0  # 默认与 AiBeing 一致
+
+# ════════════════════════════════════════════════
+# Hawking 辐射（γ=0.01/h，半衰期 ~3 天）
+# ════════════════════════════════════════════════
+hawking_gamma: 0.01
+hawking_remove_threshold: 0.0001
+
+# ════════════════════════════════════════════════
+# Crystallize 阈值（维度归一化 0.25/sqrt(N)）
+# ════════════════════════════════════════════════
+crystallize_base: 0.25  # 实际阈值 = base / sqrt(N)
+
+# ════════════════════════════════════════════════
+# 实验参数
+# ════════════════════════════════════════════════
+seeds:
+  - 42
+  - 7
+  - 123
+
+n_steps: 5
+
+# Critic LLM 配置（默认 stub；M2.2/M2.3 才用真实 LLM）
+critic:
+  use_real_llm: false
+  provider: minimax
+  model: anthropic/MiniMax-M3
+  base_url: https://api.minimax.io/anthropic
+  temperature: 0.2
+  max_tokens: 1024

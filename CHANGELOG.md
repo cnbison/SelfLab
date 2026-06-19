@@ -34,6 +34,7 @@
 | 1.14.0 | 2026-06-19 | (本次) | **SGE-Phase0-Closeout.md v0.3 §5 决策填写**:Bisen 委托 Claude 基于三原则推导填写 6 决策点 — drives=候选 B(`exploration, safety, creativity, connection, autonomy` + schema 化)、Value scale=[-1, 1]、Phase Transition=扫描 [1.0, 3.0]、Hawking gamma=0.01/h、Crystallize=维度归一化 0.25/sqrt(N)、LLM=MiniMax-M3;元问题 1、2 暂不决策,架构层留接口 |
 | 1.15.0 | 2026-06-19 | (本次) | **README.md 重大更新**:"下一步"从错误的"Phase 1 最小验证"纠正为"M2.1 阶段 B 实施";Phase 1 状态 🔜 → ✅、Phase 2 ⏳ → 🚧、Phase 3+ ⏳ → 📋;新增"SGE 三个阶段(通俗版)"章节,融合"养一个 AI 孩子"类比视角 + 三原则锚点;子项目 SGE 状态更新;洞察数 25 → 30;当前状态章节完整重写 |
 | 1.16.0 | 2026-06-19 | (本次) | **M2.1 阶段 B 实施计划**:新增 SGE-M21-Phase-B-Implementation-Plan.md,把 §5 决策映射为 7 个可独立验证子任务(B1 drives 替换+schema / B2 Value Layer / B3 Value EMA / B4 Critic LLM 接入 / B5 Phase 阈值扫描 / B6 Hawking / B7 Crystallize)+ 验收标准 + 风险与依赖图;ROADMAP §M2.1 补充实施阶段分解表(阶段 A 已完成/阶段 B 待评审/阶段 C/D 待启动) |
+| 1.17.0 | 2026-06-19 | (本次) | **M2.1 阶段 B 完成**:7 个子任务全部 PASS(B1 drives 替换+schema / B2 Value Layer / B3 Value EMA / B4 Critic LLM 适配层 / B5 Phase 扫描 / B6 Hawking γ=0.01/h / B7 Crystallize 0.25/sqrt(N));_sge_baseline.py 新增 ValueLayer/HawkingDecay/MemoryCrystallizer 类 + _load_drives schema 化 + Agent.value_layer/value_state 集成;_sge_critic.py(stub+真实 MiniMax-M3 适配层);m21_phase_b.py + m21_phase_b.yaml 集成测试(3 seed × 5 step + 阶段 A 回归 + Phase 扫描);experiments/M21_PHASE_B_REPORT.md 报告 |
 
 ---
 
