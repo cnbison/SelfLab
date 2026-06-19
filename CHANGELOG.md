@@ -32,6 +32,7 @@
 | 1.12.0 | 2026-06-18 | (本次) | **Phase 0 收尾决策文档**:SGE-Phase0-Closeout.md 起草,澄清 drives vs values 概念差异,列出 M2.1 阶段 B 启动前 6 个待决问题 |
 | 1.13.0 | 2026-06-19 | (本次) | **SGE 三原则锚点 + 决策重打标**:Bisen 提出项目级三原则(研究+产品一体两面 / SGE 是根 / 逐步验证扩展),作为所有 SGE 决策的最高优先级评估维度;SGE-Phase0-Closeout.md v0.2 重打标 6 决策点 + 新增 2 个元问题(value 维度领域适配 / meta-values override);新增洞察 30(三原则锚点) |
 | 1.14.0 | 2026-06-19 | (本次) | **SGE-Phase0-Closeout.md v0.3 §5 决策填写**:Bisen 委托 Claude 基于三原则推导填写 6 决策点 — drives=候选 B(`exploration, safety, creativity, connection, autonomy` + schema 化)、Value scale=[-1, 1]、Phase Transition=扫描 [1.0, 3.0]、Hawking gamma=0.01/h、Crystallize=维度归一化 0.25/sqrt(N)、LLM=MiniMax-M3;元问题 1、2 暂不决策,架构层留接口 |
+| 1.15.0 | 2026-06-19 | (本次) | **README.md 重大更新**:"下一步"从错误的"Phase 1 最小验证"纠正为"M2.1 阶段 B 实施";Phase 1 状态 🔜 → ✅、Phase 2 ⏳ → 🚧、Phase 3+ ⏳ → 📋;新增"SGE 三个阶段(通俗版)"章节,融合"养一个 AI 孩子"类比视角 + 三原则锚点;子项目 SGE 状态更新;洞察数 25 → 30;当前状态章节完整重写 |
 
 ---
 
