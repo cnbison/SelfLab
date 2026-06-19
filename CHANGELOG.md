@@ -30,6 +30,7 @@
 | 1.10.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 基线通过**:m21_setup.py + m21_baseline.yaml,4/5 借鉴机制 import OK,5 步最小循环 PASS |
 | 1.11.0 | 2026-06-18 | (本次) | **M2.1 阶段 A 修正**:sys.path 引用 → SGE 自有实现 (_sge_baseline.py),SelfLab 仓库自包含 |
 | 1.12.0 | 2026-06-18 | (本次) | **Phase 0 收尾决策文档**:SGE-Phase0-Closeout.md 起草,澄清 drives vs values 概念差异,列出 M2.1 阶段 B 启动前 6 个待决问题 |
+| 1.13.0 | 2026-06-19 | (本次) | **SGE 三原则锚点 + 决策重打标**:Bisen 提出项目级三原则(研究+产品一体两面 / SGE 是根 / 逐步验证扩展),作为所有 SGE 决策的最高优先级评估维度;SGE-Phase0-Closeout.md v0.2 重打标 6 决策点 + 新增 2 个元问题(value 维度领域适配 / meta-values override);新增洞察 30(三原则锚点) |
 
 ---
 
