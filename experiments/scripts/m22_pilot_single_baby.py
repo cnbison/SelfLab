@@ -68,6 +68,9 @@ def run_pilot(
     llm = make_llm_client(provider='minimax', verbose=False)
     print(f"✓ LLM 客户端就绪: {llm.stats()}\n")
 
+    # ── 预热连接（mitigation 3）──
+    llm.warmup(n_calls=2)
+
     # ── 初始化组件 ──
     drives = _load_drives()
     value_layer = ValueLayer(values=SGE_DEFAULT_VALUES)

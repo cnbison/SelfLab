@@ -89,6 +89,13 @@ class SGELLMClient:
         base_url: str — API endpoint
         model: str — litellm 模型名（如 'anthropic/MiniMax-M3'）
         call_count: int — 总调用次数（用于成本统计）
+        retry_stats: dict — Retry 统计（mitigation 2 新增）
+          - 'total_calls': 成功调用次数（不含 retry 失败的）
+          - 'calls_with_retry': 经历过至少 1 次 retry 后成功的调用次数
+          - 'calls_failed': 5 次 retry 都失败的调用次数
+          - 'total_attempts': 所有成功调用的总 attempt 数（>call_count 因为 retry）
+          - 'total_wait_seconds': 所有 retry 等待的总秒数
+          - 'errors_by_type': {error_class_name: count}
     """
 
     def __init__(
@@ -131,6 +138,16 @@ class SGELLMClient:
         if verbose:
             print(f"✓ SGELLMClient: provider={provider}, model={self.model}, "
                   f"base_url={self.base_url}, api_key={self.api_key[:8]}...")
+
+        # Retry stats（mitigation 2）
+        self.retry_stats = {
+            'total_calls': 0,           # 成功调用次数
+            'calls_with_retry': 0,      # 经历 ≥1 retry 后成功
+            'calls_failed': 0,          # 5 次 retry 都失败
+            'total_attempts': 0,        # 所有成功调用的 attempt 总数
+            'total_wait_seconds': 0.0,  # 所有 retry 等待的总秒数
+            'errors_by_type': {},       # {error_class_name: count}
+        }
 
     def chat(
         self,
@@ -188,13 +205,17 @@ class SGELLMClient:
         )
 
         max_retries = 5  # M2.2 提升：server 持续不稳定时 3 次不够（pilot v2 crashed）
-        base_delay = 1.5  # base 略增，配合指数退避 → 1.5/3/6/12s
+        base_delay = 3.0  # M2.2 mitigation 1：1.5→3.0，给 server 更长恢复时间 → 3/6/12/24s
         last_error: Optional[Exception] = None
 
         for attempt in range(max_retries):
             try:
                 response = completion(**kwargs)
                 self.call_count += 1
+                self.retry_stats['total_calls'] += 1
+                self.retry_stats['total_attempts'] += (attempt + 1)
+                if attempt > 0:
+                    self.retry_stats['calls_with_retry'] += 1
 
                 content = response.choices[0].message.content.strip()
 
@@ -205,12 +226,18 @@ class SGELLMClient:
 
             except RETRYABLE_EXCEPTIONS as e:
                 last_error = e
+                # Record error type（mitigation 2）
+                error_name = type(e).__name__
+                self.retry_stats['errors_by_type'][error_name] = \
+                    self.retry_stats['errors_by_type'].get(error_name, 0) + 1
+
                 if attempt < max_retries - 1:
-                    # 指数退避：1.5s, 3s, 6s, 12s
+                    # 指数退避：3s, 6s, 12s, 24s
                     wait = base_delay * (2 ** attempt)
+                    self.retry_stats['total_wait_seconds'] += wait
                     print(
                         f"[LLM retry {attempt + 1}/{max_retries - 1}] "
-                        f"{type(e).__name__}: {str(e)[:80]} ... waiting {wait:.1f}s",
+                        f"{error_name}: {str(e)[:80]} ... waiting {wait:.1f}s",
                         flush=True,
                     )
                     time.sleep(wait)
@@ -218,7 +245,8 @@ class SGELLMClient:
                 # 最后一次也失败 → break out 重抛
                 break
 
-        # 3 次都失败，抛出最后一次异常
+        # 5 次都失败，记录并抛出
+        self.retry_stats['calls_failed'] += 1
         raise last_error  # type: ignore[misc]  # last_error 不会是 None
 
     def chat_json(
@@ -273,12 +301,49 @@ class SGELLMClient:
             return fallback_value
 
     def stats(self) -> dict:
-        """返回 LLM 调用统计"""
+        """返回 LLM 调用统计（含 retry stats — mitigation 2）"""
+        s = self.retry_stats
+        total_attempts = s['total_attempts']
+        avg_attempts = total_attempts / s['total_calls'] if s['total_calls'] > 0 else 0
+        retry_rate = s['calls_with_retry'] / s['total_calls'] if s['total_calls'] > 0 else 0
         return {
             'provider': self.provider,
             'model': self.model,
             'call_count': self.call_count,
+            'retry': {
+                'total_calls': s['total_calls'],
+                'calls_with_retry': s['calls_with_retry'],
+                'calls_failed': s['calls_failed'],
+                'retry_rate': round(retry_rate, 4),
+                'avg_attempts_per_call': round(avg_attempts, 3),
+                'total_wait_seconds': round(s['total_wait_seconds'], 1),
+                'errors_by_type': dict(s['errors_by_type']),
+            },
         }
+
+    def warmup(self, n_calls: int = 2) -> None:
+        """预热连接（mitigation 3）—— 消耗首次连接不稳定期
+
+        在长跑实验（如 M2.2 E4 1000 epoch）启动前调用，
+        先发 n_calls 个 dummy LLM 调用，把首次 TLS 握手 + server 路由
+        的不稳定期消耗掉，避免主实验中前几个调用失败。
+
+        Args:
+            n_calls: 预热调用次数（默认 2）
+        """
+        print(f"[SGELLMClient.warmup] 发 {n_calls} 个 dummy 调用预热连接...")
+        for i in range(n_calls):
+            try:
+                self.chat(
+                    messages=[{"role": "user", "content": "hi"}],
+                    temperature=0.0,
+                    max_tokens=10,
+                )
+                print(f"  warmup {i+1}/{n_calls} ✓")
+            except Exception as e:
+                # warmup 失败不抛异常 — 让主实验继续（retry 已经在内部处理）
+                print(f"  warmup {i+1}/{n_calls} ✗ {type(e).__name__}: {str(e)[:60]}")
+        print(f"[SGELLMClient.warmup] 完成（call_count={self.call_count}）")
 
 
 # ══════════════════════════════════════════════
