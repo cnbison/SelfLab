@@ -33,6 +33,76 @@
 | 1.13.0 | 2026-06-19 | (本次) | **SGE 三原则锚点 + 决策重打标**:Bisen 提出项目级三原则(研究+产品一体两面 / SGE 是根 / 逐步验证扩展),作为所有 SGE 决策的最高优先级评估维度;SGE-Phase0-Closeout.md v0.2 重打标 6 决策点 + 新增 2 个元问题(value 维度领域适配 / meta-values override);新增洞察 30(三原则锚点) |
 | 1.14.0 | 2026-06-19 | (本次) | **SGE-Phase0-Closeout.md v0.3 §5 决策填写**:Bisen 委托 Claude 基于三原则推导填写 6 决策点 — drives=候选 B(`exploration, safety, creativity, connection, autonomy` + schema 化)、Value scale=[-1, 1]、Phase Transition=扫描 [1.0, 3.0]、Hawking gamma=0.01/h、Crystallize=维度归一化 0.25/sqrt(N)、LLM=MiniMax-M3;元问题 1、2 暂不决策,架构层留接口 |
 | 1.15.0 | 2026-06-19 | (本次) | **README.md 重大更新**:"下一步"从错误的"Phase 1 最小验证"纠正为"M2.1 阶段 B 实施";Phase 1 状态 🔜 → ✅、Phase 2 ⏳ → 🚧、Phase 3+ ⏳ → 📋;新增"SGE 三个阶段(通俗版)"章节,融合"养一个 AI 孩子"类比视角 + 三原则锚点;子项目 SGE 状态更新;洞察数 25 → 30;当前状态章节完整重写 |
+| 1.16.0 | 2026-06-19 | (本次) | **M2.1 阶段 B 实施计划**:新增 SGE-M21-Phase-B-Implementation-Plan.md,把 §5 决策映射为 7 个可独立验证子任务(B1 drives 替换+schema / B2 Value Layer / B3 Value EMA / B4 Critic LLM 接入 / B5 Phase 阈值扫描 / B6 Hawking / B7 Crystallize)+ 验收标准 + 风险与依赖图;ROADMAP §M2.1 补充实施阶段分解表(阶段 A 已完成/阶段 B 待评审/阶段 C/D 待启动) |
+
+---
+
+## [1.16.0] - 2026-06-19 (M2.1 阶段 B 实施计划)
+
+### 背景
+
+M2.1 阶段 A（基线冒烟测试）已在 1.10.0/1.11.0 完成，但阶段 B（SGE 化改造）涉及 5+ 个改造项，工作量大且有"实施偏差"风险。按 §0.5 三原则中的"逐步验证、逐步扩展"，**先写实施计划文档让 Bisen 评审**比直接全量动手更稳妥。
+
+### 新增
+
+- `research/sge-feasibility/SGE-M21-Phase-B-Implementation-Plan.md` — M2.1 阶段 B 实施计划
+  - §0 目的与边界：明确阶段 B 不含 Identity/Narrative/完整 12 步/3 seed × 100 epoch
+  - §1 阶段 B 范围：7 个可独立验证子任务
+  - §2 子任务依赖图：关键路径 B1→B2→B3→B4 (3.5 天)，可并行 B5/B6/B7 (2.5 天)
+  - §3 验收标准：12 项（含回归测试）
+  - §4 风险与开放问题：7 项
+  - §5 文档关联
+  - §6 时间估算：6-7 天
+  - §7 实施步骤建议（按依赖顺序）
+  - §8 一句话总结
+
+### 7 个子任务概览
+
+| ID | 任务 | §5 决策 | 预计工作量 | 依赖 |
+|----|------|--------|-----------|------|
+| B1 | drives 替换（候选 B）+ schema 化 | `exploration, safety, creativity, connection, autonomy` | 0.5 天 | — |
+| B2 | Value Layer 引入（独立于 drives）| 6 values，scale [-1, 1] | 1 天 | B1 |
+| B3 | Value EMA 实现（每步更新）| α=0.3（M1.x baseline）| 0.5 天 | B2 |
+| B4 | Critic LLM 接入（stub → MiniMax-M3）| MiniMax-M3（M1.x 沿用）| 1 天 | B1, B2, B3 |
+| B5 | Phase Transition 阈值扫描 [1.0, 3.0] | 扫描 [1.0, 3.0] | 0.5 天 | B1 |
+| B6 | Hawking 辐射机制（γ=0.01/h）| γ=0.01/h（半衰期 ~3 天）| 1 天 | — |
+| B7 | Crystallize 维度归一化（0.25/sqrt(N)）| 0.25/sqrt(N) | 1 天 | B1 |
+
+### 关键设计选择
+
+- **架构层留接口，不锁死产品灵活性**——drives/values 都从 yaml 读取，元问题 1/2（value profile + meta-values override）的具体设计留到 Phase 3（满足三原则）
+- **SGE 自有实现 + 借鉴映射作参考**延续阶段 A 的修正策略——每个新组件的 docstring 标注 "来源: AiBeing 源码 + 行号" + "公式" + "参考 §2.x"
+- **多 seed 验证 + 回归测试**——验收标准含 3 seed (42/7/123) + 阶段 A baseline 回归
+
+### 与 §5 决策的对应
+
+| §5 决策 | 实施计划子任务 |
+|---------|--------------|
+| drives = 候选 B + schema 化 | B1 |
+| Value scale = [-1, 1] | B2 |
+| Phase = 扫描 [1.0, 3.0] | B5 |
+| Hawking γ = 0.01/h | B6 |
+| Crystallize = 0.25/sqrt(N) | B7 |
+| LLM = MiniMax-M3 | B4 |
+| 元问题 1/2 暂不决策 | 架构层留接口（不直接实施）|
+
+### 当前状态
+
+- 📋 **等待 Bisen 评审** SGE-M21-Phase-B-Implementation-Plan.md
+- 评审通过后按 §7 实施步骤建议启动阶段 B 实施
+- 关键路径 3.5 天（B1→B2→B3→B4）+ 可并行 2.5 天（B5/B6/B7）
+
+### 同步更新
+
+- `ROADMAP.md` §M2.1 补充"实施阶段分解"表（阶段 A 已完成/阶段 B 待评审/阶段 C/D 待启动）
+- `CHANGELOG.md` 新增 [1.16.0] 条目
+
+### 关联文档
+
+- [SGE-M21-Phase-B-Implementation-Plan.md](../research/sge-feasibility/SGE-M21-Phase-B-Implementation-Plan.md) — 本次新增（实施计划）
+- [SGE-Phase0-Closeout.md §5](../research/sge-core/SGE-Phase0-Closeout.md#5-决策结果基于-05-三原则推导2026-06-19-填写) — 决策依据
+- [SGE-M21-AiBeing-Implementation-Mapping.md §五](../research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md#五m21-实施步骤建议) — 阶段 B/C/D 分解依据
+- [experiments/M21_BASELINE_SETUP_REPORT.md §6](../experiments/M21_BASELINE_SETUP_REPORT.md#6-下一步) — 阶段 A 下一步建议
 
 ---
 
