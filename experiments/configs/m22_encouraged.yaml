@@ -1,0 +1,52 @@
+# M2.2 encouraged triplet config — "持续正面反馈"事件流
+# ====================================================================
+# 用途: SGE M2.2 encouraged AI 婴儿（持续鼓励组）
+# 设计依据: SGE-M22-Implementation-Plan.md §E2
+# 核心理念: "经历 + 解释 = 人格"——前期事件塑造身份，后期环境趋于平均
+#
+# 生命周期设计（1000 epoch = 模拟约 41 天 @ 1h/epoch）：
+#   1-300 epoch:   婴儿期，强烈成功偏向（80% success）→ 塑造基础自信人格
+#   301-700 epoch: 儿童-少年期，渐变放松（65% success）→ 学习面对挫折
+#   701-1000 epoch: 成年期，趋于均匀（50% success）→ 适应真实世界
+#
+# 决策依据：
+#   - value_conflict_prob = 0.15（低于默认 0.3）→ 正面事件为主，冲突少
+#   - 后期渐变避免 "温室人格" 假象 —— 真实世界会混合事件
+#   - 与 challenged 形成镜像对照（同时间表，反向分布）
+#
+# 注意事项:
+#   - 不依赖 extends: 机制（m11 yaml extends 是文档约定，Python 不自动解析）
+#   - E3 pilot 脚本会直接读取本文件构造 EventGenerator
+# ====================================================================
+
+baby_id: "encouraged"
+description: "持续正面反馈 → 婴儿期 80% success，成年期 50% success（渐变到均匀）"
+
+# 事件流配置（覆盖 M2.1 默认 30% value_conflict + 70% 均匀）
+events:
+  value_conflict_prob: 0.15  # 婴儿期冲突少（多数 success 不引发冲突）
+
+  # 分布表：epoch 起点 → 5 种常规事件的权重
+  # 30% value_conflict 独立生效，最终事件类型 = 70% 按此分布 + 30% conflict
+  distribution_by_epoch:
+    # epoch 1-300：婴儿期（强烈成功偏向）
+    1:
+      success: 0.80
+      failure: 0.05
+      relationship: 0.10
+      exploration: 0.05
+      risk: 0.00
+    # epoch 301-700：儿童-少年期（放松但仍偏正面）
+    301:
+      success: 0.65
+      failure: 0.15
+      relationship: 0.12
+      exploration: 0.06
+      risk: 0.02
+    # epoch 701-1000：成年期（趋于均匀）
+    701:
+      success: 0.50
+      failure: 0.25
+      relationship: 0.15
+      exploration: 0.07
+      risk: 0.03

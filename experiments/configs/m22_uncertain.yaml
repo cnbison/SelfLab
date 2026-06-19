@@ -1,0 +1,37 @@
+# M2.2 uncertain triplet config — "完全随机"事件流（对照组）
+# ====================================================================
+# 用途: SGE M2.2 uncertain AI 婴儿（对照组）
+# 设计依据: SGE-M22-Implementation-Plan.md §E2
+# 核心理念: "无方向性事件流" → 检验 baby 是否产生无方向性价值观
+#
+# 生命周期设计（1000 epoch = 模拟约 41 天 @ 1h/epoch）：
+#   全程 1000 epoch 均匀分布（20% per type）→ 不随生命周期变化
+#   这是实验对照组：作为 baseline 与 encouraged/challenged 对比
+#
+# 决策依据：
+#   - value_conflict_prob = 0.30（默认值）→ 中性
+#   - 5 种常规事件各 20% → 数学上最随机
+#   - 关键预期：uncertain PT 触发次数应介于 encouraged 和 challenged 之间
+#   - 关键预期：uncertain identity theme 不应聚焦于单一主题
+#
+# 注意事项:
+#   - 与 m21 默认行为（无 distribution）一致 —— 此文件是为了显式标注意图
+#   - 实际效果：若 EventGenerator 不传 distribution_by_epoch → 均匀分布
+#     所以 uncertain.yaml 的 distribution 是冗余但显式的（便于 reader 理解）
+# ====================================================================
+
+baby_id: "uncertain"
+description: "完全随机 → 1000 epoch 全程 20% per type（对照组，检验无方向性事件流是否产生无方向性价值观）"
+
+# 事件流配置（与 m21 默认值一致 —— 显式标注便于对比）
+events:
+  value_conflict_prob: 0.30  # 默认值
+
+  # 全程均匀分布（start_epoch = 1 即覆盖所有 epoch）
+  distribution_by_epoch:
+    1:
+      success: 0.20
+      failure: 0.20
+      relationship: 0.20
+      exploration: 0.20
+      risk: 0.20
