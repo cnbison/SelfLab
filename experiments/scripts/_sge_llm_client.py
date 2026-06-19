@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import os
 import json
+import time
 import logging
 from typing import Optional, Any
 
@@ -151,8 +152,15 @@ class SGELLMClient:
 
         Raises:
             RuntimeError: LLM 调用失败（非网络问题也会回退到 stub 在 caller 端处理）
+
+        Retry policy（M2.2 修复 D6 后新增）：
+          - 捕获 litellm.InternalServerError / APIConnectionError / Timeout /
+            RateLimitError / ServiceUnavailableError → 指数退避重试 3 次
+          - 捕获 litellm.AuthenticationError / BadRequestError → 立即抛（key 无效或 prompt bug）
+          - 3 次都失败 → 抛出最后一次异常（让 caller 决定回退 stub）
         """
         from litellm import completion
+        import litellm.exceptions
 
         if temperature is None:
             temperature = self.default_temperature
@@ -170,17 +178,48 @@ class SGELLMClient:
         if self.extra_body is not None:
             kwargs['extra_body'] = self.extra_body
 
-        response = completion(**kwargs)
-        self.call_count += 1
+        # 可重试的异常类型（网络/server 瞬时错误）
+        RETRYABLE_EXCEPTIONS = (
+            litellm.InternalServerError,
+            litellm.APIConnectionError,
+            litellm.Timeout,
+            litellm.RateLimitError,
+            litellm.ServiceUnavailableError,
+        )
 
-        # 兼容 OpenAI / Anthropic 风格
-        content = response.choices[0].message.content.strip()
+        max_retries = 3
+        base_delay = 1.0
+        last_error: Optional[Exception] = None
 
-        if self.verbose:
-            logger.debug(f"[LLM call #{self.call_count}] temp={temperature} "
-                         f"max_tokens={max_tokens} response_len={len(content)}")
+        for attempt in range(max_retries):
+            try:
+                response = completion(**kwargs)
+                self.call_count += 1
 
-        return content
+                content = response.choices[0].message.content.strip()
+
+                if self.verbose:
+                    logger.debug(f"[LLM call #{self.call_count}] temp={temperature} "
+                                 f"max_tokens={max_tokens} response_len={len(content)}")
+                return content
+
+            except RETRYABLE_EXCEPTIONS as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    # 指数退避：1s, 2s, 4s
+                    wait = base_delay * (2 ** attempt)
+                    print(
+                        f"[LLM retry {attempt + 1}/{max_retries - 1}] "
+                        f"{type(e).__name__}: {str(e)[:100]} ... waiting {wait:.1f}s",
+                        flush=True,
+                    )
+                    time.sleep(wait)
+                    continue
+                # 最后一次也失败 → break out 重抛
+                break
+
+        # 3 次都失败，抛出最后一次异常
+        raise last_error  # type: ignore[misc]  # last_error 不会是 None
 
     def chat_json(
         self,

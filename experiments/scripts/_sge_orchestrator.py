@@ -234,6 +234,18 @@ class SGEOrchestrator:
             seed=hash((epoch, 'critic')) % (2**31),
         )
 
+        # ── Step 3.5: Hawking Insert（M2.2 修复 D6 后的设计缺口）──
+        # 把当前 critic_context 写入短时记忆，供 Step 9 KNN retrieval 使用。
+        # 之前全代码库没人调用 hawking.insert()，导致 retrieval 永远空 → Actor prompt 缺记忆上下文。
+        # design: 每次 insert 都用 weight=1.0，靠 Hawking γ=0.01/h 自然衰减；100h 后 weight ≈ 0.37。
+        if self.hawking is not None and critic_context:
+            self.hawking.insert(
+                content={'epoch': epoch, 'critic_context': critic_context,
+                         'event_type': event.event_type},
+                weight=1.0,
+                now=timestamp,
+            )
+
         # ── Step 4: Value EMA Update ──
         value_state_before = dict(self.value_layer.value_state)
         if critic_value_delta:
