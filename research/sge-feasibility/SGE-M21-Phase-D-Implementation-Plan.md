@@ -59,7 +59,7 @@
 
 ---
 
-# 1. 阶段 D 范围：5 个子任务
+# 1. 阶段 D 范围：6 个子任务
 
 ## D1：HawkingDecay + MemoryCrystallizer 集成
 
@@ -292,6 +292,57 @@ class SGEOrchestrator:
 
 ---
 
+## D6：真实 LLM 端到端验证（MiniMax-M3）
+
+> **本子任务是 D1-D5 完成后追加的**（不在最初计划内），由 [1.20.1] 实施。
+
+**目标**：在 D1-D5（stub 模式）验证全链路可运行的基础上，**用真实 MiniMax-M3 跑一次端到端验证**，确保 12 步编排在真实 LLM 下也能跑通。
+
+**为何需要 D6**：
+- D1-D5 的 stub 模式只能验证**逻辑正确性**，不能验证真实 LLM 的行为
+- Phase 2 原则是"能真实 LLM 就不用 stub"（订阅模式不考虑成本）
+- D6 暴露并修复了 3 个 stub 模式无法发现的 bug（off-by-one / per-epoch 进度 / 防御式 JSON 解析）
+
+**实验设计**：
+- 1 个 AI 婴儿（seed=42）
+- 20 epoch（足够触发 Identity/Narrative，但不消耗太多 LLM 预算）
+- 真实 LLM：MiniMax-M3 via SGELLMClient 统一接口
+- 估算：~50 次 LLM 调用 × ~3s = ~150s
+
+**架构改造**（统一 LLM 客户端）：
+
+| 模块 | 改动 |
+|------|------|
+| `_sge_llm_client.py` | **新增** — `SGELLMClient` 统一封装（API key 自动从 .env 加载 + chat/chat_json/stats + markdown fence 自动解析）|
+| `_sge_critic.py` | `real_critic_sense` 重构为接收 `llm: SGELLMClient`（原 `api_key/base_url/model` 参数移除）|
+| `_sge_actor.py` | `real_actor_express` 同上 |
+| `_sge_identity.py` | `IdentityLayer.crystallize/validate` 直接用 `self.llm.chat_json/chat`（绕开旧的 `real_crystallize_identity` 回退路径）|
+| `_sge_narrative.py` | `NarrativeBuilder.build/check_consistency` 同上 |
+| `_sge_orchestrator.py` | `SGEOrchestrator.__init__` 新增 `llm_provider` + `verbose` 参数；`step()` 加 per-epoch 进度输出 |
+
+**D6 验证发现的 3 个 bug**：
+
+| # | Bug | 修复 |
+|---|-----|------|
+| 1 | **Identity/Narrative off-by-one** | `_sge_identity.py:should_crystallize` + `_sge_narrative.py:should_build` 改为 `(epoch + 1) % N == 0` |
+| 2 | **Orchestrator 无 per-epoch 进度** | `step()` 末尾加 `[epoch X/Y] ...` 行，`flush=True` |
+| 3 | **check_consistency/crystallize 假设 LLM 返回 dict** | 加防御式类型分支（dict / str / number 各自分流）|
+
+**验收标准**：
+
+| # | 标准 | 验证方式 |
+|---|------|---------|
+| 1 | Critic JSON 合法（value_delta ∈ [-1, +1]）| 检查 ≥ 1 个 Critic 样本 |
+| 2 | Actor JSON 合法（behavior_label ∈ 10 标签）| 检查 ≥ 1 个 Actor 样本 |
+| 3 | Identity LLM 输出有意义（≥ 10 字符，非模板）| 检查 1 个 Identity 文本 |
+| 4 | Narrative LLM 输出有意义（≥ 50 字符，叙事结构完整）| 检查 1 个 Narrative 文本 |
+| 5 | Phase Transition 触发 ≥ 1 次 | 观察项 — 20 epoch 内不触发也合理（M2.2 1000 epoch 才观测）|
+| 6 | LLM 调用总数（成本可观测）| `client.stats()['call_count']` |
+
+**预期结果**：5/5 硬性 PASS + 1 观察项记录
+
+---
+
 # 2. 子任务依赖图
 
 ```
@@ -306,9 +357,12 @@ D3 (12 步编排器) ←────────────────┘ (D1 
                                   │
                                   ▼
                             D5 (3 seed × 100 epoch)
+                                  │
+                                  ▼
+                            D6 (真实 LLM 验证，追加)
 ```
 
-**关键路径**：D2 → D3 → D4 → D5（4-5 天）
+**关键路径**：D2 → D3 → D4 → D5（4-5 天） + D6（追加，0.5 天）
 **可并行**：D1 与 D2 完全独立（无依赖），可并行 0.5 天
 
 **总时长**：4-5 天
@@ -386,6 +440,7 @@ D3 (12 步编排器) ←────────────────┘ (D1 
 | D3: 12 步编排器 | 1.5 天 | D1 + D2 |
 | D4: 100 epoch 冒烟 | 0.5 天 | D3 |
 | D5: 3 seed × 100 epoch | 0.5 天 | D3 |
+| **D6: 真实 LLM 端到端验证（追加）** | **0.5 天** | **D1-D5 全部完成 + MiniMax-M3 API key** |
 | 报告写作 | 0.5 天 | 全部 |
 | **总计** | **4-5 天** | |
 
