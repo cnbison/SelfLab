@@ -1,41 +1,28 @@
 """
-M2.2 主实验（E4）— 3 baby × 1000 epoch 真实 LLM 串行
+M2.2 主实验（E4）— 3 baby × 1000 epoch 真实 LLM 串行（分 chunk 模式）
 
 目的：
   验证"经历 → 解释 → 人格"假设在 1000 epoch × 真实 LLM 下成立。
   3 个 AI 婴儿在不同事件流下形成显著不同的人格。
 
-实验设计：
-  - 3 个 baby：encouraged / challenged / uncertain
-  - 每个 1000 epoch × 真实 LLM（MiniMax-M3 via SGELLMClient）
-  - **串行执行**（pilot E3 决策：避免 MiniMax rate limit 风险）
-  - Seed 分配：encouraged=42, challenged=7, uncertain=123（每个 baby 用不同 seed）
-  - 预热：每个 baby 启动前 warmup(n_calls=2)（mitigation 3）
-  - 失败隔离：per-baby try/except（mitigation 借鉴 E3 教训）
+执行模式（v3.1 — chunk 模式）：
+  - 单次跑 1000 epoch 已被验证不稳定（MiniMax server 长时间后 SSL EOF/timeout）
+  - 改为 4 chunks × 250 epochs，每个 chunk 独立 SGELLMClient（fresh server session）
+  - Chunk 间 sleep 5 分钟让 server 恢复
+  - 每个 chunk 输出到 {name}_chunk{N}_*.json
+  - 跑完后用 aggregate_chunks.py 合并成最终 {name}_result.json
 
-预计：
-  - ~2200 LLM 调用/baby（按 pilot 100 epoch 220 calls 线性外推）
-  - ~2.8 h/baby（含 retry）
-  - **总 ~8.5 h 串行**
+CLI 用法：
+  # 单 chunk
+  python m22_triplets.py --baby encouraged --chunk-index 0
 
-预期产出：
-  experiments/output/m22_triplets/
-    - triplets_summary.json (3 baby 关键指标对比)
-    - {encouraged,challenged,uncertain}_result.json
-    - {encouraged,challenged,uncertain}_identity_history.json
-    - {encouraged,challenged,uncertain}_narrative_history.json
-
-验收标准：
-  1. 3 baby 全部跑通（无崩溃）
-  2. success_rate 排序 encouraged > uncertain > challenged（验证 E3 信号在 10x 规模下保持）
-  3. personality_divergence > 0.5（E3 是 0.9884，1000 epoch 应保持或放大）
-  4. PT 触发对比 challenged > uncertain > encouraged（E3 信号加强）
-  5. Hawking 衰减观测（1000h 后 weight ≈ 4.5e-5，开始删除）
-  6. Identity 收敛观测（entropy 降低）
+  # 全部 12 chunks（用 wrapper）
+  ./run_chunks.sh
 
 关联：[SGE-M22-Implementation-Plan.md §E4](../research/sge-feasibility/SGE-M22-Implementation-Plan.md)
 """
 
+import argparse
 import json
 import sys
 import math
@@ -78,10 +65,23 @@ def run_one_baby(
     seed: int,
     n_steps: int = 1000,
     sample_every: int = 50,  # 1000 epoch / 50 = 20 个采样点
+    chunk_idx: int = 0,  # 0-indexed chunk 编号
+    start_epoch: int = 0,  # 此 chunk 开始的 epoch（0/250/500/750）
 ) -> dict:
-    """跑 1 个 triplet baby 的 1000 epoch 真实 LLM"""
+    """跑 1 个 triplet baby 的 N epochs 真实 LLM（chunk 模式）
+
+    Args:
+        name: baby 名（encouraged/challenged/uncertain）
+        yaml_path: triplet yaml 路径
+        seed: baby seed
+        n_steps: 此 chunk 跑多少 epoch（默认 250）
+        sample_every: 每 N epoch 采样一次
+        chunk_idx: chunk 编号（0/1/2/3），用于文件命名
+        start_epoch: 此 chunk 在 1000 epoch 中的起始位置
+    """
     print(f"\n{'═'*60}")
-    print(f"  Baby: {name}  (seed={seed}, n_steps={n_steps})")
+    print(f"  Baby: {name}  (seed={seed}, chunk={chunk_idx}, "
+          f"epochs={start_epoch}-{start_epoch+n_steps-1})")
     print(f"{'═'*60}\n")
 
     cfg = load_triplet_config(yaml_path)
@@ -132,7 +132,10 @@ def run_one_baby(
     checkpoint_interval = 100   # 每 100 epoch 写一次 checkpoint JSON（M2.2 E4 hang 教训）
     t0 = time.time()
     for epoch_idx in range(n_steps):
-        trace = orchestrator.step(epoch_idx)
+        # chunk 模式：orchestrator 收到的是真实 epoch 号（0-999）
+        # 而非 chunk 内的相对编号（0-249）
+        absolute_epoch = epoch_idx + start_epoch
+        trace = orchestrator.step(absolute_epoch)
         traces.append(trace)
 
         # 累积 identity/narrative（每步都检查，简单且数据量小）
@@ -150,7 +153,7 @@ def run_one_baby(
         # ── 采样点（每 sample_every）──
         if (epoch_idx + 1) % sample_every == 0 or epoch_idx == 0:
             timeseries_live.append({
-                'epoch': epoch_idx,
+                'epoch': absolute_epoch,
                 'value_magnitude': round(value_layer.magnitude(), 4),
                 'frustration_total': round(metabolism.total(), 4),
                 'frustration_per_drive': {d: round(v, 4) for d, v in metabolism.frustration.items()},
@@ -165,7 +168,7 @@ def run_one_baby(
             s = llm.retry_stats
             retry_pct = (s['calls_with_retry'] / s['total_calls'] * 100) if s['total_calls'] > 0 else 0
             print(
-                f"  [checkpoint epoch {epoch_idx+1}/{n_steps}] "
+                f"  [checkpoint epoch {absolute_epoch+1}/{start_epoch+n_steps}] "
                 f"|val|={value_layer.magnitude():.3f} "
                 f"frustration={metabolism.total():.2f} "
                 f"PT={sum(1 for tt in traces if tt.phase_xition)} "
@@ -176,12 +179,14 @@ def run_one_baby(
         # ── Checkpoint 写入（每 100 epoch）──
         # 即使后续 hang/kill，最多丢 100 epoch 数据（约 17 min @ 10s/epoch）
         if (epoch_idx + 1) % checkpoint_interval == 0:
-            checkpoint_path = OUTPUT_DIR / f"{name}_checkpoint.json"
+            checkpoint_path = OUTPUT_DIR / f"{name}_chunk{chunk_idx}_checkpoint.json"
             checkpoint_data = {
                 'name': name,
                 'baby_id': cfg['baby_id'],
                 'seed': seed,
-                'checkpoint_epoch': epoch_idx + 1,
+                'chunk_idx': chunk_idx,
+                'start_epoch': start_epoch,
+                'checkpoint_epoch': absolute_epoch + 1,
                 'checkpoint_timestamp': time.time(),
                 'elapsed_seconds_so_far': round(time.time() - t0, 1),
                 'llm_call_count': llm.call_count,
@@ -256,21 +261,25 @@ def run_one_baby(
         for t in traces if t.narrative is not None
     ]
 
-    # ── 写输出 ──
-    (OUTPUT_DIR / f"{name}_result.json").write_text(
+    # ── 写输出（chunk 模式：含 chunk_idx）──
+    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_result.json").write_text(
         json.dumps(result, indent=2, ensure_ascii=False, default=str),
         encoding='utf-8',
     )
-    (OUTPUT_DIR / f"{name}_identity_history.json").write_text(
+    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_identity_history.json").write_text(
         json.dumps(identity_history, indent=2, ensure_ascii=False),
         encoding='utf-8',
     )
-    (OUTPUT_DIR / f"{name}_narrative_history.json").write_text(
+    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_narrative_history.json").write_text(
         json.dumps(narrative_history, indent=2, ensure_ascii=False),
         encoding='utf-8',
     )
+    # 清理 chunk checkpoint（成功完成时）
+    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_checkpoint.json").unlink(missing_ok=True)
 
-    print(f"\n  ✓ {name} 完成 ({elapsed:.1f}s = {elapsed/n_steps:.1f}s/epoch, "
+    print(f"\n  ✓ {name} chunk {chunk_idx} 完成 "
+          f"(epochs {start_epoch}-{start_epoch+n_steps-1}, "
+          f"{elapsed:.1f}s = {elapsed/n_steps:.1f}s/epoch, "
           f"{llm.call_count} LLM 调用)")
     print(f"    |val|={result['value_magnitude_final']}, "
           f"PT={result['phase_xition_count']}, "
@@ -314,35 +323,98 @@ def compute_personality_divergence(results: list) -> dict:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(
+        description='M2.2 E4 — 3 baby × 1000 epoch 真实 LLM (chunk 模式)',
+    )
+    parser.add_argument('--baby', choices=['encouraged', 'challenged', 'uncertain'],
+                        help='指定 baby（默认跑全部 3 个）')
+    parser.add_argument('--chunk-index', type=int, default=None,
+                        help='chunk 编号 (0/1/2/3)，未指定则跑该 baby 的全部 chunks')
+    parser.add_argument('--start-epoch', type=int, default=None,
+                        help='chunk 起始 epoch（默认从 0 或 chunk_index * chunk_size）')
+    parser.add_argument('--n-steps', type=int, default=None,
+                        help='此 chunk 跑多少 epoch（默认从 chunk_size 推算）')
+    parser.add_argument('--chunk-size', type=int, default=250,
+                        help='每个 chunk 的 epoch 数（默认 250）')
+    parser.add_argument('--aggregate-only', action='store_true',
+                        help='只跑聚合（不跑新 chunks），适合最后阶段')
+    args = parser.parse_args()
+
     print("═" * 60)
     print("  M2.2 主实验（E4）— 3 baby × 1000 epoch 真实 LLM")
     print("═" * 60)
-    print(f"  执行模式: 串行")
+    print(f"  执行模式: 串行 chunk（chunk_size={args.chunk_size}）")
     print(f"  Seed 分配: {SEEDS}")
-    print(f"  预计时间: ~8.5 h")
     print()
 
-    # ── 跑 3 baby 串行 ──
-    results = []
-    failed_babies = []
+    if args.aggregate_only:
+        print("  --aggregate-only: 跳过 chunk 运行，只做聚合")
+        return aggregate_results()
+
+    # ── 决定要跑哪些 (baby, chunk) 对 ──
+    if args.baby:
+        babies_to_run = [(args.baby, TRIPLET_CONFIGS[args.baby])]
+    else:
+        babies_to_run = list(TRIPLET_CONFIGS.items())
+
     total_t0 = time.time()
-    for name, yaml_path in TRIPLET_CONFIGS.items():
-        try:
-            result = run_one_baby(name, yaml_path, seed=SEEDS[name], n_steps=1000)
-            results.append(result)
-        except Exception as e:
-            print(f"\n  ✗ {name} 崩溃: {type(e).__name__}: {str(e)[:200]}")
-            failed_babies.append({'name': name, 'error': str(e)[:200]})
-            continue
+    all_results = []
+    failed = []
+
+    for baby_name, yaml_path in babies_to_run:
+        if args.chunk_index is not None:
+            chunks_to_run = [args.chunk_index]
+        else:
+            chunks_to_run = [0, 1, 2, 3]  # 全部 4 个 chunks
+
+        for chunk_idx in chunks_to_run:
+            # Skip 已有 _chunk{N}_result.json 的 chunk（已完成）
+            result_path = OUTPUT_DIR / f"{baby_name}_chunk{chunk_idx}_result.json"
+            if result_path.exists():
+                print(f"\n  ⊙ Skip {baby_name} chunk {chunk_idx}（已有 {result_path.name}）")
+                continue
+
+            # 计算 start_epoch 和 n_steps
+            start_epoch = args.start_epoch if args.start_epoch is not None else chunk_idx * args.chunk_size
+            n_steps = args.n_steps if args.n_steps is not None else args.chunk_size
+
+            try:
+                result = run_one_baby(
+                    baby_name, yaml_path,
+                    seed=SEEDS[baby_name],
+                    n_steps=n_steps,
+                    chunk_idx=chunk_idx,
+                    start_epoch=start_epoch,
+                )
+                all_results.append(result)
+            except Exception as e:
+                print(f"\n  ✗ {baby_name} chunk {chunk_idx} 崩溃: "
+                      f"{type(e).__name__}: {str(e)[:200]}")
+                failed.append({'baby': baby_name, 'chunk': chunk_idx,
+                               'error': str(e)[:200]})
+                # 不 break — 让 wrapper 决定是否继续下一个 chunk
 
     total_elapsed = time.time() - total_t0
 
-    if not results:
-        print("\n  ⚠ 所有 baby 都失败")
-        return 1
+    if all_results:
+        print(f"\n  ✓ {len(all_results)} chunks 完成 ({total_elapsed/60:.1f} min)")
+    if failed:
+        print(f"  ⚠ {len(failed)} chunks 失败")
 
-    if failed_babies:
-        print(f"\n  ⚠ {len(failed_babies)}/3 baby 失败: {[b['name'] for b in failed_babies]}")
+    print(f"\n  下一步: 运行 aggregate_chunks.py 合并结果")
+    return 0
+
+
+def aggregate_results() -> int:
+    """合并所有 chunks 的 JSON 成最终 per-baby result"""
+    print("\n  聚合 chunks...")
+    # 此函数实现聚合逻辑（具体由 aggregate_chunks.py 完成）
+    # 这里只做简单的占位
+    print("  请使用 aggregate_chunks.py 进行合并")
+    return 0
+
+
+# ── 三胞胎对比（chunk 模式暂跳过，由 aggregator 处理）──
 
     # ── Personality divergence ──
     divergence = compute_personality_divergence(results) if len(results) >= 2 else {
