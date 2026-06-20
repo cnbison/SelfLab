@@ -122,15 +122,32 @@ def run_one_baby(
         verbose=True,
     )
 
-    # ── 跑 1000 epoch（手动循环 + live timeseries）──
+    # ── 跑 1000 epoch（手动循环 + live timeseries + checkpoint writes）──
     print(f"\n  开始跑 {n_steps} epoch...")
     orchestrator._n_epochs_hint = n_steps
     timeseries_live = []
     traces = []
+    identity_so_far_list = []   # 累积 identity 触发（checkpoint 用）
+    narrative_so_far_list = []  # 累积 narrative 触发（checkpoint 用）
+    checkpoint_interval = 100   # 每 100 epoch 写一次 checkpoint JSON（M2.2 E4 hang 教训）
     t0 = time.time()
     for epoch_idx in range(n_steps):
         trace = orchestrator.step(epoch_idx)
         traces.append(trace)
+
+        # 累积 identity/narrative（每步都检查，简单且数据量小）
+        if trace.identity is not None:
+            identity_so_far_list.append({
+                'epoch': trace.epoch, 'identity': trace.identity,
+                'length_chars': len(trace.identity),
+            })
+        if trace.narrative is not None:
+            narrative_so_far_list.append({
+                'epoch': trace.epoch, 'narrative': trace.narrative,
+                'length_chars': len(trace.narrative),
+            })
+
+        # ── 采样点（每 sample_every）──
         if (epoch_idx + 1) % sample_every == 0 or epoch_idx == 0:
             timeseries_live.append({
                 'epoch': epoch_idx,
@@ -144,7 +161,6 @@ def run_one_baby(
                 'identity_so_far': sum(1 for tt in traces if tt.identity is not None),
                 'narrative_so_far': sum(1 for tt in traces if tt.narrative is not None),
             })
-            # 每 sample_every 步实时打印进度（含 retry stats）
             elapsed_so_far = time.time() - t0
             s = llm.retry_stats
             retry_pct = (s['calls_with_retry'] / s['total_calls'] * 100) if s['total_calls'] > 0 else 0
@@ -156,6 +172,39 @@ def run_one_baby(
                 f"calls={llm.call_count} retry={retry_pct:.1f}%",
                 flush=True,
             )
+
+        # ── Checkpoint 写入（每 100 epoch）──
+        # 即使后续 hang/kill，最多丢 100 epoch 数据（约 17 min @ 10s/epoch）
+        if (epoch_idx + 1) % checkpoint_interval == 0:
+            checkpoint_path = OUTPUT_DIR / f"{name}_checkpoint.json"
+            checkpoint_data = {
+                'name': name,
+                'baby_id': cfg['baby_id'],
+                'seed': seed,
+                'checkpoint_epoch': epoch_idx + 1,
+                'checkpoint_timestamp': time.time(),
+                'elapsed_seconds_so_far': round(time.time() - t0, 1),
+                'llm_call_count': llm.call_count,
+                'value_magnitude_current': round(value_layer.magnitude(), 4),
+                'phase_xition_count': sum(1 for tt in traces if tt.phase_xition),
+                'identity_count': len(identity_so_far_list),
+                'narrative_count': len(narrative_so_far_list),
+                'crystallize_count': sum(1 for tt in traces if tt.crystallize_result is not None),
+                'hawking_size': len(hawking),
+                'hawking_min_weight': min((m['weight'] for m in hawking.memory), default=0.0),
+                'crystallizer_clusters': len(crystallizer),
+                'final_frustration_per_drive_so_far': {d: round(v, 4) for d, v in metabolism.frustration.items()},
+                'final_value_state_so_far': {k: round(v, 4) for k, v in value_layer.value_state.items()},
+                'identity_history_so_far': identity_so_far_list,
+                'narrative_history_so_far': narrative_so_far_list,
+                'llm_stats': llm.stats(),
+                'status': 'in_progress',
+            }
+            checkpoint_path.write_text(
+                json.dumps(checkpoint_data, indent=2, ensure_ascii=False, default=str),
+                encoding='utf-8',
+            )
+            print(f"    [checkpoint saved] {checkpoint_path.name}", flush=True)
 
     elapsed = time.time() - t0
 
