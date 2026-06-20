@@ -155,6 +155,7 @@ class SGELLMClient:
         temperature: Optional[float] = None,
         max_tokens: int = 1024,
         response_format: Optional[dict] = None,
+        timeout: float = 30.0,  # M2.2 修复 E4 hang：explicit socket timeout (default 30s)
     ) -> str:
         """调用 LLM 并返回 response 内容
 
@@ -189,6 +190,7 @@ class SGELLMClient:
             base_url=self.base_url,
             temperature=temperature,
             max_tokens=max_tokens,
+            timeout=timeout,  # M2.2 修复：防止 server hang 时无限等待
         )
         if response_format is not None:
             kwargs['response_format'] = response_format
@@ -202,6 +204,7 @@ class SGELLMClient:
             litellm.Timeout,
             litellm.RateLimitError,
             litellm.ServiceUnavailableError,
+            litellm.APIError,  # M2.2 修复：catch-all 包括 httpx-level errors
         )
 
         max_retries = 5  # M2.2 提升：server 持续不稳定时 3 次不够（pilot v2 crashed）
