@@ -181,13 +181,145 @@ M2.2 验证了这个机制能工作：
 
 ---
 
-## 6. 关联文档
+## 6. SGE 在应用中的具体角色（澄清：架构思路 vs 功能模块）
+
+> **触发点**：用户问"对想构建学生数字孪生应用的人来说，SGE 是提供架构思路，还是功能模块？"
+> **结论**：**两者都提供，但更偏向"功能模块"——是一个可 pip install 的 personality engine，但不是完整应用**。
+
+### 6.1 工作量拆分（以学生数字孪生为例）
+
+```
+学生数字孪生 App = 100% 工作量
+├── [SGE 直接提供：约 30-40%]              ├── [App 开发者必须自建：60-70%]
+│                                          │
+├── Personality Engine (sge 包)             ├── UI（聊天/语音/虚拟形象）
+│   ├─ EventGenerator                       ├── 数据采集（成绩/出勤/社交 → events）
+│   ├─ IdentityLayer                        ├── 持久化（数据库，跨会话保存状态）
+│   ├─ NarrativeBuilder                     ├── 用户系统（每个学生一个 twin）
+│   ├─ ValueLayer / Hawking / Crystallizer  ├── 部署基础设施（云服务、监控、扩容）
+│   └─ SGEOrchestrator (12 步编排)         └── 领域适配（什么 value/event 触发结晶）
+│                                          │
+└── 架构参考（验证过的工程模式）          └── 业务逻辑（具体使用场景）
+```
+
+### 6.2 SGE 直接提供的功能模块（可 `pip install sge`）
+
+```python
+from sge import (
+    EventGenerator,           # 接收事件 → 生成 critic_context
+    IdentityLayer,            # 每 N epoch 结晶一次"这个学生是谁"
+    NarrativeBuilder,         # 每 N epoch 构建一次"学生的成长故事"
+    ValueLayer,               # 6D 价值向量（safety/creativity/...）
+    HawkingDecay,             # 短期记忆衰减（半衰期 ~3 天）
+    MemoryCrystallizer,       # 长期记忆压缩（相似事件聚类）
+    SGEOrchestrator,          # 12 步编排器（一次跑完一个完整 cycle）
+    SGELLMClient,             # LLM 适配（含 retry/warmup/timeout）
+)
+
+orchestrator = SGEOrchestrator(
+    agent=student_agent,  # 该学生专属
+    event_generator=EventGenerator(baby_id='student_001'),
+    identity_layer=IdentityLayer(crystallize_every_n_epochs=20),
+    ...
+)
+```
+
+**SGE 直接给的**：事件 → 感知 → 价值 → 记忆 → 身份 → 叙事 → 回应的**完整 personality 模拟循环**。
+
+### 6.3 SGE 提供的架构参考（M2.x 验证过的工程模式）
+
+| 模式 | SGE 的做法 | App 怎么用 |
+|------|----------|-----------|
+| 何时结晶 identity | 每 20 epoch（M2.2 验证）| 学生每 20 个有意义事件触发一次 |
+| 短期 vs 长期记忆分离 | Hawking（衰减）+ Crystallizer（压缩）| 近 1 周 = Hawking，全部 = Crystallizer |
+| Phase Transition 触发 | frustration 总和达阈值 | 学生经历重大事件 → AI 也"成长" |
+| Event 流注入 | yaml 配置分布 | 用学生真实数据替换 yaml（需要 adapter）|
+| Stub vs Real LLM | use_real_llm 参数 | 开发期 stub（成本低），生产期 real |
+
+**关键**：这些模式**有 M2.2/M2.3 数据支撑**——不是凭空想象，是经过 1000 epoch × 真实 LLM 验证的工程决策。
+
+### 6.4 App 开发者必须自建（60-70%）
+
+#### A. 数据采集与映射（最关键）
+
+SGE **不知道什么是"学生事件"**。需要：
+
+```python
+# App 必须做的事：
+def student_event_stream(student_id):
+    yield {'type': 'grade_drop', 'subject': 'math', 'from': 90, 'to': 65}
+    yield {'type': 'social_conflict', 'with': 'best_friend'}
+    # ...
+
+# 然后喂给 SGE：
+for event in student_event_stream('student_001'):
+    event_dict = convert_to_sge_format(event)  # App 的 adapter
+    # SGE 开始处理...
+```
+
+**Gap**：SGE 没有"学生事件 schema"。App 需要设计：
+- 什么事件类型对学生人格有影响？
+- 如何把 `grade_drop` 映射到 EventGenerator.generate() 的输入？
+
+#### B. 持久化
+
+SGE 是**进程内状态**。App 需要：
+- 序列化状态到 JSON/数据库
+- 反序列化恢复
+- 多用户隔离
+
+**Gap**：SGE 没有提供 `save_twin_state()` / `load_twin_state()`——这是 App 必须写的胶水代码。
+
+#### C. UI 与交互
+
+SGE 是**纯后端 personality engine**——没有 UI，没有聊天界面，没有虚拟形象。
+
+#### D. 领域适配
+
+学生 vs 老人需要**不同的维度**：
+- 学生：学业压力、社交友谊、家庭期待
+- 老人：健康衰退、丧偶、退休意义
+
+SGE 提供通用 6D value，但 App 需要**映射到领域特有维度**。
+
+### 6.5 总结：SGE 在应用生态中的位置
+
+| 类比 | 角色 |
+|------|------|
+| SGE ≈ PyTorch | 深度学习**引擎**——你还需要写数据加载、训练循环、UI、部署 |
+| SGE ≠ FastAPI | 不是一个完整的 web 框架 |
+| SGE ≠ Docker | 不是一个部署平台 |
+
+**SGE 解决的是 LLM 应用最难的部分**：让 AI **有持续自我**。
+
+**SGE 不解决的**：数据、UI、持久化、部署、领域适配——这些是应用开发者必须自建的部分。
+
+**给应用开发者的建议**：
+1. 把 SGE 当作 personality engine 嵌入到你的应用
+2. 自建数据采集层（把领域事件映射到 SGE EventGenerator 输入）
+3. 自建持久化层（序列化 SGE 状态）
+4. 自建 UI（聊天 / 语音 / 虚拟形象）
+5. 领域适配（用 SGE 通用维度映射你的领域维度）
+
+这样 App 开发者可以**专注做自己擅长的产品设计**，**把"持续自我"这个最难的问题交给 SGE**。
+
+---
+
+## 7. 关联文档
 
 - [CLAUDE.md §应用方向](../../CLAUDE.md) — 项目级方向
 - [SGE-Key-Insights.md §11](../../SGE-Key-Insights.md) — "SGE 验证后可赋能 A→B 升级为有灵魂的教育者"
 - [M22_TRIPLETS_REPORT.md](../../experiments/M22_TRIPLETS_REPORT.md) — M2.2 1000 epoch 验证
 - [M23_PERSONAL_REALITY_REPORT.md](../../experiments/M23_PERSONAL_REALITY_REPORT.md) — M2.3 一致性验证
 - [sge/README.md §Phase 3 路线图](../../sge/README.md) — 工程路线图
+- [sge/setup.py](../../sge/setup.py) — pip install 接口
+
+---
+
+## 8. 版本
+
+- v1: 2026-06-21 — 初版（4 应用方向 + 战略意义）
+- v1.1: 2026-06-21 — 澄清"SGE 是模块还是架构"（基于用户追问）
 
 ---
 
