@@ -290,6 +290,88 @@ SGE 提供通用 6D value，但 App 需要**映射到领域特有维度**。
 | SGE ≠ FastAPI | 不是一个完整的 web 框架 |
 | SGE ≠ Docker | 不是一个部署平台 |
 
+---
+
+## 7. SGE 的 4 层记忆系统（Phase 2 已完整实现）
+
+> **触发点**：用户问"Phase 2 是否已具有长期和短期记忆？还需要 Phase 3 扩展吗？"
+> **答案**：**Phase 2 已有完整 4 层记忆系统**，Phase 3 扩展的是**生产级别能力**（持久化、重要性评分），不是缺失的记忆机制。
+
+### 7.1 4 层记忆架构
+
+```
+SGE 记忆系统（Phase 2 已实现，M2.2/M2.3 验证）
+├── Layer 1: HawkingDecay（短期事件记忆，衰减型）           🟢 已验证
+│   - 每事件插入 weight=1.0，tick 时按 γ=0.01/h 衰减
+│   - 阈值 1e-4 以下自动删除
+│   - 半衰期 ~3 天（1000h 后保留 921 个，删除 79 个）
+│   - M2.3 修复 unit bug 后 4/4 unit tests PASS
+│   - 用于：Actor prompt 的"最近记忆"上下文
+│
+├── Layer 2: MemoryCrystallizer（长期模式记忆，累积型）    🟢 已验证
+│   - 每 10 epoch 把 value_state + drives_vec (11D) 聚类
+│   - 相似向量合并，否则新建 cluster
+│   - 永不删除（除非显式 reset）
+│   - M2.2 跑了 9 clusters
+│   - 用于：跨 epoch 模式识别
+│
+├── Layer 3: Identity history（身份自我认知，情节型）       🟢 已验证
+│   - 每 20 epoch IdentityLayer.crystallize() 一次
+│   - M2.2 跑了 38-50 次重写
+│   - 输出：~50 字中文自我定义
+│   - 用于：AI 自我定义
+│
+└── Layer 4: Narrative history（自传叙事，情节型）         🟢 已验证
+    - 每 20 epoch NarrativeBuilder.build() 一次
+    - M2.2 跑了 50 次构建
+    - 输出：~500 字中文人生叙事
+    - 用于：AI 人生故事连贯性
+```
+
+### 7.2 验证状态（M2.2/M2.3）
+
+| 层 | 验证依据 |
+|---|---------|
+| Hawking | M2.3 修复后 4/4 unit tests；M2.2 1000 epoch 跑通 |
+| Crystallizer | M2.2 9 clusters 形成；M2.2 orchestrator 调用 9 次 |
+| Identity | M2.2 38-50 次重写；M2.3 L4 一致性 9.0/10（challenged）|
+| Narrative | M2.2 50 次构建；M2.3 L3 一致性 5.5-6.5/10 |
+
+**Phase 2 完成度足够支撑"持续自我"假设**。4 层记忆都在 M2.2/M2.3 验证过，不只是代码 stub，是有数据支撑的工程系统。
+
+### 7.3 距离"应用级别"的差距（Phase 3 需要扩展的）
+
+| 差距 | 当前 | 生产级别需要 | Phase 优先级 |
+|------|------|-------------|-------------|
+| **持久化** | 进程内 list，进程结束 = 记忆丢失 | 数据库 + save/load | **Phase 3 必须** |
+| **重要性评分** | 所有事件 weight=1.0 | grade_drop > grade_fluctuation | **Phase 3 必须** |
+| **跨会话** | 重启后从零开始 | DB 恢复 4 层状态 | **Phase 3 必须** |
+| 语义检索 | `retrieve(k=5)` 按 weight | "什么导致学生焦虑？"需要 embedding | Phase 3.5 |
+| 多模态 | 只存 8D critic_context | 音频/图片/文本统一 | Phase 3.5 |
+| 跨用户共享 | 每个 SGE 实例独立 | 班级共享经验 | Phase 4+ |
+| 主动遗忘 | 纯时间衰减 | 用户标记 + importance 衰减 | Phase 4+ |
+
+### 7.4 关键洞察
+
+**SGE 记忆系统的"内部循环"已自洽**：
+- 事件 → 价值变化 → 记忆 → 身份 → 叙事 → 行为 → 新事件
+- 4 层之间有清晰的数据流（Hawking 给 Actor，Crystallizer 给 Critic，Identity 决定 Actor 风格，Narrative 提供长程上下文）
+
+**缺的"不是 SGE 内部组件"，而是 App 层的胶水代码**：
+- 持久化（保存 4 层到 DB）
+- 数据采集（领域事件 → SGE EventGenerator 输入）
+- 重要性评分（领域评分函数）
+
+**App 开发者用 SGE 4 层记忆的正确姿势**：
+1. 在 App 层做"事件重要性评分" → 决定插入 Hawking 时的 weight
+2. 调 `orchestrator.run()` 跑 N 个事件
+3. 序列化 4 层状态（Hawking.memory / Crystallizer.clusters / identity_layer.identity_history / narrative_builder.narrative_history）
+4. 渲染输出给用户（chat / 语音 / 报告）
+
+---
+
+## 8. 关联文档
+
 **SGE 解决的是 LLM 应用最难的部分**：让 AI **有持续自我**。
 
 **SGE 不解决的**：数据、UI、持久化、部署、领域适配——这些是应用开发者必须自建的部分。
