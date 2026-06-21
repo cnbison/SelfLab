@@ -47,17 +47,17 @@ import random
 from dataclasses import dataclass, field, asdict
 from typing import Optional, Callable, Any
 
-from _sge_baseline import (
+from .baseline import (
     Agent, DriveMetabolism, ValueLayer, HawkingDecay, MemoryCrystallizer,
     SGE_DEFAULT_DRIVES, SGE_DEFAULT_VALUES, SIGNALS, CONTEXT_FEATURES,
     apply_thermodynamic_noise,
 )
-from _sge_critic import critic_sense
-from _sge_actor import actor_express, ActorOutput
-from _sge_event import EventGenerator, LifeEvent
-from _sge_identity import IdentityLayer
-from _sge_narrative import NarrativeBuilder
-from _sge_llm_client import SGELLMClient, make_llm_client
+from .critic import critic_sense
+from .actor import actor_express, ActorOutput
+from .event import EventGenerator, LifeEvent
+from .identity import IdentityLayer
+from .narrative import NarrativeBuilder
+from .llm_client import SGELLMClient, make_llm_client
 
 
 # ══════════════════════════════════════════════
@@ -444,7 +444,7 @@ def _run_unit_tests() -> bool:
     print(f"  _sge_orchestrator.py 单元测试")
     print(f"{'─'*60}\n")
 
-    from _sge_baseline import (
+    from .baseline import (
         SGE_DEFAULT_DRIVES, SGE_DEFAULT_VALUES,
         _load_drives,
     )

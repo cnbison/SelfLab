@@ -31,7 +31,7 @@ from pathlib import Path
 #   research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md
 # 每个函数 docstring 标注 "来源: AiBeing 源码 + 行号" + "公式" + "参考 §2.x"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_baseline import (
+from sge.baseline import (
     Agent,
     DriveMetabolism,
     DRIVES,

@@ -31,15 +31,15 @@ from pathlib import Path
 
 # ── SGE 自有实现全套 ─────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_baseline import (
+from sge.baseline import (
     Agent, DriveMetabolism, ValueLayer, HawkingDecay, MemoryCrystallizer,
     SGE_DEFAULT_VALUES, _load_drives,
 )
-from _sge_event import EventGenerator
-from _sge_identity import IdentityLayer
-from _sge_narrative import NarrativeBuilder
-from _sge_orchestrator import SGEOrchestrator
-from _sge_llm_client import make_llm_client
+from sge.event import EventGenerator
+from sge.identity import IdentityLayer
+from sge.narrative import NarrativeBuilder
+from sge.orchestrator import SGEOrchestrator
+from sge.llm_client import make_llm_client
 
 
 # ── 输出目录 ──────────────────────────────────────

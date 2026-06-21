@@ -398,7 +398,7 @@ class EventGenerator:
             description = self.rng.choice(EVENT_TEMPLATES[event_type])
             intensity = 0.3 + self.rng.random() * 0.5  # [0.3, 0.8]
             # value_challenges: 简单随机选 1-2 个 values
-            from _sge_baseline import SGE_DEFAULT_VALUES
+            from .baseline import SGE_DEFAULT_VALUES
             n_challenges = self.rng.choice([1, 1, 2])
             challenges = self.rng.sample(SGE_DEFAULT_VALUES, min(n_challenges, len(SGE_DEFAULT_VALUES)))
             event = LifeEvent(

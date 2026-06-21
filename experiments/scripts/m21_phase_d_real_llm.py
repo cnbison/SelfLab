@@ -40,15 +40,15 @@ from pathlib import Path
 
 # ── SGE 自有实现全套 ─────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_baseline import (
+from sge.baseline import (
     Agent, DriveMetabolism, ValueLayer, HawkingDecay, MemoryCrystallizer,
     SGE_DEFAULT_DRIVES, SGE_DEFAULT_VALUES, _load_drives,
 )
-from _sge_event import EventGenerator
-from _sge_identity import IdentityLayer, real_crystallize_identity, real_validate_identity
-from _sge_narrative import NarrativeBuilder, real_build_narrative, real_check_narrative_consistency
-from _sge_orchestrator import SGEOrchestrator
-from _sge_llm_client import make_llm_client
+from sge.event import EventGenerator
+from sge.identity import IdentityLayer, real_crystallize_identity, real_validate_identity
+from sge.narrative import NarrativeBuilder, real_build_narrative, real_check_narrative_consistency
+from sge.orchestrator import SGEOrchestrator
+from sge.llm_client import make_llm_client
 
 
 # ── 输出目录 ──────────────────────────────────────
@@ -240,7 +240,7 @@ def verify_real_llm_results(result: dict) -> dict:
     checks.append((f'2. Actor JSON 合法（{len(samples["actor_samples"])} 个样本）', actor_ok))
 
     # 3. Identity LLM 验证
-    from _sge_actor import BEHAVIOR_LABELS
+    from sge.actor import BEHAVIOR_LABELS
     identity_ok = (
         len(samples['identity_samples']) > 0
         and all(

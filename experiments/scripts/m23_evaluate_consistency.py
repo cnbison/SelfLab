@@ -25,7 +25,7 @@ from pathlib import Path
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_llm_client import make_llm_client
+from sge.llm_client import make_llm_client
 
 
 OUTPUT_DIR_M22 = Path(__file__).resolve().parent.parent / "output" / "m22_triplets"

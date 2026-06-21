@@ -18,7 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _sge_event import EventGenerator
+from sge.event import EventGenerator
 
 
 def test_1_distribution_none_unchanged():

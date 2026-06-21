@@ -40,7 +40,7 @@ from pathlib import Path
 
 # ── SGE 自有实现 + Critic 适配层 ───────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_baseline import (
+from sge.baseline import (
     Agent,
     DriveMetabolism,
     ValueLayer,
@@ -53,7 +53,7 @@ from _sge_baseline import (
     SGE_HAWKING_GAMMA,
     _load_drives,
 )
-from _sge_critic import (
+from sge.critic import (
     critic_sense,
     CRITIC_CONTEXT_FIELDS,
     VALUE_DELTA_FIELDS,

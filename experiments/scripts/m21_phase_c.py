@@ -37,15 +37,15 @@ from pathlib import Path
 
 # ── SGE 自有实现全套 ─────────────────────────────
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_baseline import (
+from sge.baseline import (
     Agent, DriveMetabolism, ValueLayer,
     SGE_DEFAULT_DRIVES, SGE_DEFAULT_VALUES,
     _load_drives, CONTEXT_FEATURES,
 )
-from _sge_critic import critic_sense
-from _sge_event import EventGenerator, LifeEvent
-from _sge_identity import IdentityLayer
-from _sge_narrative import NarrativeBuilder
+from sge.critic import critic_sense
+from sge.event import EventGenerator, LifeEvent
+from sge.identity import IdentityLayer
+from sge.narrative import NarrativeBuilder
 
 
 # ── 输出目录 ──────────────────────────────────────

@@ -27,7 +27,7 @@ import math
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _sge_baseline import HawkingDecay
+from sge.baseline import HawkingDecay
 
 
 # 设计预期（来自 SGE-Memory-Layer-Design.md）
