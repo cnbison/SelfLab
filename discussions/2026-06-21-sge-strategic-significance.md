@@ -479,7 +479,205 @@ render_response(trace.actor_output, mastery_state)
 
 ---
 
-## 9. 关联文档
+## 9. 持久化层设计（Phase 3 必须）
+
+> **触发点**：用户问"持久化层具体怎么设计？"
+> **核心目标**：解决 M2.2 chunk 模式 + 进程内状态丢失问题，让 SGE 能跨会话/跨进程保留 4 层记忆。
+
+### 9.1 状态清点：需要持久化什么
+
+```
+┌─ SGE 内部状态（必须持久化）─────────────────────┐
+│ 1. HawkingDecay.memory (~921 条 after 1000h)        │
+│ 2. MemoryCrystallizer.clusters (~9 clusters)        │
+│ 3. ValueLayer.value_state (6D)                       │
+│ 4. DriveMetabolism.drive_state + frustration (5D)   │
+│ 5. IdentityLayer.identity_history (~50 条)           │
+│ 6. NarrativeBuilder.narrative_history (~50 条)        │
+│ 7. EventGenerator.event_history (~1000 条)            │
+│ 8. Agent 内部状态（step counter 等）                │
+├─ App 层状态（领域相关，App 自管）──────────────────┤
+│ 9. SubjectMasteryState（学生领域）                 │
+│ 10. 原始事件流（数据审计/重放）                     │
+│ 11. 用户对话历史                                    │
+│ 12. 学生元数据                                       │
+└─────────────────────────────────────────────────────┘
+```
+
+### 9.2 设计原则
+
+| 原则 | 说明 |
+|------|------|
+| **轻依赖** | 不引入 SQLAlchemy / Django ORM |
+| **可读优先** | JSON > Pickle > Protobuf（v1 期调试友好）|
+| **schema 版本化** | 字段必须可演进，schema_version 嵌入 JSON |
+| **chunk reset 修复** | M2.2 痛点：跨 chunk 状态丢失 → 持久化解决 |
+| **细粒度恢复** | 可只恢复 Identity / Narrative / Hawking |
+| **延迟写入** | 不阻塞 SGE 主循环 |
+
+### 9.3 格式 + 存储选择（v1 决策）
+
+| 决策 | 选择 | 理由 |
+|------|------|------|
+| **格式** | JSON | M2.2/M2.3 已用 JSON，延续格式让工具链一致 |
+| **存储** | SQLite | 单文件、SQL 查询、事务、Phase 4 可迁 PostgreSQL |
+| **拒绝 Pickle** | — | 版本敏感 + 安全风险 |
+| **拒绝 Protobuf** | — | v1 期过度设计 |
+
+### 9.4 Schema 设计
+
+```sql
+-- 主表：每学生一行
+CREATE TABLE students (
+    student_id        TEXT PRIMARY KEY,
+    name              TEXT,
+    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active_at    TIMESTAMP,
+    sge_state_json    TEXT NOT NULL,  -- 4 层状态 JSON
+    app_state_json    TEXT NOT NULL,  -- 学科掌握 + 对话历史
+    schema_version    TEXT DEFAULT '1.0',
+    last_epoch        INTEGER DEFAULT 0
+);
+
+-- 增量 checkpoint（回溯用）
+CREATE TABLE checkpoints (
+    checkpoint_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+    student_id        TEXT NOT NULL,
+    epoch             INTEGER NOT NULL,
+    saved_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sge_state_json    TEXT NOT NULL,
+    trigger           TEXT  -- 'auto_100' / 'on_close' / 'phase_transition'
+);
+
+-- 4 层细粒度表（可单独查询/恢复）
+CREATE TABLE identity_history (
+    id, student_id, epoch, identity_text, length_chars, crystallized_at
+);
+CREATE TABLE narrative_history (
+    id, student_id, epoch, narrative_text, length_chars, built_at
+);
+CREATE TABLE hawking_memory (
+    id, student_id, inserted_at, weight, content_json
+);
+CREATE TABLE crystallizer_clusters (
+    id, student_id, cluster_id, vec_json, weight, count
+);
+
+-- 学科掌握（学生领域）
+CREATE TABLE subject_mastery (
+    id, student_id, subject_name, overall_score, emotional_valence,
+    last_updated, topics_json, UNIQUE(student_id, subject_name)
+);
+
+CREATE TABLE schema_meta (key TEXT PRIMARY KEY, value TEXT);
+-- INSERT INTO schema_meta VALUES ('version', '1.0');
+```
+
+### 9.5 Python API 设计
+
+```python
+# sge/persistence.py（新增模块）
+class TwinStateDB:
+    def __init__(self, db_path: str = "twins.db"): ...
+    
+    def save_full_state(self, student_id, sge_state, app_state, 
+                        epoch, trigger='auto_100'): ...
+        """全量保存（每 100 epoch 或 session end）"""
+    
+    def save_incremental(self, student_id, layer, data, epoch): ...
+        """增量保存单层（Identity/Narrative/Hawking）"""
+    
+    def load_full_state(self, student_id) -> Tuple[dict, dict, int]: ...
+        """完整恢复"""
+    
+    def load_layer(self, student_id, layer) -> list: ...
+        """细粒度恢复"""
+    
+    def list_students(self) -> List[str]: ...
+    
+    def delete_student(self, student_id): ...
+        """GDPR right-to-deletion"""
+
+# SGEOrchestrator 集成（最小侵入）
+class SGEOrchestrator:
+    def __init__(self, ..., db=None, student_id=None):
+        self.db = db
+        self.student_id = student_id
+    
+    def step(self, epoch):
+        trace = self._do_step(epoch)
+        # 自动 checkpoint hook
+        if self.db and self.student_id and (epoch + 1) % 100 == 0:
+            self._save_checkpoint()
+        return trace
+```
+
+### 9.6 写入策略
+
+| 触发 | 频率 | 内容 |
+|------|------|------|
+| 每 100 epoch | 自动 | 全量 JSON |
+| Identity 结晶 | 事件 | 单条 INSERT（不丢自我认知）|
+| Narrative 构建 | 事件 | 单条 INSERT |
+| Session 结束 | 应用层 | 全量 |
+| Phase Transition | 事件 | 全量 |
+| 手动 | 用户触发 | 全量 |
+
+### 9.7 Schema 版本管理
+
+```python
+# sge_state_json 内部结构（带版本）
+{
+    "_schema_version": "1.0",
+    "_saved_at": "2026-06-21T...",
+    "_sge_version": "0.1.0",
+    "data": {"hawking_memory": [...], ...}
+}
+
+# 迁移函数
+def migrate(state_json, from_v, to_v):
+    if from_v == '1.0' and to_v == '2.0':
+        # rename 'frustration' → 'frustration_per_drive'
+        ...
+```
+
+### 9.8 解决 chunk reset 问题
+
+```
+E4 v4 (chunk 模式，痛点):        E4 v5 (持久化模式，方案):
+  chunk 0: ep 0-249               chunk 0: ep 0-249
+    ep 100 save (in log)           ep 100 save → DB
+    ep 200 save                    ep 200 save → DB
+    ep 249 save                    ep 249 save → DB
+  chunk 1: ep 250-499            chunk 1: ep 250-499
+    [Hawking 状态丢失!]             ep 100 (=350) LOAD ← DB
+    ep 100 (=350) save              ep 200 save → DB
+    ...                            ...
+```
+
+**持久化彻底解决 chunk 边界的状态丢失**。
+
+### 9.9 隐私 / GDPR
+
+- 加密敏感字段（student_id 可用 hash，name 可加密）
+- 删除权（GDPR）：`delete_student()` 级联删除 7 张表
+- 数据保留期限（学生毕业后 N 年自动删除）
+- 审计日志（谁在何时访问学生数据）
+
+### 9.10 Phase 3 实施清单
+
+| 子任务 | 工作量 | 依赖 |
+|--------|-------|------|
+| `sge/persistence.py` (TwinStateDB) | 1.5 天 | schema |
+| 单元测试（save/load 各层）| 0.5 天 | TwinStateDB |
+| SGEOrchestrator 集成 hook | 0.5 天 | TwinStateDB |
+| Migration 框架 | 0.5 天 | schema_version |
+| 文档 + 示例 | 0.5 天 | — |
+| **总计** | **3.5 天** | |
+
+---
+
+## 10. 关联文档
 
 - [CLAUDE.md §应用方向](../../CLAUDE.md) — 项目级方向
 - [SGE-Key-Insights.md §11](../../SGE-Key-Insights.md) — "SGE 验证后可赋能 A→B 升级为有灵魂的教育者"
@@ -501,6 +699,7 @@ render_response(trace.actor_output, mastery_state)
 - v1.2: 2026-06-21 — §7 4 层记忆系统
 - v1.3: 2026-06-21 — §8 学生数字孪生数据采集层设计
 - v1.4: 2026-06-21 — 重写整个文档（修复章节编号混乱）
+- v1.5: 2026-06-21 — §9 持久化层设计（基于用户追问，state inventory + SQLite schema + Python API）
 
 ---
 
