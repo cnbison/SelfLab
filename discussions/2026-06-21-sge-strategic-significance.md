@@ -282,6 +282,196 @@ SGE 是**纯后端 personality engine**——没有 UI，没有聊天界面，�
 
 SGE 提供通用 6D value，但 App 需要**映射到领域特有维度**。
 
+**学生数字孪生的领域特殊性**（用户强调）：**学科掌握是一等公民**——需要 `SubjectMasteryState` 作为独立的状态维度（不是 SGE 内部的 value）。详见 §9。
+
+---
+
+## 9. 学生数字孪生的数据采集层设计（领域特例）
+
+> **触发点**：用户问"数据采集层具体怎么设计？尤其各科学习掌握情况是非常核心的数据"
+> **核心洞察**：学生数字孪生需要 **2 个数据流**（事件流 + 学科掌握状态流），不是 1 个。
+
+### 9.1 与通用数字孪生的根本差异
+
+```
+通用数字孪生：                    学生数字孪生：
+
+人生事件流                        人生事件流 + 学科掌握状态
+  │                                │             │
+  ▼                                ▼             ▼
+SGE Events                       SGE Events    SubjectMasteryState
+                                  (承载 mastery_delta)
+```
+
+**学生领域核心**：`SubjectMasteryState` 是独立维护的结构化状态，不是 SGE 内部组件。
+
+### 9.2 数据模型
+
+#### SubjectMasteryState
+
+```python
+@dataclass
+class SubjectMasteryState:
+    """学生各科掌握状态（应用层维护）"""
+    subjects: Dict[str, SubjectMastery]  # subject_name -> state
+
+    def update(self, subject: str, delta: MasteryChange): ...
+    def get_critic_context(self) -> dict:
+        """返回 SGE Critic 用的上下文"""
+        return {
+            'subjects_overview': self.summary(),
+            'subject_struggling': [s.name for s in self.subjects.values() if s.is_struggling],
+            'subject_mastering': [s.name for s in self.subjects.values() if s.is_mastering],
+        }
+
+@dataclass
+class SubjectMastery:
+    name: str                              # 'math' / 'physics'
+    overall_score: float                   # 0-100
+    topics: Dict[str, TopicMastery]        # 知识点
+    trajectory: List[float]                # 趋势
+    emotional_valence: float               # -1 (焦虑) ~ +1 (自信)
+    last_updated: datetime
+
+@dataclass
+class TopicMastery:
+    name: str                              # 'algebra' / 'geometry'
+    score: float                           # 0-100
+    sub_skills: Dict[str, float]           # 'quadratic_equations': 85
+    trajectory: List[float]
+```
+
+#### StudentEvent
+
+```python
+@dataclass
+class StudentEvent:
+    timestamp: datetime
+    event_type: str                        # 'mastery_drop' / 'frustration' / ...
+    subject: Optional[str]                 # 'math'
+    topic: Optional[str]                   # 'algebra'
+    mastery_before: Optional[float]
+    mastery_after: Optional[float]
+    mastery_delta: Optional[float]         # calculated
+    emotion: Optional[str]                 # 'frustrated' / 'confident'
+    emotion_intensity: Optional[float]
+    source: str                            # 'school_system' / 'self_report'
+    confidence: float                      # 0-1
+
+    def to_sge_event(self) -> dict: ...    # adapter 到 SGE
+```
+
+#### 事件类型分类
+
+```python
+STUDENT_EVENT_TYPES = {
+    # 学科掌握类（核心！）
+    'mastery_jump': {'subject': str, 'topic': str, 'delta': float},
+    'mastery_drop': {'subject': str, 'topic': str, 'delta': float},
+    'mastery_consolidate': {'subject': str, 'topic': str},
+    
+    # 情感类
+    'frustration': {'subject': str, 'intensity': float},
+    'confidence_boost': {'subject': str, 'source': str},
+    'curiosity': {'subject': str, 'topic': str},
+    
+    # 社交类
+    'peer_help': {'peer': str, 'subject': str},
+    'peer_conflict': {'peer': str, 'context': str},
+    'teacher_praise': {'teacher': str, 'subject': str},
+    'teacher_criticism': {'teacher': str, 'subject': str},
+    
+    # 行为类
+    'homework_complete': {'subject': str, 'quality': float},
+    'homework_skip': {'subject': str},
+    'class_attend': {'subject': str, 'engagement': float},
+}
+```
+
+### 9.3 与 SGE 的集成（adapter 模式）
+
+**关键决策**：SGE **不需要知道**"学生"或"学科"。它处理"事件流"。App 负责领域适配：
+
+```python
+# 应用层 adapter
+def student_event_to_sge_event(event: StudentEvent, state: SubjectMasteryState):
+    """学生事件 → SGE 事件"""
+    if event.mastery_delta and event.mastery_delta < -10:
+        return {'event_type': 'failure', 'subject': event.subject,
+                'mastery_change': event.mastery_delta,
+                'emotion': event.emotion, 'intensity': 5.0}
+    elif event.mastery_delta and event.mastery_delta > 10:
+        return {'event_type': 'success', ...}
+    # ...
+
+def inject_mastery_to_critic(state: SubjectMasteryState):
+    """把学科掌握状态注入 SGE Critic context"""
+    return {
+        # SGE 原生 8D context 由 Critic 自己构造
+        # 应用层追加 3D 学科 context
+        'subject_struggling': state.get_struggling_subjects(),
+        'subject_mastering': state.get_mastering_subjects(),
+        'mastery_trend': state.get_overall_trend(),
+    }
+```
+
+### 9.4 端到端数据流示例
+
+```python
+# 1. 数据采集
+math_test = school_api.get_test_score('stu_001', 'midterm_2026')
+# {'score': 65, 'prev_score': 90, 'subject': 'math', 'topic': 'algebra'}
+
+# 2. 构造 StudentEvent
+event = StudentEvent(
+    event_type='mastery_drop', subject='math', topic='algebra',
+    mastery_before=90, mastery_after=65, mastery_delta=-25,
+    emotion='frustrated', emotion_intensity=4,
+)
+
+# 3. 更新 SubjectMasteryState
+mastery_state.update('math', MasteryChange(topic='algebra', score_delta=-25))
+
+# 4. Adapter → SGE
+sge_event = student_event_to_sge_event(event, mastery_state)
+critic_ctx = inject_mastery_to_critic(mastery_state)
+
+# 5. SGE 12 步编排（不知道是学生事件）
+trace = orchestrator.step(epoch=N)
+
+# 6. 保存状态（4 层 SGE + SubjectMasteryState）
+save_state('stu_001', {
+    'sge': {
+        'hawking': orchestrator.hawking.memory,
+        'value_state': orchestrator.value_layer.value_state,
+        'identity_history': orchestrator.identity_layer.identity_history,
+        'narrative_history': orchestrator.narrative_builder.narrative_history,
+    },
+    'mastery_state': mastery_state.to_dict(),
+})
+
+# 7. 渲染响应
+render_response(trace.actor_output, mastery_state)
+# → "你最近数学好像不太顺利，要不要聊聊代数哪部分最吃力？"
+```
+
+### 9.5 架构边界（再次确认）
+
+| 概念 | SGE 包 | 应用层 |
+|------|--------|--------|
+| 12 步编排、EventGenerator、Critic/Actor/Identity/Narrative | ✅ | |
+| Hawking / Crystallizer / Value / Drive | ✅ | |
+| **SubjectMasteryState** | | ✅ 学生特有 |
+| **StudentEvent schema** | | ✅ 学生特有 |
+| **事件 adapter** | | ✅ 学生特有 |
+| **数据源 API**（学校系统/日记）| | ✅ 学生特有 |
+
+**SGE 保持领域无关性**。学生/老人/历史人物各有自己的领域模型，但都用同一个 SGE personality engine。
+
+---
+
+## 10. 关联文档
+
 ### 6.5 总结：SGE 在应用生态中的位置
 
 | 类比 | 角色 |
