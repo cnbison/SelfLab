@@ -759,10 +759,15 @@ class HawkingDecay:
 
         Returns:
             删除的记忆数
+
+        Note（M2.3 修复）：
+          - `now` 单位是"epoch-hours"（orchestrator 传 timestamp = epoch * hours_per_epoch）
+          - 1 epoch = 1 小时（默认 hours_per_epoch=1.0）
+          - 不需要 /3600（之前 bug 错误地把 timestamp 当秒处理）
         """
         if now is None:
             now = time.time()
-        delta_hours = max(0.0, (now - self._last_tick) / 3600.0)
+        delta_hours = max(0.0, now - self._last_tick)
         self._last_tick = now
         if delta_hours < 1e-6:
             return 0
