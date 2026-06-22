@@ -40,6 +40,7 @@
 | 1.20.0 | 2026-06-19 | (本次) | **M2.1 阶段 D 完成（集成 + 验证）**:5 个子任务全部 PASS(D1 Hawking/Crystallize 集成 / D2 Actor LLM 模块 / D3 完整 12 步双 LLM 编排器 / D4 100 epoch 冒烟 / D5 3 seed × 100 epoch 多 seed);新增 _sge_actor.py(ActorOutput + 10 行为标签 + stub/real LLM 适配 temperature=0.9) + _sge_orchestrator.py(SGEOrchestrator 12 步 + OrchestratorStep 16 字段 trace);_sge_baseline.py Agent.__init__/step 新增 hawking/crystallizer/crystallize_every/epoch/now 参数;m21_phase_d.py 集成测试 + m21_phase_d.yaml 配置;value_magnitude=0.0322(高于 Phase C 基线 0.0137-0.0194);experiments/M21_PHASE_D_REPORT.md 报告 |
 | 1.20.1 | 2026-06-19 | (本次) | **M2.1 阶段 D 补 D6 真实 LLM 验证**:新增 _sge_llm_client.py(SGELLMClient 统一封装 SSOT:_load_drives_provider/api_key/base_url/model + chat_json 自动 markdown fence 处理 + stats 成本统计);_sge_critic.py/actor.py/identity.py/narrative.py 重构为统一 SGELLMClient 接口(stub 模式兼容);_sge_orchestrator.py 新增 verbose 参数 + per-epoch 进度输出;_sge_identity.py:should_crystallize + _sge_narrative.py:should_build 修复 off-by-one (epoch+1)%N==0;_sge_narrative.py:check_consistency + _sge_identity.py:crystallize 加防御式 JSON 解析(dict/str/number 分流);m21_phase_d_real_llm.py(1 baby × 20 epoch, 44 次 LLM 调用, ~115s)5/5 硬性验收 PASS + 1 项观察(Phase Transition 0/20 需 M2.2 1000 epoch);Identity/Narrative 真实 LLM 输出质量远高于 stub(value_magnitude 0.2578 vs stub 0.0322 按 epoch 归一化 ~8x);experiments/M21_PHASE_D_REPORT.md 修订(D6 子任务 + §3.5 + §5 关键发现 #8-10 + §7.2 M2.2 决策) |
 | 1.21.0 | 2026-06-22 | (本次) | **Phase 3 规划完成 + sge/ Python 包建立**:research/phase3/ 18 个文件 SSOT 结构（00-overview 战略层 / 10-engineering 工程层 / 20-domain-knowledge 领域知识层 / 30-cross-project 跨项目层 / 90-applications 应用层）;sge/ Python 包建立（baseline/event/llm_client/critic/actor/identity/narrative/orchestrator 模块）;项目级文档同步更新（CLAUDE.md / README.md / ROADMAP.md / CHANGELOG.md）;M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）|
+| 1.22.0 | 2026-06-22 | (本次) | **认知数字孪生深度研究**:`research/cognitive-architecture/Cognitive-Digital-Twin.md` 7 页逐页深度解读 + `Cognitive-State-A-to-B-Research.md` 3 轮 GPT 对话整合分析 → 5 部分深度研究文档（Cognitive-Digital-Twin-Deep-Research.md, 约 700 行）;核心结论:原 9 维状态向量在 K12 场景下压缩为 5 维（K/P/S/C/X）,新增 Learning DNA（5 维个性化特征）和三层 B（Knowledge/Capability/Growth Goal）,引入成长轨迹（state/intervention/velocity/prediction）,Agent 升级为 Student Twin + Agent Twin 双数字孪生,产品定位从"AI 老师"重构为"AI 学习教练";与 SGE 共享 7 个认知科学工具但应用方向不同;discussions/2026-06-22-cognitive-digital-twin-deep-research.md 会话记录|
 
 ---
 
@@ -81,6 +82,54 @@ M2.x 全部完成（M2.1 全阶段 A~D + M2.2 三胞胎 1000 epoch + M2.3 个人
 - **Phase 1** ✅ 已完成（2026-06-17）
 - **Phase 2** ✅ 已完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）
 - **Phase 3** 🚧 规划完成，实施中
+
+---
+
+## [1.22.0] - 2026-06-22 (认知数字孪生深度研究)
+
+### 背景
+
+`research/cognitive-architecture/Cognitive-Digital-Twin.md` 是 A→B 调研的核心综合站点（7 页，9 维状态向量 `S_t = {K, P, M, G, A, E, W, X, U}`），但定位为"研究框架"。`Cognitive-State-A-to-B-Research.md` 记录了与 GPT 的 3 轮对话，最终定位为"学生认知数字孪生 + AI 学习教练"。本次深度研究把这两份文档整合，输出从研究框架到产品形态的完整认知地图。
+
+### 新增
+
+- `research/cognitive-architecture/Cognitive-Digital-Twin-Deep-Research.md` — 5 部分深度研究文档（约 700 行）：
+  - **第 1 部分**：Cognitive-Digital-Twin.md 7 页逐页深度解读（总览/背景/相关工作/综合框架/假设与问题/来源证据/研究日志）
+  - **第 2 部分**：3 轮 GPT 对话整合分析（第 1 轮成人场景/第 2 轮 K12 场景/第 3 轮定位确定后的 7 大修改建议）
+  - **第 3 部分**：学生认知数字孪生 v1.0 综合重构（5 维状态模型 K+P+S+C+X + Learning DNA + 三层 B + 成长轨迹 + 双数字孪生 + AI 学习教练）
+  - **第 4 部分**：原框架与新框架关键差异（维度压缩的科学性与可行性 / Learning DNA 的实证基础 / 时间维度引入 / 干预策略引擎）
+  - **第 5 部分**：开放问题与下一步建议（待验证假设 / 关键技术风险 / 2-4 周 MVP 设计 / 与 SGE 连接）
+  - **附录**：与 SGE 共享基础回顾 / Phase 3 sge/ 包集成潜力 / 参考文档索引
+
+- `discussions/2026-06-22-cognitive-digital-twin-deep-research.md` — 会话记录（主题、核心结论、产出文件、与 SelfLab 主线关系、下一步建议）
+
+### 核心结论
+
+1. **原框架是研究框架而非产品方案** — 9 维状态向量是认知科学论文层级，工程化程度低
+2. **目标用户决定产品形态** — 对成年人是"认知操作系统"；对 K12 学生是"下一代 AI 导师"。K12 三大优势：B 易定义、易验证、数据丰富
+3. **GPT 7 大修改建议**：
+   - 从"认知状态研究"改为"学生成长操作系统"
+   - 删除 G/E/W 三维（K12 难以观测/伦理风险/与 C 重叠）
+   - 新增 Learning DNA（5 维个性化特征：input/feedback/fatigue/mistake/motivation）
+   - 三层 B（Knowledge/Capability/Growth Goal）—— B3 是真正差异化
+   - 引入成长轨迹（state_history/intervention_history/learning_velocity/growth_prediction）
+   - Agent 升级为 Student Twin + Agent Twin 双数字孪生
+   - AI 老师 → AI 学习教练（关注成长而非内容）
+4. **5 维状态模型** `S_t = {K, P, S, C, X}` — 2-4 周可完成 MVP（9 维需 3-6 个月）
+5. **护城河不在算法在数据** — LLM 几年后人人都有；**3 年以上的个性化认知画像才是**
+6. **与 SGE 共享 7 个认知科学工具**（贝叶斯、预测加工、双系统、记忆分层、BDI、元认知、经典架构），但应用方向不同
+
+### Phase 3 集成潜力
+
+- [`research/phase3/90-applications/`](research/phase3/90-applications/) 中 K12 数字孪生 PoC 可能成为 A→B 框架的第一个真实工程化场景
+- 与 [`research/sge-learning/SGE-Feasibility-Impact-on-AtoB.md`](research/sge-learning/SGE-Feasibility-Impact-on-AtoB.md) 的关系：本文档是"自上而下"的产品形态构建；SGE-Impact-AtoB 是"自下而上"的工具共享分析
+
+### 不触发 CLAUDE.md 完整闭环流程
+
+本文档为"深度分析"（非"深度探讨"），不产生新的关键洞察，因此：
+- ❌ 不触发 SGE-Key-Insights.md 追加
+- ❌ 不触发 PRD/ARCH/DESIGN/ROADMAP 修正
+- ✅ 仅生成 research/ + discussions/ + CHANGELOG.md（深度分析流程标准产物）
 
 ---
 
