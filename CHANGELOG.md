@@ -39,6 +39,48 @@
 | 1.19.0 | 2026-06-19 | (本次) | **M2.1 阶段 C 完成**:4 个子任务全部 PASS(C1 Event Generator 完整化 / C2 Value Conflict Generator / C3 Identity Layer crystallize+validate+stability_score / C4 Narrative Builder MVP+handle_phase_transition);新增 _sge_event.py (LifeEvent dataclass + EventGenerator + VALUE_CONFLICT_TEMPLATES) + _sge_identity.py (IdentityLayer + stub/real LLM 适配) + _sge_narrative.py (NarrativeBuilder + build/check_consistency/handle_phase_transition);m21_phase_c.py 集成测试(20 step + 3 seed + 阶段 A/B 回归 + Identity Stability + Narrative Coherence 验证);experiments/M21_PHASE_C_REPORT.md 报告 |
 | 1.20.0 | 2026-06-19 | (本次) | **M2.1 阶段 D 完成（集成 + 验证）**:5 个子任务全部 PASS(D1 Hawking/Crystallize 集成 / D2 Actor LLM 模块 / D3 完整 12 步双 LLM 编排器 / D4 100 epoch 冒烟 / D5 3 seed × 100 epoch 多 seed);新增 _sge_actor.py(ActorOutput + 10 行为标签 + stub/real LLM 适配 temperature=0.9) + _sge_orchestrator.py(SGEOrchestrator 12 步 + OrchestratorStep 16 字段 trace);_sge_baseline.py Agent.__init__/step 新增 hawking/crystallizer/crystallize_every/epoch/now 参数;m21_phase_d.py 集成测试 + m21_phase_d.yaml 配置;value_magnitude=0.0322(高于 Phase C 基线 0.0137-0.0194);experiments/M21_PHASE_D_REPORT.md 报告 |
 | 1.20.1 | 2026-06-19 | (本次) | **M2.1 阶段 D 补 D6 真实 LLM 验证**:新增 _sge_llm_client.py(SGELLMClient 统一封装 SSOT:_load_drives_provider/api_key/base_url/model + chat_json 自动 markdown fence 处理 + stats 成本统计);_sge_critic.py/actor.py/identity.py/narrative.py 重构为统一 SGELLMClient 接口(stub 模式兼容);_sge_orchestrator.py 新增 verbose 参数 + per-epoch 进度输出;_sge_identity.py:should_crystallize + _sge_narrative.py:should_build 修复 off-by-one (epoch+1)%N==0;_sge_narrative.py:check_consistency + _sge_identity.py:crystallize 加防御式 JSON 解析(dict/str/number 分流);m21_phase_d_real_llm.py(1 baby × 20 epoch, 44 次 LLM 调用, ~115s)5/5 硬性验收 PASS + 1 项观察(Phase Transition 0/20 需 M2.2 1000 epoch);Identity/Narrative 真实 LLM 输出质量远高于 stub(value_magnitude 0.2578 vs stub 0.0322 按 epoch 归一化 ~8x);experiments/M21_PHASE_D_REPORT.md 修订(D6 子任务 + §3.5 + §5 关键发现 #8-10 + §7.2 M2.2 决策) |
+| 1.21.0 | 2026-06-22 | (本次) | **Phase 3 规划完成 + sge/ Python 包建立**:research/phase3/ 18 个文件 SSOT 结构（00-overview 战略层 / 10-engineering 工程层 / 20-domain-knowledge 领域知识层 / 30-cross-project 跨项目层 / 90-applications 应用层）;sge/ Python 包建立（baseline/event/llm_client/critic/actor/identity/narrative/orchestrator 模块）;项目级文档同步更新（CLAUDE.md / README.md / ROADMAP.md / CHANGELOG.md）;M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）|
+
+---
+
+## [1.21.0] - 2026-06-22 (Phase 3 规划完成 + sge/ Python 包建立)
+
+### 背景
+
+M2.x 全部完成（M2.1 全阶段 A~D + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）。Phase 3 规划已就绪，sge/ Python 包已建立，项目进入系统完善阶段。
+
+### 新增
+
+- `research/phase3/` — **Phase 3 规划 SSOT**（18 个文件，5 层结构）
+  - `00-overview/` — 战略层：应用场景（01-applications.md）、架构边界（02-architecture.md）、风险矩阵（04-risks.md）、路线图（03-roadmap.md）
+  - `10-engineering/` — 工程层：persistence（01-persistence.md）、session（02-session.md）、context-injection（03-context-injection.md）、testing（06-testing.md）
+  - `20-domain-knowledge/` — 领域知识层：K12/认知科学/历史人物/通用应用
+  - `30-cross-project/` — 跨项目：SGE×A→B / SGE×认知架构
+  - `90-applications/` — 应用层：K12数字孪生/A→B/历史人物/通用 PoC 设计（占位）
+- `sge/` — **Phase 3 可复用 Python 包**（pip install sge）
+  - `sge/baseline.py` — HawkingDecay + MemoryCrystallizer + Agent
+  - `sge/event.py` — LifeEvent + EventGenerator + VALUE_CONFLICT_TEMPLATES
+  - `sge/llm_client.py` — SGELLMClient 统一封装
+  - `sge/critic.py` — Critic LLM 模块
+  - `sge/actor.py` — Actor LLM 模块
+  - `sge/identity.py` — IdentityLayer
+  - `sge/narrative.py` — NarrativeBuilder
+  - `sge/orchestrator.py` — SGEOrchestrator 12 步编排
+  - `sge/__init__.py` — 包入口
+
+### 更改
+
+- `CLAUDE.md` — 更新 Phase 3 状态描述、sge/ 包定位、目录约定（新增 research/phase3/ + sge/）
+- `README.md` — 同步更新目录结构（新增 research/phase3/ + sge/）
+- `ROADMAP.md` — Phase 3 节更新：规划完成 + 3 个子阶段（Phase 3.1 工程基础设施 7.5 天 / Phase 3.2 质量保障 7.5 天 / M3.1/M3.2/M3.3）
+- `CHANGELOG.md` — 新增 1.21.0 版本记录
+
+### 项目状态
+
+- **Phase 0** ✅ 已完成（2026-06 及之前）
+- **Phase 1** ✅ 已完成（2026-06-17）
+- **Phase 2** ✅ 已完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）
+- **Phase 3** 🚧 规划完成，实施中
 
 ---
 

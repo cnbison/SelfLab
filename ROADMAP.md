@@ -332,15 +332,63 @@ Phase 3: 系统完善
 
 # Phase 3：系统完善
 
-**时间**：待定（Phase 2 通过后）
+**时间**：2026-06 起（Phase 2 通过后）
 
 **目标**：完善 SGE 系统，为下游应用做准备
 
+**当前状态（2026-06-22）**：**规划完成，实施中** —— M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）。Phase 3 规划已完成（18 个文件，详见 `research/phase3/`），sge/ Python 包已建立，实施分 3 个子阶段：
+- **Phase 3.1**：Persistence + Session + Context-Injection（3 P0 工程模块 + LLM Cache）
+- **Phase 3.2**：单元测试覆盖（≥80%）+ AI 输出过滤
+- **Phase 3.3**：Emotion/Energy Layer + Multi-AI PoC
+
+**Phase 3 SSOT**：[research/phase3/](./research/phase3/)（战略层、工程层、领域知识层、跨项目层、应用 PoC 层）
+
 ## 里程碑
+
+### Phase 3.1：工程基础设施（P0）
+
+**涉及模块**：persistence.py + session.py + context_injection.py + llm_cache
+
+**内容**：
+- **Persistence Layer**（TwinStateDB）：save/load full state、跨 chunk 状态连续性、GDPR delete
+- **Session Layer**（TwinSession）：完整生命周期管理、state restoration
+- **Context Injection**（TwinContextBuilder）：App 层学生信息注入 Critic/Actor prompt
+- **LLM Cache**：相同 prompt 缓存（减少 30% API 调用）
+
+**验收标准**：
+- save → close → reload 后状态完全一致
+- 跨 12 chunk（250 epoch/chunk）状态不丢失
+- 真实 LLM 1000 epoch 稳定运行
+
+| 子任务 | 工作量 |
+|--------|--------|
+| persistence.py | 2 天 |
+| session.py | 1.5 天 |
+| context_injection.py | 3 天 |
+| LLM cache | 1 天 |
+| **Phase 3.1 合计** | **7.5 天** |
+
+### Phase 3.2：质量保障
+
+**涉及模块**：单元测试 + AI 输出过滤
+
+**内容**：
+- 核心模块单元测试覆盖率 ≥ 80%（persistence/session/baseline/event/critic/actor/identity/narrative/orchestrator）
+- AI 教练"建设性表达"过滤（不说"你差"，说"这块有挑战"）
+- Teacher review hook（AI 输出先到教师，教师决定是否给学生看）
+
+| 子任务 | 工作量 |
+|--------|--------|
+| 单元测试（conftest + 9 模块） | 5.5 天 |
+| AI 输出过滤 | 1 天 |
+| Teacher review hook | 1 天 |
+| **Phase 3.2 合计** | **7.5 天** |
 
 ### M3.1：Emotion & Energy Layer（情感与能量层）
 
 **涉及 FR**：FR-6 增强（情绪对叙事影响）、FR-8 扩展（能量代谢）
+
+**前置条件**：Phase 3.1 完成
 
 **内容**：
 - 引入基于体内平衡的物理能源限制
@@ -350,6 +398,8 @@ Phase 3: 系统完善
 ### M3.2：Meta-Cognition Layer（元认知层）
 
 **涉及 FR**：FR-3 增强（反思的反思）、FR-4 增强（价值观的元调整）
+
+**前置条件**：Phase 3.1 完成
 
 **内容**：
 - AI 开始意识到"自己在反思"
@@ -361,6 +411,8 @@ Phase 3: 系统完善
 **前置约定**：1 个 AI 婴儿 = 1 个 Self（参见 [ARCH §1.4](./ARCH.md)）。本里程碑中的"多 Self"指**多个 AI 婴儿（即多个独立 Self）**之间的互动，而非"一个 AI 婴儿容纳多个 Self"。
 
 **涉及 FR**：FR-1~10 集成（多 AI 互动场景下的完整运行）
+
+**前置条件**：Phase 3.2 完成
 
 **内容**：
 - 多个 AI 婴儿（即多个独立 Self）之间的对话、协作、冲突
