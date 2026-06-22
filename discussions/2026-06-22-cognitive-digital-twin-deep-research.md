@@ -2,7 +2,7 @@
 
 ## 主题
 
-深度研究 [`research/cognitive-architecture/Cognitive-Digital-Twin.md`](../research/cognitive-architecture/Cognitive-Digital-Twin.md) 的 7 页内容，结合 [`research/cognitive-architecture/Cognitive-State-A-to-B-Research.md`](../research/cognitive-architecture/Cognitive-State-A-to-B-Research.md) 中 3 轮 GPT 对话的 7 大修改建议，整合出"学生认知数字孪生 + AI 学习教练"的产品形态完整认知地图。
+深度研究 [`research/cognitive-architecture/Cognitive-State-A-to-B-Research.md`](../research/cognitive-architecture/Cognitive-State-A-to-B-Research.md) 的 7 页内容，结合 [`research/cognitive-architecture/Cognitive-Digital-Twin.md`](../research/cognitive-architecture/Cognitive-Digital-Twin.md) 中 3 轮 GPT 对话的 7 大修改建议，整合出"学生认知数字孪生 + AI 学习教练"的产品形态完整认知地图。
 
 ## 日期
 
@@ -10,7 +10,7 @@
 
 ## 核心结论
 
-1. **原框架是研究框架，非产品方案** — `Cognitive-Digital-Twin.md` 把认知状态定义为 9 维向量 `S_t = {K, P, M, G, A, E, W, X, U}` + A→B 状态转移闭环。这是认知科学论文层级的框架，工程化程度低。
+1. **原框架是研究框架，非产品方案** — `Cognitive-State-A-to-B-Research.md` 把认知状态定义为 9 维向量 `S_t = {K, P, M, G, A, E, W, X, U}` + A→B 状态转移闭环。这是认知科学论文层级的框架，工程化程度低。
 2. **目标用户决定产品形态** — GPT 第 2 轮指出，对成年人是"认知操作系统（Cognitive OS）"，对 K12 学生是"下一代 AI 导师（Next Gen AI Tutor）"。同一份框架，两条产品路径。
 3. **K12 三大优势**：B 易定义（课程标准已给）、易验证（中考高考体系）、数据极丰富（100万+ 题库）。**K12 是当前所有"个性化学习"产品中护城河最深的方向**。
 4. **GPT 7 大修改建议**：
@@ -34,7 +34,7 @@
 
 ## 关键引用与判断
 
-- **原框架定位**：`Cognitive-Digital-Twin.md` 明确自标"研究框架"，核心创新是 X 维度（Agent 视角）—— 但 X 只是 9 维中的一个变量，未充分展开。
+- **原框架定位**：`Cognitive-State-A-to-B-Research.md` 明确自标"研究框架"，核心创新是 X 维度（Agent 视角）—— 但 X 只是 9 维中的一个变量，未充分展开。
 - **GPT 第一轮判断**：可行性评分从"认知状态定义 90%"降到"长期预测 20%"—— 工程难度集中在"从行为证据推断隐藏状态"。
 - **GPT 第二轮判断**：教育行业第四代（K+P+M），前三代分别是知识点学习/自适应学习/AI Tutor；第四代的差异化在于"建模学生思维过程"。
 - **GPT 第三轮判断**："删掉 50% 的认知科学，增加 300% 的教育工程"—— 这是文档从学术研究升级为产品架构的核心转换。

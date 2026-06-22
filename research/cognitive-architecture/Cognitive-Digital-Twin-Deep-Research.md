@@ -1,6 +1,6 @@
 # 认知数字孪生：深度研究
 
-> **本文档对 [`Cognitive-Digital-Twin.md`](./Cognitive-Digital-Twin.md) 7 页内容做逐页深度解读，并融合 [`Cognitive-State-A-to-B-Research.md`](./Cognitive-State-A-to-B-Research.md) 中 3 轮 GPT 探讨的洞察与 7 大修改建议，最终整合出"学生认知数字孪生 + AI 学习教练"这一产品形态的完整认知地图。**
+> **本文档对 [`Cognitive-State-A-to-B-Research.md`](./Cognitive-State-A-to-B-Research.md) 7 页内容做逐页深度解读，并融合 [`Cognitive-Digital-Twin.md`](./Cognitive-Digital-Twin.md) 中 3 轮 GPT 探讨的洞察与 7 大修改建议，最终整合出"学生认知数字孪生 + AI 学习教练"这一产品形态的完整认知地图。**
 >
 > 核心结论：原文档是一份**研究框架**（学术视角，9 维状态向量），GPT 3 轮对话把目标用户从"成人/科研人员"调整到"K12 学生"后，框架必须经历**维度压缩**（9→5）、**新增成长层**（Learning DNA、成长轨迹）、**定位重塑**（AI 老师→AI 学习教练）三层重构。原框架是"认知科学论文"，重构后是"下一代教育操作系统蓝图"。
 >
@@ -9,7 +9,7 @@
 
 ---
 
-# 第一部分：Cognitive-Digital-Twin.md 7 页深度解读
+# 第一部分：Cognitive-State-A-to-B-Research.md 7 页深度解读
 
 ## 1.1 页面一（总览）：从单维到多维的范式跃迁
 
@@ -1117,8 +1117,8 @@ K12 场景的数据丰富度（A→B 的优势）可以为 SGE 提供：
 
 | 文档 | 用途 |
 |------|------|
-| [Cognitive-Digital-Twin.md](./Cognitive-Digital-Twin.md) | 7 页综合调研站点（原框架） |
-| [Cognitive-State-A-to-B-Research.md](./Cognitive-State-A-to-B-Research.md) | 3 轮 GPT 对话记录（修改建议来源） |
+| [Cognitive-State-A-to-B-Research.md](./Cognitive-State-A-to-B-Research.md) | 7 页综合调研站点（原框架） |
+| [Cognitive-Digital-Twin.md](./Cognitive-Digital-Twin.md) | 3 轮 GPT 对话记录（修改建议来源） |
 | [Cognitive-State-A-to-B-Distilled.md](./Cognitive-State-A-to-B-Distilled.md) | 精要版 |
 | [Cognitive-Architectures-Overview.md](./Cognitive-Architectures-Overview.md) | 8 个经典认知架构综述 |
 | [Shared-Cognitive-Science-Toolbox.md](./Shared-Cognitive-Science-Toolbox.md) | A→B 与 SGE 共享的工具箱 |
