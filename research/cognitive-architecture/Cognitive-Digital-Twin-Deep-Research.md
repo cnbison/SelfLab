@@ -1,1138 +1,1778 @@
-# 认知数字孪生：深度研究
+# 认知数字孪生深度研究 v2.0：从学生认知孪生到 ECOS
 
-> **本文档对 [`Cognitive-State-A-to-B-Research.md`](./Cognitive-State-A-to-B-Research.md) 7 页内容做逐页深度解读，并融合 [`Cognitive-Digital-Twin.md`](./Cognitive-Digital-Twin.md) 中 3 轮 GPT 探讨的洞察与 7 大修改建议，最终整合出"学生认知数字孪生 + AI 学习教练"这一产品形态的完整认知地图。**
->
-> 核心结论：原文档是一份**研究框架**（学术视角，9 维状态向量），GPT 3 轮对话把目标用户从"成人/科研人员"调整到"K12 学生"后，框架必须经历**维度压缩**（9→5）、**新增成长层**（Learning DNA、成长轨迹）、**定位重塑**（AI 老师→AI 学习教练）三层重构。原框架是"认知科学论文"，重构后是"下一代教育操作系统蓝图"。
->
-> 日期：2026-06-22
-> 撰文：Bisen & Claude
+> **版本**：v2.0（2026-06-24）
+> **基于**：5 轮 GPT 对话（Cognitive-State-A-to-B-Research 7 页综合站点 + Cognitive-Digital-Twin 第 1-3 轮 + Cognitive-Digital-Twin02 第 4-5 轮 + Cognitive-Digital-Twin03 综合 v0.1）+ SGE Phase 3 现状（18 个文件）+ AiBeing 借鉴体系
+> **关系**：v1.0（基于 3 轮对话，1138 行）已被本版本覆盖
+> **核心结论**：学生数字孪生 + AI 学习教练为核心的下一代教育系统（**ECOS, Educational Cognitive Operating System**），应在 SelfLab 项目下作为**独立子项目**，与 SGE 并列，不应被简化为 SGE Phase 3 的"应用层 PoC"
 
 ---
 
-# 第一部分：Cognitive-State-A-to-B-Research.md 7 页深度解读
+# 执行摘要
 
-## 1.1 页面一（总览）：从单维到多维的范式跃迁
+## v2.0 的三大新判断（vs v1.0）
 
-### 核心命题
+v1.0 基于 3 轮 GPT 对话得出"原 9 维 → K12 场景下 5 维 + Learning DNA + 三层 B + AI 学习教练"的产品形态。v2.0 在追加第 4 轮（双 Agent 系统）和第 5 轮（Bloom 目标空间）后，做出三个**重大升级判断**：
 
-页面一的第一句话已经锚定了整个文档的理论野心：
-
-> "认知状态不应定义为一个单一能力分数，而应定义为一个带置信度的多层状态向量。"
-
-这一命题背后是教育测量学 30 年的反叛：传统测评把"学习能力"压缩为一个数字（IQ、考试分数），但 ACT-R、ITS、知识追踪研究表明**单一分数无法预测迁移**。ACT-R 的 student model 自 1990 年代就拒绝把学生建模为单一变量，而必须包含声明性记忆、程序性记忆、目标栈、激活值、注意力等多个模块。
-
-### 状态向量的设计原则
-
-文档显式给出的 9 维向量 `S_t = {K, P, M, G, A, E, W, X, U}` 不是凭空拼凑，而是**三个传统汇流的结果**：
-
-| 传统 | 提供维度 | 内在逻辑 |
+| 维度 | v1.0 判断 | v2.0 升级 |
 |------|---------|---------|
-| 经典认知架构（ACT-R、Soar、CLIDA、CLARION） | K, P, M, G, A, W | 心智必须由多个模块组成 |
-| 学习建模（BKT、DKT、IRT、认知诊断） | K, P, U | 状态必须从行为证据推断且带不确定性 |
-| 语言 Agent（CoALA、Voyager） | X, G, W, U | 外部记忆与工具是认知的延伸 |
+| **架构** | "AI 学习教练 + 学生数字孪生"作为两个组件 | 必须升级为**双 Agent 共进化系统**（CTA 认知科学家 + LCA 教练），互相质疑、互校 |
+| **目标空间** | 三层 B（Knowledge/Capability/Growth Goal） | 加入**Bloom 目标空间**（Remember→Create 6 层）作为"目标坐标系"，完整 State + Bloom Goal + Policy 三空间 |
+| **项目定位** | SGE Phase 3 的应用层 PoC（90-applications/student-digital-twin + teaching-ai-coach）| **独立子项目 ECOS**（与 SGE 并列），共享认知科学工具箱但应用方向不同 |
 
-### 关键洞察（深度解读）
+## 与 SGE Phase 3 当前框架的 4 大根本冲突（经 Explore agent 交叉验证）
 
-页面一最容易被忽视的一句话是结尾的**"新增内容"清单**——它暗示了文档的"未完成状态"：
+通过对 `research/phase3/` 18 个文件逐个核查，验证以下 4 个冲突点全部成立：
 
-- "建立了认知状态向量初版"（注意"初版"二字）
-- "形成相关工作矩阵"（仅是矩阵，尚未提炼综合框架）
-- "提出从 A 到 B 的学习系统闭环"（仅提出，未细化）
-- "标注了证据类型与不确定性"（防御性写法，避免把工程假设误写成已证实事实）
+1. **方向错位**：`phase3/00-overview/01-applications.md:19-38` 把"学生数字孪生"定义为"让 AI 经历学生 1000 epoch 形成学生身份"——这是 **AI 模拟学生身份**，不是 **理解真实学生**
+2. **维度错位 + 方法论降级**：`phase3/30-atoB/README.md:40,60` 把 9D cognitive state 强行映射到 SGE 的 6D value + 5D drive（"knowledge → safety"），且把 A→B 迁移路径降级为 Actor LLM 自由生成——丢失了 IRT/BKT/DKT 等科学状态估计方法
+3. **结构性缺席**：整个 `phase3/` 目录 **Bloom 关键词零提及**——6 层认知层级（Remember→Create）作为 ECOS 目标空间核心完全缺失
+4. **架构错位**：phase3 把 AI 教练等同于"单一 Agent + 长期对话 + frustration 累积"——双 Agent 互校（CTA 认知科学家保守谨慎 + LCA 教练主动实验）零提及
 
-这意味着页面一本身就知道自己处于**学术框架阶段**，尚未跨过"工程化"的门槛。这正是 3 轮 GPT 对话要解决的问题——把"研究框架"推向"可运行的下一代学习系统"。
+## 核心架构：ECOS 三空间 + 双 Agent
+
+```
+┌──────────────────────────────────────────────────────────┐
+│              Bloom Goal Space（目标坐标系）                 │
+│  Remember → Understand → Apply → Analyze → Evaluate → Create │
+└──────────────────────────────────────────────────────────┘
+                            ↕
+┌──────────────────────────────────────────────────────────┐
+│       Learning Coach Agent (LCA) — Policy Optimizer       │
+│       思维模式：教练 + 强化学习策略器                        │
+│       输出：干预策略 + 实验设计 + 效果归因                   │
+└──────────────────────────────────────────────────────────┘
+                            ↕
+┌──────────────────────────────────────────────────────────┐
+│     Cognitive Twin Agent (CTA) — State Estimator          │
+│     思维模式：认知科学家 + 心理测量学家                     │
+│     状态：K/P/S/C/X + BloomProfile + LearningDNA + Trajectory │
+└──────────────────────────────────────────────────────────┘
+                            ↕
+                         Student
+```
+
+CTA 维护学生状态的**信念分布**（不是事实判断），LCA 基于 CTA 的状态选择**干预实验**（不是确定答案）。两者通过**互校循环**（CTA 提出假设 → LCA 验证 → CTA 更新信念 → LCA 重新规划）共同进化。
+
+## 与 SGE / AiBeing 的关系
+
+- **共享基础**：与 SGE 共享 7 个认知科学工具（贝叶斯、记忆分层、预测加工、双系统、BDI、元认知、经典架构）
+- **SGE 可作为 ECOS 的"教师侧人格引擎"**：LCA 的内在人格可由 SGE 12 步编排提供（Identity/Narrative/Value），但 LCA 的"理解学生"职责由 CTA 独立承担
+- **借鉴 AiBeing 应用层经验**：chat_agent 会话管理、EverMemOS 用户记忆、cache/async、prompt 版本管理、单元测试
+- **不借鉴 SGE 的部分**：SGE 的 value/drive 机制不适合建模"对学生的理解"（方向性错误）
+
+## 产品化路径
+
+| 阶段 | 时间 | 目标 | 关键假设验证 |
+|------|------|------|------------|
+| **MVP** | 2-4 周 | 初中数学 + 50-100 学生 | 5D 状态预测力 + Bloom 目标可行性 + CTA 信念质量 |
+| **产品化** | 2-3 月 | 完整 ECOS 系统 + 2 个学科 | 双 Agent 互校效果 + 干预策略归因 + 长期成长轨迹 |
+| **平台化** | 6-12 月 | K12 全学段 + 商业模式 | ECOS 商业可行性 + 数据资产累积 + 教师家长三端集成 |
+
+## 对 SelfLab 项目的关键建议
+
+1. **新增独立子项目 ECOS**（`research/ecos/` + `ecos/` Python 包），与 SGE 并列
+2. **SGE Phase 3 框架调整**：保留工程经验（persistence/session/context_injection/llm_cache），把"学生数字孪生 / AI 教练"从 90-applications/ 移出
+3. **SGE 主要面向** Personal AI / 协作 agent / 历史人物等不需要"理解真实他人"的应用
+4. **共享基础设施**：`sge/` 引擎中的 Identity/Narrative/Value 形成机制可被 ECOS 复用（作为 LCA 的人格）
 
 ---
 
-## 1.2 页面二（背景）：状态定义的可观测原则
+# 第 1 部分：5 轮对话完整梳理
 
-### 状态层次的设计哲学
+## 1.1 文件结构与演化路径
 
-页面二给出的 6 层（知识/程序/控制/动机情绪/元认知/外部支架）看似与页面一的 9 维向量重复，实际**粒度不同**——9 维是"状态变量"，6 层是"心智的层级结构"。这两者的关系是：
+5 轮对话分布在 4 个文件中，构成了从"原研究框架"到"完整 ECOS 设计"的演化：
+
+| 文件 | 行数 | 角色 |
+|------|------|------|
+| `Cognitive-State-A-to-B-Research.md` | 279 | 7 页综合调研站点（学术框架）|
+| `Cognitive-Digital-Twin.md` | 1904 | 第 1-3 轮对话（产品形态定位）|
+| `Cognitive-Digital-Twin02.md` | 1244 | 第 4-5 轮对话（架构升级）|
+| `Cognitive-Digital-Twin03.md` | 931 | 5 轮综合 v0.1（终局定位）|
+
+演化路径：
 
 ```
-心智层级（架构视角）→ 状态变量（建模视角）→ 证据渠道（测量视角）
+[学术框架] 9D 状态向量
+    ↓
+[第 1-3 轮] K12 场景下重构 → 5 维 + AI 学习教练 + Learning DNA
+    ↓
+[第 4 轮] 双 Agent 系统 → CTA + LCA 共进化
+    ↓
+[第 5 轮] Bloom 目标空间 → State + Bloom Goal + Policy 三空间
+    ↓
+[综合 v0.1] ECOS 终局定位（12 章研究报告）
 ```
+
+## 1.2 第 1-3 轮：v1.0 基础（已 v1.0 文档覆盖）
+
+v1.0 已经详尽梳理过第 1-3 轮对话的核心判断：
+
+- **第 1 轮**（成人/科研场景）：可行性评分表（认知状态定义 90% → 长期预测 20%），揭示"从行为证据推断隐藏状态"是工程难点
+- **第 2 轮**（K12 场景）：9D 压缩为 5D（K/P/S/C/X）；K12 三大优势（B 易定义、易验证、数据极丰富）；产品定位 = 学生认知数字孪生 + AI 学习教练
+- **第 3 轮**（定位确定后）：7 大修改建议——删除 G/E/W 维、新增 Learning DNA、三层 B、成长轨迹、Agent 升级为第二大脑、AI 老师 → AI 学习教练
+
+**v1.0 核心结论回顾**：原 9 维 → K12 场景下 5 维 + Learning DNA + 三层 B + AI 学习教练（详见 v1.0 文档，本文不重复展开）
+
+## 1.3 第 4 轮：双 Agent 系统的必然性
+
+### 用户核心论断
+
+> "我同意你的判断，而且我认为要实现下一代教育系统，必须是 AI 学生数字孪生和 AI 学习教练两个角色互相协作才能实现。而不是其中一个就可以。"
+
+### GPT 的关键升级
+
+GPT 第 4 轮把 v1.0 的"两个组件"升级为**"两个长期共进化（Co-evolution）的 Agent 组成的双智能体系统（Dual-Agent System）"**——这是**本质区别**，不是简单模块化。
+
+#### 为什么单独一个角色都不够？
+
+**方案 1：只有 AI 学习教练**（当前所有 AI Tutor）
+
+```
+学生提问 → AI 回答 → 继续提问
+```
+
+问题：AI 每次面对的都是"当前输入"，不知道：
+- 三个月前哪些地方不会
+- 为什么会错
+- 哪种讲法有效
+- 哪些错误反复出现
+- 学习习惯如何形成
+
+**本质缺陷**：每次都重新认识这个学生。
+
+**方案 2：只有学生数字孪生**（认知画像系统）
+
+```
+记录数据 → 建立画像 → 认知模型
+```
+
+问题：知道"不会二次函数"——然后呢？知道"粗心"——然后呢？知道"元认知弱"——然后呢？
+
+**本质缺陷**：没有干预能力，最后容易变成"超级画像系统"而非"成长系统"。
+
+#### 真正需要的是闭环
+
+GPT 把两个角色明确定义为**互补实体**：
+
+| Agent | 职责 | 思维模式 | 类比 |
+|-------|------|---------|------|
+| **Student Cognitive Twin Agent (CTA)** | 理解学生 | 认知科学家 + 心理测量学家（保守、基于证据、维护置信度、避免幻觉）| 医生诊断 |
+| **Learning Coach Agent (LCA)** | 改变学生 | 教练 + 强化学习策略器（主动、实验、探索、优化）| 康复教练 |
+
+形式化表达：
+
+```
+Student Twin = State Estimator
+Learning Coach = Policy Optimizer
+```
+
+#### 两个 Agent 必须互相质疑
+
+GPT 明确指出：**两个 Agent 互相质疑是整个项目最大的创新机会**。
+
+今天 AI 系统的"诊断→执行"通常是一个模型——容易幻觉。GPT 设计的"互校循环"：
+
+```
+CTA: 提出假设（"知识缺口 60%"）
+LCA: 设计实验验证（"先做概念题"）
+观察结果
+LCA: 返回（"程序技能问题概率上升"）
+CTA: 更新信念（"知识缺口 20%, 程序 65%"）
+LCA: 重新规划
+```
+
+类比"医生 + 康复教练"或"科学家 + 工程师"——互相制衡、形成**自适应科学实验系统**（Adaptive Scientific Experiment System）而非普通教育软件。
+
+#### 命名升级
+
+GPT 建议从"AI Student Twin / AI Learning Coach"升级为：
+
+- **Cognitive Twin Agent (CTA)** — Understand, Predict, Explain
+- **Learning Coach Agent (LCA)** — Plan, Intervene, Optimize
+
+形成三角共进化：`CTA ⇄ LCA ⇄ Student`
+
+#### 长期价值
+
+> 这才是下一代教育系统与今天 AI Tutor 的分水岭。
+>
+> 今天的 AI Tutor：会回答问题
+> 下一代教育系统：理解一个人并持续帮助这个人成长
+
+CTA 越来越懂这个学生（知识结构/思维习惯/错误模式/注意模式/成长速度/最佳学习方式），LCA 越来越会教这个学生（什么时候讲/问/练/休息/鼓励）。
+
+## 1.4 第 5 轮：Bloom 目标空间的引入
+
+### 用户问题
+
+> "布鲁姆分类学是否对这样的双系统有价值？如果有，如何融入进去？"
+
+### GPT 的关键判断
+
+GPT 明确：**布鲁姆分类学非常有价值，但不要把 Bloom 作为 State，而应升级为 Goal Space + Intervention Space + Evaluation Space**。
+
+如果用错位置，Bloom 会把系统做偏；如果用对位置，它会成为双系统的核心坐标系之一。
+
+#### 为什么不能把 Bloom 当 State？
+
+举例：
+
+> 学生 A：会做"应用导数"的题，状态：Application Level
+> 学生 B：会做"应用导数"的题，状态：Application Level
+
+但 A 知识深、策略强、元认知高；B 死记硬背、不会迁移、不会检查——**Bloom 层级一样，认知状态完全不同**。
+
+所以：**Bloom ≠ Cognitive State**，而是 **Bloom = Cognitive Goal Hierarchy**。
+
+#### 在双系统中的位置
+
+```
+Student
+    ↓
+CTA
+    ↓
+Student State (K, P, S, C, X)
+
+Bloom Goal Space
+(Remember→Create)
+
+LCA
+    ↓
+Intervention Policy
+    ↓
+Student
+```
+
+#### Bloom 的 5 层价值
+
+**价值 1：定义 B**
+
+Bloom 本身是学习目标分层体系，让 B 从"掌握二次函数"变成"掌握二次函数：Bloom Level 4"——可计算。
+
+例如初中函数：
+
+| Level | 能力 | 教学策略 |
+|-------|------|---------|
+| 1 Remember | 记住函数定义/图像特征/公式 | 闪卡/间隔复习 |
+| 2 Understand | 为什么图像是抛物线、a 变化影响开口 | 类比/可视化 |
+| 3 Apply | 解题/求值/判断 | 变式训练/刻意练习 |
+| 4 Analyze | 拆解复杂题/发现条件关系 | 拆题/比较/思维导图 |
+| 5 Evaluate | 比较解法/判断最优策略 | 辩论/评判/多解比较 |
+| 6 Create | 自己设计题目/构造模型/解决真实问题 | 项目学习/探究学习 |
+
+**价值 2：CTA 的诊断坐标系**
+
+BloomProfile 作为第二维坐标，CTA 不只知道"会不会函数"，而知道"卡在哪个认知层级"：
+
+```python
+BloomProfile = {
+    remember: 0.95,
+    understand: 0.90,
+    apply: 0.82,
+    analyze: 0.41,
+    evaluate: 0.18,
+    create: 0.03
+}
+```
+
+**价值 3：LCA 的干预策略空间**
+
+不同 Bloom 层级需要完全不同教学策略——这让 LCA 的 policy 有了**结构化输入**：
+
+```
+Policy(StudentState, BloomTarget) → optimal_intervention
+```
+
+**价值 4：成长轨迹建模**
+
+数字孪生开始拥有 BloomTrajectory：
+
+```
+初一：Remember, Understand
+初二：Apply, Analyze
+高一：Analyze, Evaluate
+高三：Evaluate, Create
+```
+
+**价值 5：解决中国教育最大的痛点**
+
+中国学生"会做但不会想"——大量学生停留在 Remember/Understand/Apply 层级，无法进入 Analyze/Evaluate/Create。这正是 Bloom 提供的**高阶认知能力目标空间**。
+
+#### 完整体系：State + Goal + Policy
+
+GPT 总结未来完整体系：
+
+```
+认知状态空间（Who am I）+
+Bloom 目标空间（Where should I go）+
+学习策略空间（How do I get there）
+```
+
+这是一个标准的强化学习框架：
+
+```
+Student Twin → State Estimation
+Bloom → Goal Definition
+Learning Coach → Policy Optimization
+```
+
+GPT 最终命名：
+
+> **以 Bloom 为目标坐标系、以认知数字孪生为状态空间、以 AI 学习教练为策略优化器的教育认知操作系统（Educational Cognitive Operating System, ECOS）**
+
+## 1.5 03 综合 v0.1：ECOS 终局定位
+
+`Cognitive-Digital-Twin03.md`（931 行）是 5 轮对话综合后的 **Research Report v0.1**，结构化为 12 章：
+
+1. 摘要（Abstract）
+2. 为什么今天的 AI 教育系统仍然不够好（第一代内容教育/第二代自适应学习/第三代 AI Tutor）
+3. 教育的真正问题（学生现在是谁/应该成长成什么样/如何帮助其成长 = A→B）
+4. 学生认知数字孪生（Student Cognitive Twin）定义
+5. 重新定义学生状态模型（5 维 K/P/S/C/X）
+6. Learning DNA（学习基因）
+7. 为什么必须是双 Agent 系统（CTA + LCA 闭环）
+8. 两个 Agent 的思维方式（CTA 认知科学家 + LCA 教练 + RL）
+9. Bloom 分类学的价值
+10. 重新定义 B（B1 Knowledge/B2 Capability/B3 Growth）
+11. 成长轨迹（Growth Trajectory）
+12. Student + Agent 双数字孪生 + 最终架构 + 最终愿景
+
+**ECOS 终局定位**：
+
+> 本项目并不是搜题工具/AI 老师/自适应题库，而是一个能够持续 6~12 年理解、预测、陪伴并帮助学生成长的教育认知操作系统。
+>
+> 核心理念：Student Cognitive Twin ⇄ Learning Coach Agent ⇄ Bloom Goal Space = Educational Cognitive Operating System (ECOS)
+
+---
+
+# 第 2 部分：与 SGE Phase 3 当前框架的冲突分析（核心新增）
+
+## 2.1 SGE Phase 3 当前对学生数字孪生 / AI 教练的处理
+
+### SGE Phase 3 的 4 个应用方向
+
+`phase3/00-overview/01-applications.md` 定义了 4 个应用方向：
+
+| 应用 | SGE 核心作用 |
+|------|------------|
+| **学生数字孪生** | SubjectMasteryState + 12 步编排 |
+| **教学 AI 教练** | 长期会话 + frustration 累积 |
+| **Personal AI** | Hawking 衰减 + 4 层记忆 |
+| **协作 agent** | 多 SGE 实例各自不同人格 |
+
+**关键判断**：5 个研究维度中（SGE/A→B/K12/数字孪生/AI 教练），SGE 是底座，A→B + K12 是 AI 教练特有的依赖。
+
+### 当前状态（2026-06-22）
+
+| 层级 | 状态 |
+|------|------|
+| 引擎层（sge/ 包）| ✅ M2.3 完成，pip install 可用 |
+| 应用层 | 📋 设计中（18 个文件 SSOT）|
+| 数字孪生 PoC | ❌ 未开始（占位）|
+| AI 教练 PoC | ❌ 未开始（占位）|
+
+### SGE Phase 3 对"学生数字孪生"的具体定义
+
+`phase3/00-overview/01-applications.md:19-38`：
+
+> **问题现状**：用 ChatGPT 模拟一个学生 → 输出是"AI 假装是这个学生的对话"。没有连续性。
+>
+> **SGE 方案**：
+> ```
+> 输入：学生的人生轨迹数据（传记、日记、成绩、社交、家访）
+> 过程：SGE 12 步编排让 AI "经历"学生的人生 1000 epoch
+> 输出：AI 形成"我是这个学生"的连贯自我认知
+> ```
+>
+> **SGE 关键作用**：身份不是"告诉 AI 你是什么样"，是"让 AI 经过 1000 个事件后**自己长出**是什么样"。
+
+### SGE Phase 3 对"教学 AI 教练"的具体定义
+
+`phase3/00-overview/01-applications.md:60-71`：
+
+> **SGE 方案**：
+> - AI 教练与学生持续 1000 次对话（不是一次 prompt 完事）
+> - 每次对话是 SGE 的一个 epoch
+> - 100 次对话后：Identity 已经形成"这个学生的偏好"理解
+> - 1000 次对话后：AI 教练人格完全分化
+>
+> **SGE 关键作用**：
+> - AI 教练不是"应用了用户偏好的助手"，而是"和你一起经历了 1000 次对话的实体"
+> - frustration 真实：学生反复失败时，AI 的 frustration 也累积 → AI 真的"为你着急"
+
+## 2.2 冲突 1：方向错位（"AI 模拟学生身份" vs "理解真实学生"）
+
+### SGE Phase 3 的路径
+
+**让 AI 经历学生人生 1000 epoch → 形成"我是这个学生"的连贯自我认知**。
+
+这是 **AI 模拟学生身份**——SGE 的 12 步编排本质上是"AI 作为学生"的人格形成机制（Identity Layer 涌现），目标是让 AI 回答"我是谁"时给出学生般的答案。
+
+### 5 轮对话要求的路径
+
+**CTA（Cognitive Twin Agent）理解真实学生状态**——CTA 的目标不是"成为学生"，而是"理解学生"。
+
+CTA 维护的是"学生的认知状态分布"（K/P/S/C/X + BloomProfile + LearningDNA + GrowthTrajectory），不是"AI 自身的身份"。
+
+### 根本冲突
+
+| 维度 | SGE 路径 | ECOS 路径 |
+|------|---------|---------|
+| AI 的角色 | 学生本身 | 理解学生的观察者 |
+| 核心机制 | 身份涌现 | 状态估计 |
+| 输出 | "我是这个学生" | "这个学生现在处于...状态" |
+| AI 自身状态 | 必须有学生身份 | AI 有自身人格（LCA 由 SGE 提供），但工作职责是"理解学生" |
+
+**方向性错误**：让 AI 模拟学生身份，无法解决"AI 理解真实学生"的问题。两者需要完全不同的工程机制。
+
+## 2.3 冲突 2：维度错位 + 方法论降级
+
+### SGE Phase 3 的映射方案
+
+`phase3/30-atoB/README.md:40,60`：
+
+> 9D cognitive state | ValueLayer (6D) + DriveMetabolism (5D) | A→B state 可映射到 SGE value/drive
+>
+> 候选映射：knowledge → safety, skill → creativity, motivation → connection
+
+且：
+
+> 9D cognitive state 如何映射到 SGE 的 6D value + 5D drive？需要实验验证
+
+### 两个根本错误
+
+**错误 1：维度方向性错位**
+
+9D cognitive state 是**对学生的建模**（学生 K 高 / 学生 P 低），ValueLayer + DriveMetabolism 是**AI 自身状态**（AI 重视 safety 0.7 / AI 渴望 connection 0.6）。
+
+把"knowledge → safety"是把"学生不知道 X"映射为"AI 重视 safety"——这两者**没有语义对应关系**。
+
+| 真实关系 | SGE 假设 | ECOS 实际 |
+|---------|---------|---------|
+| 学生知识缺口 60% | AI safety 维度上升 | CTA 维护学生 K=0.4，BloomProfile.analyze=0.41 |
+
+**错误 2：方法论降级**
+
+`phase3/30-atoB/README.md:42`：
+
+> A→B 迁移路径 | Actor LLM 输出 | AI 教练设计转移步骤，Actor 输出建议
+
+这是把 A→B 状态估计降级为 Actor LLM **自由生成**。这丢失了 A→B 项目原本的**科学状态估计方法**：
+
+- **IRT**（Item Response Theory）—— 题目参数 + 能力估计
+- **BKT**（Bayesian Knowledge Tracing）—— 知识点掌握度贝叶斯更新
+- **DKT**（Deep Knowledge Tracing）—— RNN 时序建模
+- **认知诊断** —— 多维属性掌握向量
+- **LLM rubric + 人工校准** —— 开放式能力评估
+
+SGE 的 Actor LLM 自由生成**没有任何科学状态估计基础**——这在教育测量学上是降级。
+
+## 2.4 冲突 3：Bloom 目标空间结构性缺席
+
+### 验证
+
+通过对 `research/phase3/` 全部 18 个文件搜索"Bloom" 关键词：**零结果**。
+
+整个 SGE Phase 3 完全没有 Bloom 6 层认知层级（Remember→Create）的提及。
+
+### 后果
+
+ECOS 的核心是 State + Bloom Goal + Policy 三空间。Bloom 作为目标坐标系的作用：
+
+- 让 B 从"掌握二次函数"变成"掌握二次函数：Bloom Level 4"——可计算
+- 让 LCA 的 policy 有结构化输入（不同 Bloom 层级 → 不同教学策略）
+- 让 CTA 维护 BloomProfile 作为第二维坐标
+- 让 BloomTrajectory 成为成长轨迹的核心维度
+- 解决中国教育"会做但不会想"的痛点
+
+**没有 Bloom 维度的 SGE Phase 3，无法成为"教育认知操作系统"**——它只是一个 AI 角色扮演平台，不具备教育系统的核心结构。
+
+## 2.5 冲突 4：单 Agent 架构无法表达双 Agent 互校
+
+### 验证
+
+SGE Phase 3 把 AI 教练等同于"单一 Agent + 长期对话 + frustration 累积"。搜索"双 Agent / 互校 / CTA / LCA"在 phase3 全部为 0 结果。
+
+### 单 Agent 的根本限制
+
+SGE 12 步编排 = 单一 Agent 内部循环（Time → Event → Critic → Value → Hawking → ... → Narrative）。
+
+**单一 Agent 无法表达**：
+
+- **互校循环**：CTA 提出假设 → LCA 验证 → CTA 更新信念 → LCA 重新规划
+- **思维模式分工**：CTA 保守谨慎（认知科学家）+ LCA 主动实验（教练）
+- **对抗幻觉**：5 轮对话明确指出"今天 AI 系统的诊断→执行通常是一个模型——容易幻觉"，互校是对抗幻觉的核心机制
+- **三角共进化**：CTA ⇄ LCA ⇄ Student
+
+要让 ECOS 实现"自适应科学实验系统"，必须升级为双 Agent 架构。
+
+## 2.6 综合判断：ECOS 不适合作为 SGE 的"应用"
+
+### 4 大冲突总结
+
+| 冲突 | 性质 | 严重程度 |
+|------|------|---------|
+| 方向错位（模拟学生 vs 理解学生）| 哲学层面 | 根本性 |
+| 维度错位（9D → value/drive）+ 方法论降级（IRT/BKT 丢失）| 工程层面 | 根本性 |
+| Bloom 目标空间结构性缺席 | 设计层面 | 根本性 |
+| 单 Agent vs 双 Agent 互校 | 架构层面 | 根本性 |
+
+### 结论
+
+**ECOS 不适合作为 SGE 的"应用"**——强行把 ECOS 装入 SGE Phase 3 的应用层会：
+- 丢失双 Agent 互校架构（强行塞进单一 SGE 编排）
+- 丢失 Bloom 目标坐标系（完全没有这个维度）
+- 丢失 9D 学生状态空间（强行映射到 value/drive 错误方向）
+- 丢失科学状态估计方法（IRT/BKT/DKT 被 Actor LLM 自由生成取代）
+- 把"理解学生"误变为"AI 模拟学生身份"
+
+**应作为 SelfLab 独立子项目 ECOS**，与 SGE 并列，共享认知科学工具箱但应用方向不同。
+
+---
+
+# 第 3 部分：ECOS 完整架构（核心新增）
+
+## 3.1 设计哲学
+
+ECOS 的设计哲学有 3 个核心：
+
+### 哲学 1：理解学生 + 改变学生（双职责分离）
+
+```
+CTA: Understand（理解）— 回答"学生现在是谁"
+LCA: Change（改变）— 回答"如何让学生成长"
+```
+
+两者**不能合一**——一个观察者必须保持冷静谨慎（避免幻觉），一个干预者必须主动实验（探索最优路径）。这两种思维模式天然冲突，必须由不同 Agent 承担。
+
+### 哲学 2：长期共进化（Co-evolution）
+
+CTA 和 LCA 都不是静态系统，而是**长期与学生共同进化的 Agent**：
+
+- CTA 越来越懂这个学生（知识结构、思维习惯、错误模式、注意模式、成长速度、最佳学习方式）
+- LCA 越来越会教这个学生（什么时候讲、问、练、休息、鼓励）
+- Student 越来越会学（被 CTA/LCA 协作理解 + 引导）
+
+三者形成**三角共进化**。
+
+### 哲学 3：双 Agent 互相制衡（对抗幻觉）
+
+```
+诊断 → 执行 （单 Agent，易幻觉）
+```
+
+vs
+
+```
+CTA 提出假设 → LCA 验证 → CTA 更新信念 → LCA 重新规划 （双 Agent，互校）
+```
+
+类比"医生 + 康复教练"——医生诊断，康复教练执行并反馈治疗效果，医生根据反馈修正诊断。这种**互相制衡**是对抗 LLM 幻觉的核心机制。
+
+## 3.2 三空间架构
+
+ECOS 的核心是 **State + Bloom Goal + Policy 三空间**：
+
+```
+┌──────────────────────────────────────────────────────────┐
+│              Bloom Goal Space（目标坐标系）                 │
+│  Remember → Understand → Apply → Analyze → Evaluate → Create │
+│  6 层 × 学科 × 知识点 = Bloom Goal Library                 │
+└──────────────────────────────────────────────────────────┘
+                            ↕
+┌──────────────────────────────────────────────────────────┐
+│       Learning Coach Agent (LCA) — Policy Optimizer       │
+│       Policy(StudentState, BloomTarget) → Intervention     │
+│       输出：intervention_type + parameters + expected_gain │
+└──────────────────────────────────────────────────────────┘
+                            ↕
+┌──────────────────────────────────────────────────────────┐
+│     Cognitive Twin Agent (CTA) — State Estimator          │
+│     StudentState = {K, P, S, C, X, BloomProfile, ...}    │
+│     输出：state_distribution + confidence + evidence      │
+└──────────────────────────────────────────────────────────┘
+                            ↕
+                         Student
+                            ↓
+                       New Evidence
+                            ↓
+                         CTA 更新
+```
+
+### 三空间的本质
+
+| 空间 | 回答 | 数学表达 | 工程实现 |
+|------|------|---------|---------|
+| **State** | "学生现在是谁" | StudentState 分布 | CTA + BKT/IRT/DKT/rubric |
+| **Bloom Goal** | "学生应该到哪里" | BloomTarget[subject][topic][level] | Bloom Goal Library |
+| **Policy** | "如何从 State 到 Goal" | Policy(State, Goal) → Intervention | LCA + Bloom→Strategy 映射 + RL |
+
+这三个空间**都不可独立设计**——必须联合优化。
+
+## 3.3 CTA（Cognitive Twin Agent）— State Estimator
+
+### 思维模式
+
+CTA 像**认知科学家 + 心理测量学家**：
+
+- 保守：不能轻易下结论（"学生不会二次函数"是粗略的；应该输出"知识缺口概率 60%、程序 20%、审题 15%、注意 5%"）
+- 基于证据：每个状态判断必须有可观测证据
+- 维护置信度：每个状态变量有 confidence
+- 避免幻觉：使用 BeliefState（分布）而非 Fact（确定值）
+
+### 学生状态空间（9D + Bloom）
+
+CTA 维护的完整学生状态：
+
+```python
+class StudentState:
+    # 5 维核心状态（v1.0 基础）
+    K: KnowledgeState           # 知识掌握
+    P: ProcedureState           # 程序技能
+    S: StrategyState            # 策略能力
+    C: ConfidenceState          # 认知置信度
+    X: ExternalSupportState     # 外部支架
+
+    # 5 维新增状态（v2.0 新增）
+    BloomProfile: BloomState    # 6 层认知层级分布
+    LearningDNA: LearningDNA    # 5 维个性化特征
+    GrowthTrajectory: Trajectory  # 成长轨迹
+    BeliefDistribution: BeliefState  # 信念分布（不是事实）
+    UncertainEvidence: EvidenceList  # 待补全证据清单
+```
+
+**关键设计**：**BeliefDistribution（信念分布）**——CTA 维护的是学生对"学生认知状态"的**概率分布**，而不是"事实判断"。
 
 例如：
 
-```
-知识层（架构） → K 变量（建模） → 解释/选择题/概念图（证据）
-控制层（架构） → A, M 变量（建模） → 反应时/学习日志（证据）
-```
+```python
+# 错误：事实判断
+student_state.knowledge = "low"  # ❌ 容易幻觉
 
-### 边界条件的工程意义
-
-页面二列出的 4 条边界条件是文档的"防御工事"——它们不是装饰，每一条都在抵御一种典型错误：
-
-| 边界条件 | 抵御的错误 | 后果 |
-|---------|---------|------|
-| 状态必须绑定任务族 | 维度无限膨胀 | 状态向量退化为不可验证的哲学标签 |
-| 必须带证据和置信度 | 把假设当作事实 | 系统给出虚假自信的诊断 |
-| B 必须可迁移可延迟验证 | 把训练集成绩当作能力 | 模型过拟合训练题，无法预测真实项目 |
-| 人与 Agent 不可直接等同 | 拟人化 Agent 状态 | 误把"Agent 代偿"当作"人掌握" |
-
-这 4 条边界条件实际上构成了**研究框架的硬约束**——任何后续设计若违反其中之一，必须给出明确说明。
-
-### 与 Shared-Cognitive-Science-Toolbox 的呼应
-
-对照 [`Shared-Cognitive-Science-Toolbox.md`](./Shared-Cognitive-Science-Toolbox.md)，页面二引用的"经典认知架构、学习者建模、状态估计、干预设计、Agent 工程"恰好是该工具箱的 5 大类别（外加预测加工与双系统未直接点名）。这说明原文档**已经完整覆盖了认知科学工具箱**，但在 SGE 视角下还有 2 个工具（预测加工、双系统）未在 A→B 框架中显式呈现。
-
----
-
-## 1.3 页面三（相关工作）：三大传统的矩阵
-
-### 矩阵的真正功能
-
-页面三的 10×6 矩阵（10 个传统 × 6 个比较维度）看似平铺直叙，**实则暗藏 3 个判断**：
-
-**判断 1：A→B 系统的核心不是单一传统，而是传统之间的桥接**
-- ACT-R/Soar/LIDA/CLARION 提供"状态变量应该有哪些层"（理论）
-- BKT/DKT/IRT/CD 提供"如何从行为证据估计状态"（方法）
-- CoALA/Voyager/BDI 提供"Agent 视角"（工程）
-- A→B 系统必须把这三类传统**统一在同一闭环**中
-
-**判断 2：不同传统擅长不同任务族**
-- ACT-R：技能获得、反应时
-- Soar：问题求解、规划
-- LIDA：注意、意识、行动选择
-- CLARION：显性/隐性技能互动
-- BKT/DKT：题目级状态估计
-- IRT/CD：标准化测评
-- CoALA：现代 LLM Agent 分类
-
-这意味着**A→B 系统需要"多模型融合"**——不是选一个最好的传统，而是根据任务族选择最合适的方法。
-
-**判断 3：现有传统都不足**
-- ACT-R：情绪、社会、开放式任务弱
-- Soar：符号建模成本高
-- BKT/DKT：容易过窄地把状态压缩为正确率
-- CoALA：人的学习状态仍需教育测量支持
-- Voyager：迁移到人类学习需要重新定义证据
-
-这一判断的隐含结论是：**A→B 必须自创新框架，不能简单整合现有传统**。
-
-### 谱系概览的时间维度
-
-页面三末尾的"谱系概览"表把认知架构 70 年的演化压缩为 4 个时期：
-
-```
-1950s-70s: 认知即信息加工（问题求解、符号 AI）
-1980s-90s: 知识/规则/目标的工程化（ACT-R、Soar、ITS）
-2000s-10s: 状态估计与学习数据连接（BKT、DKT、认知诊断）
-2020s:    状态扩展到人-工具-Agent 分布式系统（LLM、CoALA、Voyager）
+# 正确：信念分布
+student_state.K.distribution = {
+    "low": 0.15,      # 知识缺口的概率 15%
+    "high": 0.60,     # 知识已掌握的概率 60%
+    "unsure": 0.25    # 信息不足的概率 25%
+}
+student_state.K.confidence = 0.6  # 整体置信度
+student_state.K.evidence = ["3 道题错 2 道", "解释测试中等"]
+student_state.K.missing_evidence = ["未做迁移题", "未做延迟测评"]
 ```
 
-这一时间线意味着 **A→B 站在第四个时期的起点**——继承前 30 年的认知架构与学习建模遗产，开创性地引入 Agent 与分布式认知视角。
+### BloomProfile 作为第二维坐标
 
----
-
-## 1.4 页面四（综合框架）：三框架的层次关系
-
-### 框架 1（状态向量）的工程含义
-
-页面四的 9 维状态向量表不是简单的"维度清单"——它每一行都包含 5 个工程要素：
-
-| 要素 | 工程意义 |
-|------|---------|
-| 含义 | 维度的语义边界 |
-| 可观测证据 | 数据采集的具体形式 |
-| 可能估计方法 | 算法选型 |
-| 干预杠杆 | 该维度可以被怎样改变 |
-| 不确定性 | 置信度的处理 |
-
-这意味着文档**已经把每个状态变量视为"可工程化的对象"**——不是抽象概念，而是"输入证据 → 算法 → 状态值 → 干预 → 反馈"的完整链路。
-
-### 框架 2（迁移模型）的数学形式
-
-页面四给出的两个公式是整个文档的"硬核"：
-
-```
-S_{t+1} = update(S_t, observation_t, intervention_t, context_t)
-policy(S_t, B) → intervention_t
-```
-
-第一个公式是**状态转移方程**（与强化学习的状态转移方程同构）。第二个公式是**策略函数**（policy network）。两者合起来意味着 **A→B 系统可以被建模为一个强化学习问题**——这与 SelfLab（SGE）当前的 Hebbian 学习 + 反思机制形成对比。
-
-**关键差异**：
-- A→B：显式建模状态转移，policy 选择最大化 B 后验的干预
-- SGE：隐式演化身份，价值向量通过 Hebbian 调节，反思触发更新
-
-两者底层同构（都是状态更新问题），但状态语义与干预空间不同。
-
-### 框架 3（人-Agent 分布式）的时代意义
-
-页面四的人-Agent 分布式认知框架是**最具时代性的一节**——它敏锐地意识到，未来用户的认知状态不是"裸人状态"，而是"人 + Agent + 工具 + 记忆库"的联合状态。这一判断与 CoALA、Voyager、MemGPT 等 2023-2024 年语言 Agent 工作的方向完全一致。
-
-但页面四对"联合状态如何测量"给出了**开放问题**（"哪些知识必须内化，哪些可以可靠外包？"）。这一开放问题在 3 轮 GPT 对话中被进一步具象化——第三轮对话明确建议把 Agent 升级为"第二大脑"，建立 Student Twin + Agent Twin 的双数字孪生。
-
----
-
-## 1.5 页面五（假设与问题）：4 个核心假设的可行路径
-
-### 4 个假设的真实含义
-
-页面五的 4 个核心假设（置信度均为 B/C，意味着**未经充分验证**）：
-
-| 假设 | 工程含义 | 可证伪性 |
-|------|---------|---------|
-| H1：多层状态比单一掌握度更能预测迁移 | 9 维优于 1 维 | 可用实证对比测试 |
-| H2：个人 Agent 状态必须作为 X 单独建模 | Agent 状态不等于人状态 | 可通过有无 Agent 条件对比 |
-| H3：LLM 可辅助但不能单独承担学习者建模 | LLM 时序一致性弱于 DKT | 已有预印本证据 |
-| H4：B 应优先用任务族与迁移标准 | 任务族能力 B 优于知识点 B | 可对比预测力 |
-
-这 4 个假设是 A→B 系统的**科学基础**——它们决定了系统是否值得构建。如果 H1 被证伪（多层并不优于单层），整个 9 维框架就失去工程意义；如果 H2 被证伪（Agent 状态可以合并），X 维度就成为冗余。
-
-### 风险登记的 5 大风险
-
-5 大风险构成 A→B 系统的"已知失败模式"：
-
-1. **构念污染**：把"会用 Agent"误判为"人已掌握"（与 H2 直接相关）
-2. **状态过拟合**：模型只预测训练平台题目（与 H4 直接相关）
-3. **黑箱诊断**：LLM 流畅解释但缺乏校准（与 H3 直接相关）
-4. **伦理风险**：情绪动机建模需要最小化采集（与隐私直接相关）
-5. **目标错置**：B 若由系统单方面定义，可能损害自主性（哲学风险）
-
-这 5 大风险**正好对应 5 个工程决策点**——构念污染决定 X 维度的独立性、过拟合决定训练数据多样性、黑箱诊断决定 LLM 与规则模型的混合比例、伦理风险决定数据采集策略、目标错置决定 B 的定义权。
-
-### 下一步原型的合理设计
-
-页面五末尾建议的 2-4 周原型（20-40 个任务、三种模型对比）是**符合科学方法论的最小验证**——选择一个窄领域（机器学习论文阅读/复现、概率图模型基础），定义任务族，收集用户行为数据，比较 BKT、多技能、多层状态模型对迁移任务的预测力。
-
-但**这一原型设计未限定目标用户**——这正是 3 轮 GPT 对话的关键修正：定位 K12 学生后，原型可以从"机器学习论文"换为"初中数学"或"小学分数运算"，数据丰富度与验证成本都会发生量级变化。
-
----
-
-## 1.6 页面六（来源与证据）：证据等级与不确定性
-
-### 证据等级的防御性用法
-
-页面六的证据等级表（A=直接来源、B=多源推断、C=合理解释、D=探索性假设、E=开放问题）不仅是学术规范，更是**对工程决策的指引**：
-
-- H1（多层状态预测迁移）：B/C 级证据 → 工程上应做 MVP 验证，不能直接相信
-- H3（LLM 评估可靠性）：预印本证据（B/C） → 需校准集 + 人工复核
-- 联合状态测量：D 级证据（探索性假设） → 应作为长期研究方向，不应作为近期工程目标
-
-### 核心来源表的引用深度
-
-10 条核心来源中，**只有 3 条是 2024-2025 年的最新研究**（Schmucker & Mitchell 2022、Sumers et al. 2023、Wang et al. 2023、Hooshyar et al. 2025），其余均为经典来源。这意味着文档的研究前沿主要依赖经典架构 + 少量最新 LLM 教育应用证据——存在**证据时效性的局限**。
-
-但反过来说，**经典架构（ACT-R 1990s、Soar 1980s）的工程化经验**至今仍是 A→B 系统的稳定参考，而 LLM 在教育测量中的应用还在快速演化，证据尚未稳定——这一"经典 + 前沿"的引用组合是合理的。
-
----
-
-## 1.7 页面七（研究日志）：当前状态与下一步
-
-### 文档的"已知未知"
-
-页面七的 2026-06-10 条目明确记录了文档的边界：
-
-- "经典架构和知识追踪部分证据较强"（A/B 级）
-- "人-Agent 联合认知状态属于综合推断，需要实验验证"（C/D 级）
-
-这种**自我标注的不确定性**是研究文档的健康标志——它让读者知道哪些部分可以信赖、哪些需要谨慎对待。
-
-### 下一步的合理化空间
-
-页面七的下一步是"选择一个具体学习领域，定义 B 的任务族和评价量规，收集交互数据以验证多层状态模型"。但**未指定目标用户**——这是 3 轮 GPT 对话要回答的问题：**目标用户是谁，决定了任务族、数据规模、验证方式的根本差异**。
-
----
-
-# 第二部分：与 GPT 三轮对话的整合分析
-
-## 2.1 第一轮（成人/科研场景）：从研究框架走向系统的入口
-
-### GPT 第一轮的核心判断
-
-GPT 第一轮用一句话把整个项目的本质点破：
-
-> "它实际上是在试图解决：**每个人都拥有一个持续成长的认知数字孪生（Cognitive Digital Twin）**"
-
-这一命名把 9 维状态向量从"学术模型"提升为"产品愿景"——Cognitive Digital Twin（认知数字孪生）是工业 4.0 的术语，源自物理数字孪生（Digital Twin），意指"物理实体的实时虚拟映射"。把这一术语引入认知领域，意味着：
-
-> 每个学习者的认知状态都有一个**持续更新的、可干预的、可迁移的虚拟映射**，系统通过对虚拟映射的操作来改变学习者的真实认知。
-
-### GPT 第一轮的可行性评分
-
-GPT 给出的可行性评分表是最有诊断价值的部分：
-
-| 部分 | 评分 | 解读 |
-|------|------|------|
-| 认知状态定义 | 90% | 理论清晰，工程可控 |
-| 行为采集 | 90% | 教育场景数据丰富 |
-| LLM 评估 | 85% | 校准后可依赖 |
-| 学习路径规划 | 80% | 需要 RL/bandit 工程 |
-| 状态更新 | 70% | 时序一致性与置信度是难点 |
-| 真实认知建模 | 40% | 潜变量不可直接观测 |
-| 长期预测 | 20% | 极端困难 |
-
-**最关键的洞察**：可行性评分从 90% 降到 20% 的拐点出现在"状态更新"与"真实认知建模"之间——这意味着工程的真正难度不在"采集数据"或"设计算法"，而在"从行为证据推断隐藏状态"。
-
-### GPT 第一轮的 3 大风险
-
-1. **状态不可观测**：M（元认知）、E（情绪）、W（世界模型）无法直接观察，只能推断 → 系统判断"懂了"而实际"没懂"的风险
-2. **LLM 幻觉诊断**：用户说"我不会概率论"，LLM 推断 K 低，实际是 A 低（注意力问题） → 错误诊断导致后续干预全错
-3. **维度爆炸**：当前 9 维可能膨胀到 30/50/100 维 → 系统无法维护
-
-这 3 大风险与页面五的"风险登记"高度吻合——GPT 把页面五的抽象风险具象化为具体的工程错误场景。
-
-### GPT 第一轮对原 9 维框架的隐含批评
-
-GPT 第一轮虽然未直接修改 9 维框架，但通过"风险1：状态不可观测"实际上在暗示：
-
-> 9 维中至少 M、E、W 三维在 K12 场景下难以观测 → 应考虑删除或重构
-
-这一暗示在第二轮对话中被显式提出（"删除 G E W 三维"）。
-
----
-
-## 2.2 第二轮（K12 学生）：范式重构
-
-### K12 场景的根本性变化
-
-GPT 第二轮开头给出了一个非常清晰的范式判断：
-
-> "对成年人，这是一个「认知操作系统（Cognitive OS）」项目。
-> 对 K12 学生，它会变成一个「下一代 AI 导师（Next Generation AI Tutor）」项目。"
-
-这一判断之所以重要，是因为它指出**目标用户决定了项目的产品形态**——同一份研究框架，可以变成两种截然不同的产品：
-
-| 维度 | 成年人/科研 | K12 学生 |
-|------|------------|----------|
-| 产品定位 | 认知操作系统 | 下一代 AI 导师 |
-| 核心价值 | 持续几十年的认知助手 | 6-12 年的成长陪伴 |
-| B 的定义 | 模糊（优秀投资人/产品经理/研究者） | 清晰（掌握二次函数） |
-| 验证方式 | 长期项目表现 | 中考/高考 |
-| 数据来源 | 用户日志（少） | 课程题库（多） |
-
-### K12 的三大优势
-
-GPT 总结 K12 的三大优势——这一分析把"目标用户定位"从"研究选择"提升为"战略优势"：
-
-**优势一：B 容易定义**
-- K12 有课程标准、教学大纲、考试体系 → 系统不需要自己定义 B
-- 大幅降低系统复杂度
-
-**优势二：认知状态容易验证**
-- 月考/期中/期末/模拟考/中考/高考 → 天然验证体系
-- 真实场景的迁移验证成本极低
-
-**优势三：数据极丰富**
-- 题库（100 万+题目）
-- 知识点标注
-- IRT/BKT/DKT 成熟技术可直接使用
-
-这三大优势意味着 **K12 场景的 A→B 系统是当前所有"个性化学习"产品中护城河最深的方向**——因为数据丰富度、验证可行性、B 定义清晰度三重叠加。
-
-### GPT 第二轮的"第四代"判断
-
-GPT 把教育行业分为 4 代：
-
-```
-第一代：知识点学习（新东方、学而思）
-第二代：自适应学习（Squirrel AI、ALEKS）—— 知识图谱 + 知识追踪
-第三代：AI Tutor（Khan Academy、Duolingo）—— K + P
-第四代：你的项目 —— K + P + M
-```
-
-**关键洞察**：K12 行业已经从"知识图谱"走向"过程建模"——下一代护城河不是"会不会讲题"，而是"能否理解学生的思维过程"。这正是 A→B 框架的 9 维向量在 K12 场景下的核心价值——M（元认知/策略）维度是真正的差异化竞争点。
-
-### GPT 第二轮的护城河洞察
-
-GPT 对"真正护城河"的判断极为锋利：
-
-> "LLM 不是护城河。几年后人人都有。真正护城河是学生数字孪生。"
-
-这一判断把项目的核心资产从"算法"转移到"数据"——具体来说是"长期个性化数据"：
-
-> "一个学生用了三年，系统知道：他在几何题容易跳步，概率题容易误解条件，考试后10分钟开始疲劳，喜欢先做简单题，不会主动检查。"
-
-**这是项目商业可行性的根本依据**：3 年以上的个性化数据是任何新进入者无法快速积累的资产，而一旦积累完成，迁移成本极高（学生无法轻易换平台，因为平台积累的认知画像对新平台是"零"）。
-
-### GPT 第二轮的 MVP 维度压缩
-
-GPT 明确建议：
+v2.0 关键升级：CTA 维护的不是 5 维，而是 **5 维 × 6 维 Bloom = 30 维状态空间**：
 
 ```python
-# 原版（9 维，对 K12 过度设计）
-K, P, M, G, A, E, W, X, U
-
-# MVP 版（5 维，对 K12 适用）
-Knowledge, Skill, Strategy, Confidence, ExternalSupport
+class BloomProfile:
+    remember: float      # 0-1
+    understand: float    # 0-1
+    apply: float         # 0-1
+    analyze: float       # 0-1
+    evaluate: float      # 0-1
+    create: float        # 0-1
 ```
 
-5 维的合理性在于：
-- K（知识）：BKT/IRT 成熟支持
-- P（程序）：model tracing 成熟支持
-- S（策略）：原 M 的简化版本（K12 不需要完整的元认知）
-- C（置信度）：**新增维度**——大量 K12 学生的问题是"误判自己会不会"
-- X（外部支架）：保持
-
-删除的 4 维：
-- G（目标）：K12 学生目标由课程标准定义，不需要模型化
-- A（注意）：可通过行为数据间接推断，不作为独立维度
-- E（情绪）：采集伦理风险高，工程上难以稳定
-- W（信念）：与 C（置信度）部分重叠，可合并
-- U（不确定性）：作为每个维度的附加属性而非独立维度
-
----
-
-## 2.3 第三轮（定位确定后）：7 大修改建议
-
-### 第 1 处：从"认知状态研究"改为"学生成长操作系统"
-
-| 原视角 | 新视角 |
-|--------|--------|
-| 认知状态 → 认知建模 → 状态迁移 | 成长目标 → 认知诊断 → 学习干预 → 能力成长 |
-| 学术视角 | 产品视角 |
-
-这一修改把文档的隐含用户从"研究者"改为"家长/学生"——他们关心的是：
-
-> "为什么成绩上不去？为什么学不会？怎么提高？"
-
-而不是：
-
-> "K/P/M/G/A/E/W/X 哪个维度需要更新？"
-
-### 第 2 处：删除 G E W 三维（已在 2.2 详述）
-
-### 第 3 处：增加 Learning DNA
-
-GPT 提出的 **Learning DNA** 是原框架完全缺失但对产品极为关键的一层：
+例如学生函数学习的 BloomProfile：
 
 ```python
-LearningDNA = {
-    best_input_style: "视频/做题/讨论/讲解",
-    best_feedback_style: "即时/延迟/正向/负向",
-    fatigue_pattern: "上午高效/下午疲劳/30分钟分心",
-    mistake_pattern: "审题错误/计算错误/概念错误/策略错误",
-    motivation_pattern: "竞争驱动/兴趣驱动/任务驱动/反馈驱动"
+{
+    remember: 0.95,    # 记得定义/公式
+    understand: 0.89,  # 理解图像为什么是抛物线
+    apply: 0.72,       # 能解基础题
+    analyze: 0.41,     # 拆解综合题困难
+    evaluate: 0.16,    # 比较解法困难
+    create: 0.02       # 设计新题困难
 }
 ```
 
-**Learning DNA 与认知状态的区别**：
-- 认知状态回答"现在是谁"
-- Learning DNA 回答"这个人是怎么成长的"
+**关键洞察**：BloomProfile 揭示了"会做但不会想"——apply 0.72 高（能做基础题），analyze 0.41 低（不能拆解综合题）。
 
-Learning DNA 不随单次学习行为变化，而是**长期稳定的个性化特征**——它是真正的"DNA"，需要数月乃至数年的数据才能稳定识别。
-
-### 第 4 处：B 不再定义为知识目标——三层 B
-
-GPT 提出的三层 B 是对原框架最深刻的修改之一：
-
-| 层 | 类型 | 例子 | 价值 |
-|----|------|------|------|
-| B1 | Knowledge Goal | 掌握二次函数 | 短期、显性、可验证 |
-| B2 | Capability Goal | 独立解综合题 | 中期、行为可观察 |
-| B3 | Growth Goal | 形成检查习惯、形成反思能力 | 长期、性格可观察 |
-
-**关键洞察**：未来最有价值的是 B3，不是 B1。原因：
-
-- B1 的天花板有限——所有学生都会"掌握知识点"，差异化空间小
-- B3 是真正的差异化护城河——"形成反思能力"是 AI 教练真正能提供的价值
-- B3 跨学科、跨场景——一旦学生形成"反思习惯"，所有学科都受益
-
-这一洞察实际上把产品从"知识传授系统"升级为"学习能力培养系统"——这是与 Khan Academy、Duolingo 等知识型 AI Tutor 的根本差异。
-
-### 第 5 处：引入成长轨迹
-
-原框架的状态转移 `S_{t+1} = update(...)` 是单步的，而 GPT 引入**成长轨迹**把单步决策升级为长期记忆：
-
-```python
-GrowthTrajectory = {
-    state_history: [...],         # 状态历史
-    intervention_history: [...],  # 干预历史
-    learning_velocity: ...,       # 学习速度
-    growth_prediction: ...        # 成长预测
-}
-```
-
-**这一修改的深层意义**：让系统拥有"成长记忆"而非仅有"当前状态"。
-
-成长记忆的工程价值在于：
-- 可识别长期模式（某学生在几何题长期卡在 P2 维度）
-- 可做长期预测（基于历史速度预测 6 个月后的能力水平）
-- 可做差异化干预（基于历史干预效果调整策略）
-
-### 第 6 处：Agent 升级为第二大脑
-
-原框架的 X 维度只是"外部支架"的一个维度，GPT 把它升级为**双数字孪生系统**：
-
-```
-Student Twin  +  Agent Twin
-   ↓                ↓
-人的认知          Agent 的认知
-状态              状态
-```
-
-| 实体 | 负责 | 不负责 |
-|------|------|--------|
-| Student | 理解、判断、创造 | 记忆检索、执行 |
-| Agent | 记忆、整理、提醒、规划、检索、训练 | 价值判断、最终决策 |
-
-**双孪生的工程意义**：
-
-1. **构念污染被结构性解决**——人状态与 Agent 状态显式分离，不会混淆
-2. **记忆外包被显式建模**——哪些记忆必须内化（价值、关键判断）、哪些可以外包（事实检索、步骤记忆）
-3. **成长轨迹归因清晰**——成长来自"人学到了"还是"Agent 更会了"被显式记录
-
-### 第 7 处：AI 老师 → AI 学习教练
-
-GPT 把产品定位从"AI 老师"（不会→讲）升级为"AI 学习教练"（不会→诊断→干预→反馈→验证）：
-
-| AI 老师 | AI 学习教练 |
-|---------|-------------|
-| 关注内容 | 关注成长 |
-| 反应式 | 主动式 |
-| 单次干预 | 持续干预 |
-| 知识传递 | 状态迁移 |
-
-这一修改把产品的"动作空间"从"讲解/答疑"扩展为完整的教练动作空间：
-
-- 诊断（为什么不会）
-- 干预（练习/讲解/示范/反思）
-- 反馈（即时/延迟）
-- 验证（迁移测试/延迟测评）
-- 复盘（错因归因）
-- 调整（policy 更新）
-
----
-
-# 第三部分：综合重构——学生认知数字孪生 v1.0
-
-## 3.1 状态模型从 9 维到 5 维
-
-### 重构后的 5 维状态模型
-
-```
-S_t = {K, P, S, C, X}
-```
-
-| 维度 | 含义 | K12 证据 | 估计方法 | 干预杠杆 |
-|------|------|---------|---------|---------|
-| K | 知识掌握 | 选择题、解释题、迁移题 | IRT、认知诊断、BKT/DKT | 例子、反例、类比、检索练习 |
-| P | 程序技能 | 解题轨迹、错误类型 | model tracing、过程挖掘 | 分步练习、变式训练、刻意练习 |
-| S | 策略能力 | 学习日志、错题归因、提示使用 | 行为序列分类、文本分析 | 自我解释、预测-验证、错因归因 |
-| C | 置信度 | 自我评估、求助行为、检查行为 | 元认知问卷、行为推断 | 反馈校准、自我评估训练 |
-| X | 外部支架 | 工具调用、笔记质量、Agent 记忆 | 知识库审计、Agent log 分析 | 笔记结构、工具训练、Agent 设计 |
-
-### 删除维度的处理
-
-| 原维度 | 删除原因 | 处理方式 |
-|--------|---------|---------|
-| G（目标/动机） | K12 目标由课程标准定义 | 内化为 B1/B2/B3 三层 |
-| A（注意/工作记忆） | 通过行为间接推断 | 合并入 P（错误类型分类） |
-| E（情绪/动机） | 采集伦理风险高 | 不建模，仅在教练反馈中观察 |
-| W（世界模型/信念） | 与 C 高度重叠 | 合并入 C（错误信念表现为错误置信） |
-| U（不确定性） | 不是独立维度 | 作为每个维度的附加属性（conf） |
-
-### 9 维 vs 5 维的本质差异
-
-| 维度 | 9 维 | 5 维 |
-|------|------|------|
-| 状态数 | 9 个独立变量 | 5 个独立变量 + 每个变量的置信度 |
-| 工程复杂度 | 高（需多模型融合） | 中（K/P 用 BKT，C/S 用行为分析） |
-| 数据需求 | 多模态（行为+生理+自评） | 主要行为数据 |
-| 伦理风险 | 高（情绪/动机采集） | 低（仅学习行为） |
-| 学术完整性 | 高（覆盖认知架构全维度） | 中（专注可观测维度） |
-
-**5 维的合理性论证**：K12 阶段的核心目标是**可验证的知识与能力提升**（B1/B2/B3），而 G、A、E、W 维度要么是"上游因素"（由课程目标决定）、要么是"下游影响"（通过行为表现推断）、要么是"伦理敏感"（建模风险高）。把这 4 维从状态模型中删除，**不是否认它们的重要性**，而是把它们降级为"教练反馈循环中的观察项"而非"核心状态变量"。
-
----
-
-## 3.2 增加 Learning DNA（成长型人格）
-
-### Learning DNA 的设计
+### Learning DNA（v1.0 已有，v2.0 完整化）
 
 ```python
 class LearningDNA:
-    def __init__(self, user_id):
-        self.input_style = InputStyle.UNKNOWN
-        # 视频 / 做题 / 讨论 / 讲解 / 阅读
-        
-        self.feedback_style = FeedbackStyle.UNKNOWN
-        # 即时正向 / 即时负向 / 延迟正向 / 延迟负向
-        
-        self.fatigue_pattern = FatiguePattern.UNKNOWN
-        # 上午高效 / 下午疲劳 / 30 分钟分心 / 60 分钟分心
-        
-        self.mistake_pattern = MistakePattern.UNKNOWN
-        # 审题错误 / 计算错误 / 概念错误 / 策略错误 / 粗心错误
-        
-        self.motivation_pattern = MotivationPattern.UNKNOWN
-        # 竞争驱动 / 兴趣驱动 / 任务驱动 / 反馈驱动 / 关系驱动
-        
-        self.confidence_history = []  # 学习速度历史
-        self.intervention_response = {}  # 干预响应历史
+    best_input_style: InputStyle       # 视频/阅读/对话/动手
+    best_feedback_style: FeedbackStyle # 鼓励/挑战/游戏化
+    fatigue_pattern: FatiguePattern    # 30/60 分钟分心模式
+    mistake_pattern: MistakePattern    # 审题/计算/概念/策略错误
+    motivation_pattern: MotivationPattern  # 成就/好奇/社交驱动
 ```
 
-### Learning DNA vs 认知状态的关键区别
-
-| 维度 | 认知状态 (S) | Learning DNA |
-|------|------------|-------------|
-| 时间尺度 | 单次学习行为 | 数月/数年 |
-| 更新频率 | 每分钟/每小时 | 每周/每月 |
-| 稳定性 | 快速变化 | 缓慢稳定 |
-| 工程目标 | 描述当前 | 预测未来 |
-| 数据需求 | 高频行为 | 长期聚合 |
-
-**Learning DNA 是产品的"长期记忆"**——它解决了原框架"无法长期预测"的根本问题（GPT 第一轮可行性评分中"长期预测 20%"的痛点）。
-
----
-
-## 3.3 三层 B：Knowledge/Capability/Growth Goal
-
-### B1 / B2 / B3 的设计
-
-```python
-class BGoal:
-    """三层目标 B 的统一表达"""
-    
-    def __init__(self, subject, knowledge_goal, capability_goal, growth_goal):
-        # B1：知识目标
-        self.b1 = KnowledgeGoal(
-            subject=subject,
-            target_concepts=[...],
-            target_skills=[...],
-            target_problems=[...]
-        )
-        
-        # B2：能力目标
-        self.b2 = CapabilityGoal(
-            description=capability_goal,
-            observable_behavior=[...],
-            transfer_tasks=[...]
-        )
-        
-        # B3：成长目标
-        self.b3 = GrowthGoal(
-            description=growth_goal,
-            observable_signals=[...],
-            time_horizon="1_year"  # 或更长
-        )
-```
-
-### 三层 B 的工程含义
-
-| 层级 | 评估方法 | 反馈周期 | 教练角色 |
-|------|---------|---------|---------|
-| B1 | 题目正确率、知识点掌握度 | 分钟/小时 | 知识教练 |
-| B2 | 迁移题、项目任务 | 周/月 | 能力教练 |
-| B3 | 行为模式、习惯观察 | 月/学期/年 | 成长教练 |
-
-**三层 B 让 AI 学习教练拥有"阶梯式成长路径"**——不是所有学习都为了"掌握知识点"，而是有时为了"培养能力"、有时为了"塑造习惯"。这一区分让教练可以在不同尺度上选择干预。
-
----
-
-## 3.4 成长轨迹模型
-
-### 轨迹的 4 个核心组件
+### GrowthTrajectory（v1.0 已有，v2.0 完整化）
 
 ```python
 class GrowthTrajectory:
-    def __init__(self, user_id):
-        self.state_history = []       # 状态历史
-        self.intervention_history = [] # 干预历史
-        self.learning_velocity = {}    # 学习速度
-        self.growth_prediction = {}   # 成长预测
-    
-    def record(self, state, intervention, outcome, timestamp):
-        """每次学习行为后记录"""
-        self.state_history.append({
-            "state": state,
-            "timestamp": timestamp
-        })
-        self.intervention_history.append({
-            "intervention": intervention,
-            "outcome": outcome,
-            "timestamp": timestamp
-        })
-    
-    def compute_velocity(self, dimension: str, window: int = 30):
-        """计算某维度的学习速度（最近 N 天）"""
-        recent_states = self.state_history[-window:]
-        return (recent_states[-1][dimension] - recent_states[0][dimension]) / window
-    
-    def predict_growth(self, dimension: str, days: int = 180):
-        """基于历史速度预测未来"""
-        velocity = self.compute_velocity(dimension)
-        current = self.state_history[-1][dimension]
-        return current + velocity * days
+    state_history: List[StudentState]      # 状态历史
+    intervention_history: List[Intervention]  # 干预历史
+    learning_velocity: Dict[str, float]    # 学习速度
+    growth_prediction: Dict[str, float]    # 成长预测
+    bloom_trajectory: Dict[str, BloomProfile]  # Bloom 成长轨迹
 ```
 
-### 成长轨迹的护城河价值
+### CTA 的可观测证据
 
-成长轨迹的工程价值在于：
+CTA 不是凭"AI 感觉"判断状态——必须有可观测证据：
 
-1. **个性化预测**：每个学生有独立的成长曲线，可识别"快速进步"与"停滞"模式
-2. **干预效果归因**：通过对比干预前后的状态变化，判断哪类干预最有效
-3. **长期模式识别**：跨越学期/学年的数据可揭示"假期后遗忘"、"考试前焦虑"等长期模式
+| 状态变量 | 可观测证据 | 估计方法 |
+|---------|----------|---------|
+| K | 解释、选择题、概念图、迁移题 | IRT + 认知诊断 + LLM rubric |
+| P | 解题轨迹、错误类型、步骤选择 | BKT/DKT + model tracing |
+| S | 学习日志、反思、错误修正 | LLM rubric + 行为序列 |
+| C | 自我评估、求助行为、检查行为 | 元认知问卷 + 行为推断 |
+| X | 工具调用、笔记质量、Agent 记忆 | 知识库审计 + Agent log |
+| BloomProfile | 不同层级的题目表现 | 6 套独立测评 + 跨层级相关分析 |
+| LearningDNA | 长期聚合行为数据 | 聚类分析 + 相似学生迁移 |
+| GrowthTrajectory | 长期 state_history | 时间序列分析 + 预测模型 |
 
-**这是 3-5 年后真正构成护城河的数据**——任何新进入者即使有更好的算法，也无法快速重建学生的历史轨迹。
+## 3.4 LCA（Learning Coach Agent）— Policy Optimizer
 
----
+### 思维模式
 
-## 3.5 Student Twin + Agent Twin 双数字孪生
+LCA 像**教练 + 强化学习策略器**：
 
-### 双孪生的设计哲学
+- 主动：不能等待，要设计实验
+- 实验：每次干预都是一个"实验"，要观察效果
+- 探索：尝试不同策略，收集反馈
+- 优化：根据累积证据优化 policy
 
-原框架的 X 维度只是"外部支架的一个变量"，双孪生把它升级为**对等的认知实体**：
+### 干预空间
 
-```
-            ┌─────────────────┐         ┌─────────────────┐
-            │   Student Twin   │         │   Agent Twin     │
-            ├─────────────────┤         ├─────────────────┤
-            │ K_student        │         │ K_agent          │
-            │ P_student        │         │ P_agent          │
-            │ S_student        │         │ S_agent          │
-            │ C_student        │         │ C_agent          │
-            │  ...             │         │  ...             │
-            └─────────────────┘         └─────────────────┘
-                    │                            │
-                    │     Joint Capability       │
-                    └────────────────────────────┘
-                              ↓
-                  Joint_S = f(S_student, S_agent)
-```
-
-### 双孪生的工程实现
-
-```python
-class StudentAgentTwin:
-    def __init__(self, user_id):
-        self.student_twin = StudentState()  # K, P, S, C
-        self.agent_twin = AgentState()      # 记忆、工具、技能库、规划
-    
-    def joint_capability(self, task):
-        """联合能力 = 学生状态 + Agent 状态的函数"""
-        student_can = self.student_twin.can_solve(task)
-        agent_can = self.agent_twin.can_assist(task)
-        
-        if student_can:
-            return ("student", 1.0)  # 学生独立完成
-        elif agent_can and task.allowed_agent_assist:
-            return ("agent_assisted", 0.8)  # Agent 辅助完成
-        else:
-            return ("need_teaching", 0.0)  # 需要教学
-    
-    def diagnose_lacuna(self, task):
-        """诊断能力缺口"""
-        student_state = self.student_twin.get_state()
-        required_state = task.required_state()
-        
-        lacuna = {}
-        for dim in ['K', 'P', 'S', 'C']:
-            if required_state[dim] - student_state[dim] > 0.3:
-                lacuna[dim] = required_state[dim] - student_state[dim]
-        return lacuna
-```
-
-### 双孪生的核心价值
-
-| 单孪生 | 双孪生 |
-|--------|--------|
-| "学生学会了吗" | "学生独立学会了吗" vs "Agent 帮会了吗" |
-| 构念污染风险高 | 显式分离人状态与 Agent 状态 |
-| 难以判断归因 | 可清晰记录"成长来自哪里" |
-| 评估只针对人 | 可评估独立能力与联合能力 |
-
-**这是原 H2 假设（Agent 状态必须单独建模）的工程实现**——双孪生让 Agent 状态不再是 X 维度的一个变量，而是与 Student 状态对等的实体。
-
----
-
-## 3.6 AI 学习教练的产品定位
-
-### AI 老师 vs AI 学习教练
-
-| 维度 | AI 老师 | AI 学习教练 |
-|------|---------|-------------|
-| 输入 | 题目/问题 | 学习行为序列 |
-| 输出 | 答案/讲解 | 诊断 + 干预 + 反馈 + 验证 |
-| 反应式 | 反应式 | 主动式 |
-| 时间尺度 | 单次交互 | 持续多年 |
-| 关注点 | 内容 | 成长 |
-| 评估方式 | 题目正确率 | 状态迁移概率 |
-
-### AI 学习教练的核心动作空间
-
-```python
-class AILearningCoach:
-    def observe(self, student_id, behavior_log):
-        """观察：收集学生行为"""
-        pass
-    
-    def diagnose(self, behavior_log):
-        """诊断：分析当前状态与目标状态的差距"""
-        return Diagnosis(
-            current_state=self.student_twin.get_state(),
-            target_state=self.b.get_target(),
-            lacuna=self.compute_lacuna()
-        )
-    
-    def plan(self, diagnosis):
-        """规划：选择干预策略"""
-        return InterventionPlan(
-            action=...,
-            rationale=...,
-            expected_outcome=...
-        )
-    
-    def intervene(self, plan):
-        """干预：执行教学动作"""
-        pass
-    
-    def validate(self, intervention, outcome):
-        """验证：检查干预效果"""
-        return Validation(
-            success=...,
-            learning_velocity_change=...,
-            next_recommendation=...
-        )
-    
-    def update(self, validation):
-        """更新：根据验证结果更新状态与策略"""
-        self.student_twin.update(validation)
-        self.policy.update(validation)
-```
-
-### AI 学习教练 vs Khanmigo / Duolingo Max
-
-| 维度 | Khanmigo | Duolingo Max | AI 学习教练（本框架） |
-|------|----------|--------------|----------------|
-| 状态建模 | 无 | 无 | 5 维 + Learning DNA + 成长轨迹 |
-| 干预策略 | LLM 自由生成 | 规则 + LLM | Policy(A, B) → intervention |
-| 验证机制 | 题目正确率 | 题目正确率 | 迁移题 + 延迟测评 + 行为模式 |
-| 时间尺度 | 单次对话 | 单次对话 | 持续多年 |
-| 个性化深度 | 中（对话风格） | 低（难度自适应） | 深（认知画像 + Learning DNA） |
-
-**核心差异**：Khanmigo/Duolingo Max 是"AI 加持的传统产品"，AI 学习教练是"认知科学驱动的全新产品形态"。
-
----
-
-# 第四部分：原框架与新框架的关键差异
-
-## 4.1 维度压缩的科学性与可行性
-
-### 科学性论证
-
-9 维 → 5 维的压缩不是任意删减，而是基于**可观测性原则**：
-
-| 维度 | 可观测性 | K12 必要性 | 处理 |
-|------|---------|-----------|------|
-| K | 高 | 高 | 保留 |
-| P | 高 | 高 | 保留 |
-| S | 中 | 高 | 保留（重命名为 S） |
-| C | 中 | 高 | 保留（新增） |
-| X | 高 | 中 | 保留 |
-| G | 低（K12 由课程定义） | 低 | 删除 |
-| A | 低（不可直接观测） | 中 | 合并入 P（错误分类） |
-| E | 低（伦理风险） | 低 | 删除（仅观察） |
-| W | 中（与 C 重叠） | 低 | 合并入 C |
-| U | 不可独立（是属性） | - | 降级为状态附加属性 |
-
-**科学性原则**：
-1. 可观测性高 → 保留为独立维度
-2. 可观测性低 + 必要性低 → 删除
-3. 可观测性低 + 必要性高 → 合并到相关维度
-4. 不可独立 → 降级为属性
-
-### 工程可行性论证
-
-5 维的工程实现远比 9 维简单：
-
-| 维度 | 工程实现 |
-|------|---------|
-| K | IRT + BKT/DKT（成熟开源） |
-| P | Model tracing + 规则匹配 |
-| S | LLM rubric + 行为序列分类 |
-| C | 元认知问卷 + 行为推断（求助/检查） |
-| X | Agent log + 工具使用分析 |
-
-5 维的工程实施可以**在 2-4 周内完成 MVP**，而 9 维需要 3-6 个月——压缩直接决定产品上市时间。
-
----
-
-## 4.2 缺失层的补充：Learning DNA 的实证基础
-
-### Learning DNA 不是凭空提出
-
-Learning DNA 的 5 个维度（input_style、feedback_style、fatigue_pattern、mistake_pattern、motivation_pattern）都有**认知科学实证基础**：
-
-| 维度 | 实证基础 |
-|------|---------|
-| input_style | VARK 模型（Fleming & Mills, 1992）—— Visual/Auditory/Read/Kinesthetic |
-| feedback_style | Hattie & Timperley 的反馈模型（2007） |
-| fatigue_pattern | 认知负荷理论（Sweller, 1988）—— 30/60 分钟注意力衰减模式 |
-| mistake_pattern | 错误分析理论（Brown & Burton, 1978）—— 错误的层级分类 |
-| motivation_pattern | 自我决定理论（Deci & Ryan, 1985）—— 内在/外在动机分类 |
-
-**Learning DNA 是认知科学实证的工程化**，不是 GPT 的即兴创作。
-
-### Learning DNA 与 Felder-Silverman 学习风格模型的关系
-
-Felder-Silverman 学习风格模型（1988）定义了 4 个维度（感知/输入/处理/理解），共 8 种学习风格。原 Learning DNA 与之部分重叠但更聚焦于**K12 可干预维度**：
-
-| Felder-Silverman | Learning DNA | 关系 |
-|-----------------|--------------|------|
-| 感知（感觉/直觉） | — | 删除（K12 难以干预） |
-| 输入（视觉/言语） | input_style | 对应 |
-| 处理（活跃/反思） | — | 合并入 feedback_style |
-| 理解（顺序/全局） | — | 删除（K12 课程已决定顺序） |
-| — | fatigue_pattern | 新增（K12 关键） |
-| — | mistake_pattern | 新增（错因分析关键） |
-| — | motivation_pattern | 新增（动机驱动关键） |
-
-Learning DNA 是 Felder-Silverman 模型的**K12 实用化剪裁**。
-
----
-
-## 4.3 时间维度的引入：从 A→B 到 A→B→C→D
-
-### 原框架的时间盲点
-
-原框架的状态转移 `S_{t+1} = update(S_t, ...)` 是**单步决策**——只关心"下一步做什么"。这与强化学习的状态转移方程形式相同，但缺乏**长期累积视角**。
-
-GPT 引入的成长轨迹补足了时间维度：
-
-```
-原框架：S_{t+1} = update(S_t, ...)
-新框架：Trajectory = {S_0, S_1, S_2, ..., S_t, ..., S_T}
-                ↓
-        Learning Velocity
-        Growth Prediction
-        Intervention Effectiveness
-```
-
-### 时间维度引入的工程价值
-
-| 价值 | 工程实现 |
-|------|---------|
-| 长期模式识别 | 时间序列分析（隐马尔可夫模型、Transformer） |
-| 个性化预测 | LSTM/Transformer-based growth predictor |
-| 干预效果归因 | 因果推断（双稳健估计、断点回归） |
-| 遗忘检测 | 间隔重复算法（SuperMemo、Anki 算法） |
-
-**时间维度让系统从"实时助手"升级为"长期成长伙伴"**——这是 6-12 年 K12 陪伴的核心工程基础。
-
----
-
-## 4.4 干预策略引擎：从状态估计到 Policy
-
-### 原框架的策略缺失
-
-原框架虽然给出了 `policy(S_t, B) → intervention_t`，但**未具体定义策略空间**——intervention_t 可以是什么？取值空间多大？如何选择？
-
-GPT 通过三层 B + Learning DNA + 成长轨迹，把策略空间具体化：
+LCA 的动作空间基于 Bloom 目标层级：
 
 ```python
 class InterventionPolicy:
     def __init__(self):
-        self.action_space = {
-            "explain": ExplainAction(),       # 讲解
-            "exercise": ExerciseAction(),     # 练习
-            "feedback": FeedbackAction(),     # 反馈
-            "scaffold": ScaffoldAction(),     # 脚手架
-            "reflect": ReflectAction(),       # 反思
-            "agent_assist": AgentAssistAction(), # Agent 辅助
-            "delay_review": DelayReviewAction(), # 延迟复习
-            "transfer_task": TransferTaskAction(), # 迁移任务
+        self.bloom_to_strategy = {
+            BloomLevel.REMEMBER: {
+                'flashcard', 'spaced_repetition', 'rote_drill'
+            },
+            BloomLevel.UNDERSTAND: {
+                'analogy', 'visualization', 'concept_mapping', 'socratic_questioning'
+            },
+            BloomLevel.APPLY: {
+                'varied_practice', 'deliberate_practice', 'worked_examples'
+            },
+            BloomLevel.ANALYZE: {
+                'problem_decomposition', 'comparison', 'concept_map_advanced'
+            },
+            BloomLevel.EVALUATE: {
+                'multi_solution_compare', 'debate', 'critique_exercise'
+            },
+            BloomLevel.CREATE: {
+                'project_based_learning', 'inquiry_learning', 'open_task'
+            }
         }
-    
-    def select(self, state, target, dna, trajectory):
+
+    def select(self, student_state, bloom_target, learning_dna, trajectory):
         """根据状态、目标、DNA、轨迹选择干预"""
-        # 策略可以是规则、bandit、强化学习
-        pass
+        candidates = self.bloom_to_strategy[bloom_target]
+        # 进一步根据 learning_dna 过滤
+        # 根据 trajectory 中的历史效果排序
+        return Intervention(
+            type=candidates[0],
+            parameters=...,
+            expected_gain=...,
+            expected_risk=...
+        )
 ```
 
-### 策略空间的工程选择
+### LCA 的核心职责
 
-| 策略类型 | 适用阶段 | 工程复杂度 |
-|---------|---------|---------|
-| 规则策略 | MVP 阶段 | 低 |
-| Contextual Bandit | 中期 | 中 |
-| 强化学习（DQN/PPO） | 长期 | 高 |
-
-**MVP 建议使用规则策略**——基于状态/目标/历史简单决策，中期引入 contextual bandit（每个学生独立 bandit），长期才上强化学习。
-
----
-
-# 第五部分：关键开放问题与下一步建议
-
-## 5.1 待验证假设清单
-
-原框架的 4 个核心假设在 K12 重构后需要重新验证：
-
-| 原假设 | K12 重构后 | 验证方法 |
-|--------|-----------|---------|
-| H1：多层状态优于单一分数 | H1'：5 维状态优于单一分数 | 对比 BKT vs 5 维状态模型对迁移题的预测 |
-| H2：Agent 状态必须单独建模 | H2'：双孪生系统能分离学习归因 | 有/无 Agent 条件下学生独立表现对比 |
-| H3：LLM 不能单独做高风险建模 | H3'：LLM rubric + BKT 混合优于单一 | LLM 与混合模型的 AUC、校准误差对比 |
-| H4：B 应优先用任务族与迁移标准 | H4'：三层 B（B1/B2/B3）的预测力 | 比较三种 B 定义对真实项目表现的预测 |
-
-**新增待验证假设**：
-- **H5**：5 维状态在 K12 不同学科（数学/语文/英语）下保持稳定结构
-- **H6**：Learning DNA 在 3 个月数据后可被稳定识别
-- **H7**：成长轨迹预测 6 个月后状态的准确率 > 70%
-- **H8**：AI 学习教练比 AI 老师在 6 个月后显著提升 B3（成长目标）
-
----
-
-## 5.2 关键技术风险
-
-### 风险 1：状态估计的时序一致性
-
-原 H3 已经指出 LLM 的时序一致性弱于 DKT。即便引入 BKT 等专门模型，**5 维状态的联合时序一致性仍是开放问题**——需要 5 个 BKT/DKT 模型同时更新，并保持相互一致。
-
-**缓解策略**：使用 HMM/LSTM 等时序模型作为联合状态估计器，而非独立 BKT。
-
-### 风险 2：Learning DNA 的冷启动
-
-Learning DNA 需要数月数据才能稳定识别，但**新用户的数据稀缺**——这是冷启动问题。
-
-**缓解策略**：
-- 使用问卷/初始测评估计 Learning DNA 初始值
-- 设计"探索式"干预主动收集 Learning DNA 数据
-- 利用相似学生数据（迁移学习）
-
-### 风险 3：成长轨迹的伦理与隐私
-
-成长轨迹包含学生长期行为数据，**隐私风险极高**——若数据泄露，等同于学生完整学习画像外泄。
-
-**缓解策略**：
-- 本地化存储（端侧计算）
-- 差分隐私（differential privacy）
-- 用户完全控制（可删除、可导出、可携带）
-
-### 风险 4：目标错置
-
-GPT 第一轮已经警告："B 若由系统单方面定义，可能优化短期绩效而损害用户长期自主性"。三层 B 中，**B3（成长目标）若由系统单方面定义，可能塑造出"系统想要的成长"而非"用户想要的成长"**。
-
-**缓解策略**：
-- B3 必须由用户（学生/家长）共同参与定义
-- 系统提供"成长目标候选"，但决策权归用户
-- 定期让用户反思"成长方向是否仍符合期望"
-
----
-
-## 5.3 2-4 周 MVP 设计建议
-
-### 推荐 MVP：初中数学 + AI 学习教练
-
-**范围**：
-- 学科：初中数学（二次函数、几何证明、概率初步）
-- 年级：初一、初二
-- 用户规模：50-100 名学生
-
-**5 维状态实现**：
-- K：使用 BKT 模型（每个知识点一个 BKT）
-- P：使用规则匹配（解题步骤分类）
-- S：使用 LLM rubric（每周反思评分）
-- C：使用行为数据 + 问卷（每月校准）
-- X：使用工具调用日志
-
-**三层 B 定义**：
-- B1：掌握二次函数核心概念与基本运算
-- B2：能独立解二次函数综合题
-- B3：形成"先画图再解题"的策略习惯
-
-**核心验证**：
-1. 5 维状态模型 vs 单一 BKT 模型的迁移题预测力对比
-2. AI 学习教练组 vs AI 老师组的 6 周学习效果对比
-3. 双孪生系统能否清晰区分"学生学会" vs "Agent 帮会"
-
-### MVP 工程里程碑
-
-| 周 | 任务 | 产出 |
-|----|------|------|
-| 1 | 数据采集、5 维状态模型原型 | BKT 模型、K/P/S/C/X 状态估计器 |
-| 2 | 干预策略引擎原型 | 规则策略、Contextual Bandit |
-| 3 | AI 学习教练闭环 | 观察-诊断-干预-验证-更新完整链路 |
-| 4 | 实验对比与评估 | 3 组对照实验、迁移题预测分析 |
-
----
-
-## 5.4 与 SelfLab（SGE）的进一步连接
-
-### 共享基础（已在 Shared-Cognitive-Science-Toolbox.md 中详述）
-
-A→B 与 SGE 共享 7 个认知科学工具：
+LCA 不是"根据状态给出建议"——LCA 主动**设计实验**：
 
 ```
-1. 经典认知架构 → 状态变量的理论框架
-2. 贝叶斯状态更新 → 状态推断的数学框架
-3. 预测加工理论 → 状态变化的驱动机制
-4. 双系统理论 → 反思触发机制
-5. 记忆系统分层 → 信息组织方式
-6. BDI 模型 → 行为驱动结构
-7. 元认知 → 自我监控能力
+CTA: 学生 K=0.4, BloomProfile.apply=0.72, analyze=0.41
+LCA: 候选干预 = [
+  {type: 'varied_practice', target: 'apply', expected_gain: 0.15},
+  {type: 'problem_decomposition', target: 'analyze', expected_gain: 0.20}
+]
+LCA: 选择 problem_decomposition（优先解决最大缺口）
+LCA: 设计 3 道递进难度的综合题
+LCA: 记录干预细节
+执行...
+学生: 完成 3 道题（2 道错 1 道对）
+LCA: 评估效果 = BloomProfile.analyze 从 0.41 → 0.45 (+0.04)
+LCA: 更新 policy 权重
+LCA: 反馈给 CTA："analyze 提升 +0.04，下次继续 problem_decomposition"
 ```
 
-### K12 AI 教练可以借鉴 SGE 的具体设计
+### LCA 的可观测证据
 
-| SGE 设计 | K12 教练借鉴 |
-|---------|------------|
-| 价值向量 | 学习目标向量（B1/B2/B3） |
-| Identity Layer（身份层） | Student Twin（学生画像） |
-| Reflection Layer（反思层） | AI 教练的诊断反馈 |
-| Hebbian 学习 | 学习速度（Learning Velocity） |
-| 认知失调触发反思 | 错误率上升触发深度干预 |
-| 叙事一致性 | 成长轨迹的一致性 |
+| 证据类型 | 内容 | 用途 |
+|---------|------|------|
+| 干预历史 | 每次干预的类型/参数/结果 | 策略效果归因 |
+| 学生即时反馈 | 困惑度/专注度/完成率 | 短期效果评估 |
+| 学生长期表现 | BloomProfile 变化 | 中长期效果评估 |
+| 政策效果 | 整体进步曲线 | 策略优化 |
 
-### K12 AI 教练对 SGE 的反向启示
+## 3.5 双 Agent 互校机制
 
-K12 场景的数据丰富度（A→B 的优势）可以为 SGE 提供：
+### 核心互校循环
 
-1. **真实行为数据** —— 学生作答、反思、错题等行为是 SGE 实验数据的潜在来源
-2. **干预效果验证** —— K12 教练的 A/B 测试框架可用于验证 SGE 的干预策略
-3. **伦理边界参照** —— K12 对未成年人数据的严格规范可作为 SGE 隐私设计的参考
+```
+第 1 步：CTA 给出学生状态的信念分布
+        state = {K: {low: 0.4, high: 0.5, unsure: 0.1}, ...}
 
-### Phase 3 集成的可能性
+第 2 步：LCA 基于状态选择干预
+        intervention = select(state, bloom_target)
+        # 优先解决信念分布中"high 概率 + 实际偏低"的维度
 
-[`research/phase3/`](../phase3/) 中的 K12 AI 教练 PoC 可能成为 **A→B 框架的第一个真实应用场景**——这与当前 SelfLab 的 Phase 3 战略（应用层探索）高度契合。
+第 3 步：执行干预，记录证据
+
+第 4 步：CTA 收集新证据，更新信念分布
+        K: {low: 0.5, high: 0.4, unsure: 0.1}  # 知识缺口概率上升
+
+第 5 步：LCA 根据新信念重新规划
+        intervention = select(new_state, bloom_target)
+        # 信念变化 → 策略调整
+
+第 6 步：循环
+```
+
+### 互校对抗幻觉的 3 个机制
+
+**机制 1：CTA 维护信念分布而非事实**
+
+CTA 输出永远不是"学生不会 X"，而是"学生不会 X 的概率 60%"——这迫使 LCA 考虑不确定性。
+
+**机制 2：LCA 设计实验而非直接给答案**
+
+LCA 不直接说"做 5 道变式训练"——而是设计"先做 1 道，如果做对就做 2 道变式训练，如果做错就降级到概念讲解"。
+
+**机制 3：CTA 接收干预结果后做归因分析**
+
+LCA 报告"analyze 提升 +0.04"，CTA 进一步问：
+- 这 +0.04 是真实提升还是噪声？
+- 是否在"其他 Bloom 层级"上有所下降（迁移损失）？
+- 是否与 LearningDNA 一致（学生擅长的输入方式）？
+
+这种"对抗性提问"是 LLM 自由生成无法做到的。
+
+### 互校的 4 个交互模式
+
+| 模式 | 触发条件 | CTA 行为 | LCA 行为 |
+|------|---------|---------|---------|
+| **常规循环** | 新事件/新证据 | 更新状态 | 选择干预 |
+| **信念质疑** | LCA 不同意 CTA 状态判断 | 展示证据 + 置信度 | 要求 CTA 重新考虑 |
+| **策略质疑** | CTA 发现 LCA 干预无效 | 报告状态变化 + 归因 | 调整策略 |
+| **元反思** | 整体进步停滞 | 反思 Bloom 目标合理性 | 反思干预策略匹配度 |
+
+### 与 SGE 单一 Agent 的本质差异
+
+| 维度 | SGE 单一 Agent | ECOS 双 Agent |
+|------|--------------|--------------|
+| 思维模式 | 混合（保守 + 主动难以并存）| 分离（CTA 保守 + LCA 主动）|
+| 决策方式 | 单一 LLM 调用 | 互校循环 |
+| 对抗幻觉 | 无（LLM 自由生成）| 3 个机制（信念分布/实验设计/归因）|
+| 状态-策略分离 | 耦合（同一模型）| 解耦（CTA 估状态 / LCA 选策略）|
+
+## 3.6 完整数据流
+
+```python
+# 完整 ECOS 数据流（伪代码）
+
+# ===== 1. 数据采集（App 层）=====
+evidence = collect_student_evidence(student_id)
+# 包含：做题记录、解释文本、反思日志、Agent 使用记录
+
+# ===== 2. CTA 状态更新（CTA 内部）=====
+belief_update = cta.update_belief(evidence)
+# CTA 维护 9D 状态 + BloomProfile 的信念分布
+new_state = cta.get_state_distribution()
+
+# ===== 3. LCA 干预选择（LCA 内部）=====
+bloom_target = ecos.bloom_goal_library.next_target(
+    subject="math",
+    topic="quadratic_functions",
+    current_state=new_state
+)
+
+intervention = lca.select(
+    state=new_state,
+    target=bloom_target,
+    learning_dna=new_state.learning_dna,
+    trajectory=new_state.growth_trajectory
+)
+
+# ===== 4. 干预执行（App 层）=====
+student_response = execute_intervention(intervention, student_id)
+
+# ===== 5. 干预效果评估（CTA + LCA 协作）=====
+effect = cta.measure_effect(student_response, new_state, intervention)
+# CTA 测量状态变化
+# LCA 评估干预效果
+
+# ===== 6. 信念更新（CTA 内部）=====
+new_state = cta.update_belief(effect)
+# 例如：K 分布从 {low: 0.4, high: 0.5} 变成 {low: 0.5, high: 0.4}
+
+# ===== 7. 轨迹记录（App 层）=====
+ecos.trajectory.record(new_state, intervention, effect, timestamp)
+
+# ===== 8. 长期优化（后台）=====
+ecos.policy_optimizer.optimize(
+    trajectory=ecos.trajectory,
+    learning_dna=new_state.learning_dna
+)
+# 优化 LCA 的 policy
+```
+
+## 3.7 ECOS 最终命名与定位
+
+### 命名
+
+**ECOS = Educational Cognitive Operating System（教育认知操作系统）**
+
+### 与 SGE 的关系
+
+- SGE = Self Genesis Engine（人格涌现引擎）— 让 AI 涌现自我
+- ECOS = Educational Cognitive Operating System — 让 AI 理解并帮助学生成长
+
+两者**共享认知科学工具箱**，但**应用方向不同**：
+
+| 维度 | SGE | ECOS |
+|------|-----|------|
+| 目标 | AI 涌现"自我" | AI 理解学生 + 改变学生 |
+| 核心架构 | 单一 Agent 12 步编排 | 双 Agent 互校（CTA + LCA）|
+| 状态空间 | AI 自身价值/驱动 | 学生认知状态 9D + BloomProfile |
+| 干预对象 | AI 自身行为 | 学生学习行为 |
+| 评估方式 | 身份/叙事一致性 | 学生成长迁移 |
+
+### 长期愿景
+
+> ECOS 让 AI 不再只是回答问题，而是真正**理解一个学生，并持续帮助这个学生成长**。
+>
+> 6~12 年 K12 陪伴，跨学科、跨场景、跨时间，认知画像持续累积，护城河持续加深。
+
+---
+
+# 第 4 部分：与 SGE / AiBeing 的关系（保留 + 重新定位）
+
+## 4.1 与 SGE 共享的认知科学工具
+
+详细参考 [`Shared-Cognitive-Science-Toolbox.md`](./Shared-Cognitive-Science-Toolbox.md)。ECOS 与 SGE 共享 7 个工具：
+
+| 工具 | SGE 应用 | ECOS 应用 |
+|------|---------|---------|
+| 经典认知架构 | 模块划分借鉴 | CTA 状态估计的模块化参考 |
+| 贝叶斯状态更新 | 价值向量的不确定性（未实施）| **CTA 维护信念分布（核心应用）**|
+| 预测加工理论 | Identity Layer 预测行为 | **CTA 预测学生下一次表现**|
+| 双系统理论 | 认知失调触发反思 | **LCA 实验式干预（系统 2）vs 常规反馈（系统 1）**|
+| 记忆系统分层 | Memory Layer 三层 | **CTA 的工作/情节/语义记忆**（学生长期学习历史）|
+| BDI 模型 | 未应用 | **CTA 维护学生 Belief（信念）Distribution**|
+| 元认知 | 未应用（M3.2 计划）| **CTA 是元认知核心**（知道自己知道什么、不知道什么）|
+
+**应用率**：SGE 当前 3/7 = 43%，ECOS 设计中 7/7 = 100%。
+
+## 4.2 SGE 中保留价值的部分
+
+SGE 中**对 ECOS 仍然有价值的部分**：
+
+### 价值 1：SGE 的 Identity/Narrative/Value 形成机制
+
+SGE 12 步编排中的 Identity Layer、Value Layer、Narrative Builder **可作为 LCA 的内在人格**：
+
+```
+LCA 人格 = SGE 12 步编排产生的"持续自我"
+   ↓
+LCA 行为 = LCA 人格 + CTA 状态 + Bloom 目标 + 干预策略
+```
+
+具体地：
+- **Identity Layer** → LCA 有稳定的"我是一个...的教练"人格
+- **Value Layer** → LCA 有教学价值观（"我重视学生长期自主性"）
+- **Narrative Builder** → LCA 能讲述"我与这个学生的共同成长故事"
+
+**这是 SGE 在 ECOS 中的正确定位**：不是"理解学生"（这是 CTA 的职责），而是"提供 LCA 的内在人格"。
+
+### 价值 2：SGE 4 层记忆系统
+
+SGE 的 4 层记忆（Hawking/Crystallizer/Identity/Narrative）可被 ECOS 借鉴：
+
+| SGE 记忆层 | ECOS 用途 |
+|----------|---------|
+| Hawking（短期衰减）| 学生在 ECOS 中的最近行为 |
+| Crystallizer（中长期）| 学生的学习模式识别 |
+| Identity | LCA 的人格一致性 |
+| Narrative | LCA 与学生的共同成长叙事 |
+
+### 价值 3：M2.x 工程经验
+
+M2.2/M2.3 的工程经验对 ECOS 极有价值：
+
+- **chunk 隔离**（17h 长跑验证）— ECOS 长期会话必需
+- **LLM retry + warmup + timeout** — ECOS 调用 LLM 稳定性的基础
+- **Hawking unit bug 修复经验** — ECOS 长期记忆管理的基础
+- **多 seed × 1000 epoch 验证** — ECOS 长周期行为验证的方法论
+
+### 价值 4：Phase 3 工程基础设施
+
+phase3/10-engineering/ 的设计可直接被 ECOS 借鉴：
+
+- `persistence.py` (TwinStateDB + SQLite schema) → ECOS 学生状态持久化
+- `session.py` (TwinSession) → ECOS 单次会话管理
+- `context_injection.py` (TwinContextBuilder) → ECOS 构造 SGE context
+- `llm_cache.py` → ECOS 长期会话的成本控制
+- `prompts/` 版本管理 → ECOS prompt A/B 测试
+- `tests/` 单元测试覆盖 ≥80% → ECOS 质量保障
+
+## 4.3 SGE 可作为 ECOS 的"教师侧人格引擎"
+
+### 集成架构
+
+```
+┌──────────────────────────────────────────────────────────┐
+│                  ECOS (应用层)                              │
+│  CTA (理解学生) + LCA (改变学生) + Bloom Goal Library     │
+└──────────────────────────────────────────────────────────┘
+                            ↕ 调用
+┌──────────────────────────────────────────────────────────┐
+│              sge/ (人格引擎) — 提供 LCA 人格                │
+│  12 步编排 + Identity/Narrative/Value + 4 层记忆         │
+└──────────────────────────────────────────────────────────┘
+                            ↕ 调用
+┌──────────────────────────────────────────────────────────┐
+│              sge.LLMClient + sge.Orchestrator             │
+└──────────────────────────────────────────────────────────┘
+```
+
+**关键边界**：
+- SGE **不知道**自己在被 ECOS 调用——它只看到 LCA 的人格输入
+- SGE **不参与**"理解学生"——它只负责 LCA 的人格一致性
+- ECOS **不修改** SGE 内部——通过 context_injection 注入 LCA 人格
+
+## 4.4 AiBeing 应用层借鉴
+
+ECOS 借鉴 AiBeing 的应用层经验（详细参考 [`discussions/2026-06-22-sge-phase3-aibeing-reflection.md`](../../discussions/2026-06-22-sge-phase3-aibeing-reflection.md)）：
+
+### 借鉴 1：会话管理（chat_agent._chat_inner）
+
+```python
+class ECOSSession:
+    """单次学生与 ECOS 交互的 session"""
+    def __init__(self, student_id, ecos_db):
+        self.student_id = student_id
+        self.db = ecos_db
+        self.cta_state, self.lca_state, self.last_epoch = \
+            ecos_db.load_full_state(student_id)
+
+    def process_event(self, student_event) -> ECOSResponse:
+        # CTA 更新状态
+        new_cta_state = self.cta.update_belief(student_event)
+        # LCA 选择干预
+        intervention = self.lca.select(new_cta_state, self.bloom_target)
+        # 联合执行
+        return intervention
+```
+
+### 借鉴 2：用户画像注入（EverMemOS）
+
+ECOS 需要把学生长期画像注入 CTA 和 LCA 的 prompt：
+
+```python
+class ECOSContextBuilder:
+    def build_cta_context(self, student: StudentProfile,
+                          mastery: SubjectMasteryState) -> dict:
+        return {
+            # CTA 注入
+            'student_name': student.name,
+            'current_mastery': mastery.summary(),
+            'learning_dna': student.learning_dna.to_dict(),
+            'bloom_profile': student.bloom_profile.to_dict(),
+            'growth_velocity': student.growth_trajectory.velocity(),
+        }
+
+    def build_lca_context(self, student: StudentProfile,
+                          bloom_target: BloomTarget) -> dict:
+        return {
+            # LCA 注入
+            'lca_personality': self.lca.get_personality(),
+            'student_dna': student.learning_dna.to_dict(),
+            'bloom_target': bloom_target.to_dict(),
+            'preferred_strategies': self.lca.get_preferred_strategies(),
+        }
+```
+
+### 借鉴 3：LLM Response Caching
+
+ECOS 长期会话的 LLM 调用成本控制：
+
+```python
+class ECOSLLMCache:
+    """文件级 SHA256 hash LLM 缓存"""
+    def cached_chat(self, client, messages, **kwargs):
+        prompt_hash = self._hash(messages, kwargs)
+        cache_file = self.cache_dir / f"{prompt_hash}.json"
+        if cache_file.exists():
+            return json.loads(cache_file.read_text())['response']
+        response = client.chat(messages, **kwargs)
+        cache_file.write_text(json.dumps({'response': response}))
+        return response
+```
+
+### 借鉴 4：单元测试覆盖
+
+ECOS 核心模块必须 ≥80% 单元测试覆盖：
+
+```
+ecos/tests/
+├── unit/
+│   ├── test_cta_belief_update.py
+│   ├── test_cta_bloom_profile.py
+│   ├── test_lca_intervention_selection.py
+│   ├── test_lca_bloom_strategy.py
+│   ├── test_dual_agent_calibration.py
+│   └── test_persistence.py
+├── integration/
+│   ├── test_ecos_loop.py
+│   └── test_session_continuity.py
+└── e2e/
+    └── test_real_llm_smoke.py
+```
+
+## 4.5 三项目关系图
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    SelfLab 项目                          │
+├─────────────────────────────────────────────────────────┤
+│                                                          │
+│  ┌────────────────┐    ┌────────────────┐              │
+│  │  SGE (主项目)   │    │  ECOS (新子项目) │              │
+│  │                │    │                │              │
+│  │  · 单一 Agent  │    │  · 双 Agent    │              │
+│  │  · 人格涌现    │    │  · 理解 + 改变  │              │
+│  │  · 12 步编排   │    │  · CTA + LCA   │              │
+│  │  · value/drive │    │  · Bloom Goal  │              │
+│  └────────┬───────┘    └────────┬───────┘              │
+│           │                     │                       │
+│           └──────────┬──────────┘                       │
+│                      │ 共享                              │
+│           ┌──────────▼──────────┐                       │
+│           │  共享认知科学工具箱   │                       │
+│           │  贝叶斯/记忆/BDI/... │                       │
+│           └─────────────────────┘                       │
+│                      │                                  │
+│           ┌──────────▼──────────┐                       │
+│           │   AiBeing (借鉴)     │                       │
+│           │   引擎 9 机制        │                       │
+│           │   应用层 6 方向      │                       │
+│           └─────────────────────┘                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 三项目的核心定位
+
+| 项目 | 核心问题 | 状态 | 应用方向 |
+|------|---------|------|---------|
+| **SGE** | AI 能否形成持续自我 | M2.x 完成，Phase 3 应用化中 | Personal AI、协作 agent、历史人物 |
+| **ECOS** | AI 能否理解并帮助学生成长 | v2.0 文档完成，待实施 | K12 教育（学生数字孪生 + AI 教练）|
+| **AiBeing** | AI 角色引擎 | 生产级，借鉴对象 | （不直接应用，作为 SGE/ECOS 的工程经验来源）|
+
+## 4.6 ECOS 借鉴清单
+
+### 直接借鉴 SGE
+
+- Identity Layer → LCA 的人格一致性
+- Value Layer → LCA 的教学价值观
+- Narrative Builder → LCA 与学生的共同成长叙事
+- 4 层记忆系统 → CTA 的工作/情节/语义记忆
+- M2.x 工程经验（chunk 隔离/retry/warmup）
+- Phase 3 工程基础设施（persistence/session/context_injection/llm_cache）
+
+### 直接借鉴 AiBeing
+
+- chat_agent 会话管理模式 → ECOSSession
+- EverMemOS 用户长期记忆 → 学生长期画像持久化
+- LLM response cache → 长期会话成本控制
+- Prompt 版本管理 → CTA/LCA prompt A/B 测试
+- 单元测试覆盖标准 → ECOS ≥80% 覆盖
+- 异步/流式响应 → ECOS 学生 chat UX
+
+### 不借鉴 SGE
+
+- ❌ SGE value/drive 机制 → 不适合建模"对学生的理解"
+- ❌ SGE frustration 累积 → 不适合"AI 教练的耐心"
+- ❌ SGE Identity 涌现机制 → 适合 LCA 但不适合 CTA（CTA 不需要"学生身份"）
+- ❌ SGE 单一 Agent 12 步 → 适合 LCA 内部循环但不适合 ECOS 整体架构
+
+### 不借鉴 AiBeing
+
+- ❌ SOUL.md persona 系统 → SGE/ECOS 都是身份涌现/CTA 维护，不需预设
+- ❌ 多语言支持 → Phase 4 商业化再说
+- ❌ 多 persona 切换 → 每个学生/教练是唯一身份
+
+---
+
+# 第 5 部分：产品化实施建议
+
+## 5.1 项目定位
+
+**ECOS = 面向 K12 学生的教育认知操作系统**
+
+### 核心价值主张
+
+> ECOS 让 AI 不再只是回答问题，而是真正**理解一个学生，并持续帮助这个学生成长**。
+
+### 差异化定位
+
+| 对比对象 | ECOS 差异化 |
+|---------|-----------|
+| **Khanmigo / Duolingo Max** | K/P/M 三维建模，6~12 年长期认知画像，双 Agent 互校 |
+| **Squirrel AI / ALEKS** | Bloom 目标坐标系，元认知 + 策略能力建模 |
+| **传统 AI 教练** | 信念分布而非事实判断，对抗幻觉，互校循环 |
+| **K12 真人教师** | 6~12 年数据累积的认知画像，跨学科跨场景连续性 |
+
+### 目标用户
+
+**MVP**：初中数学（初一/初二）
+**产品化**：扩展到高中数学 + 物理
+**平台化**：K12 全学段全学科
+
+## 5.2 MVP 设计（2-4 周）
+
+### MVP 范围
+
+```
+学科：初中数学（二次函数、几何证明、概率初步）
+年级：初一、初二
+用户：50-100 名学生（合作中学或在线招募）
+时长：4 周（含数据采集 + 模型验证 + 干预实验）
+```
+
+### MVP 核心组件
+
+| 组件 | 简化版 | 完整版 |
+|------|--------|--------|
+| **CTA 状态估计** | 5D + BloomProfile | 9D + LearningDNA + GrowthTrajectory |
+| **LCA 干预选择** | 规则策略（Bloom→strategy 表）| RL/bandit 策略 |
+| **Bloom Goal Library** | 数学 50 个核心知识点 × 6 层 | 全学科 |
+| **证据采集** | 题目作答 + 解释文本 | + 学习日志 + 反思 + 工具使用 |
+| **持久化** | SQLite 单文件 | 分布式 + 时间序列 |
+| **UI** | 命令行 + 简单 Web | 完整 chat + 可视化报告 |
+
+### 4 周里程碑
+
+| Week | 任务 | 产出 |
+|------|------|------|
+| **W1** | 数据采集 + CTA 状态估计原型 | BKT 估计 K + LLM rubric 估计 BloomProfile |
+| **W2** | LCA 干预选择 + Bloom Goal Library | 规则策略 + 数学知识点 × 6 层映射 |
+| **W3** | 双 Agent 互校循环 + 简单 UI | 端到端：做题 → CTA 估计 → LCA 干预 → 验证 |
+| **W4** | 实验对比 + 评估报告 | 3 组对照（CTA only / LCA only / 双 Agent）+ 报告 |
+
+## 5.3 4 个关键假设验证
+
+ECOS 提出的 4 个核心假设需要在 MVP 中验证：
+
+| 假设 | 验证方法 | 成功标准 |
+|------|---------|---------|
+| **H1: 5D 状态 + BloomProfile 优于单一分数** | 对比 BKT vs ECOS 状态模型对迁移题、延迟测评的预测 | AUC + 0.1，校准误差降低 30% |
+| **H2: 双 Agent 互校优于单 Agent** | 3 组对照：CTA only / LCA only / 双 Agent | 双 Agent 组学生满意度 + 20%，进步速度 + 15% |
+| **H3: Bloom 目标空间有效** | 50 名学生分组：有 Bloom 目标 vs 无 Bloom 目标 | 有 Bloom 目标组 analyze/evaluate 提升 + 0.15 |
+| **H4: CTA/LCA 分工有效** | 双 Agent 组 vs 合并为单 Agent 组 | 分工组元认知提升 + 0.2（学生知道"为什么不会"）|
+
+## 5.4 商业模式（3 阶段）
+
+### 阶段 1：MVP（2-4 周，0-5K 用户）
+
+**目标**：验证 ECOS 技术可行性 + 核心假设
+
+**模式**：研究项目 / 试点学校合作
+
+**收入**：无（研究阶段）/ 试点合作费
+
+**护城河**：
+- 50-100 名学生的认知画像（10 万+ 行为数据点）
+- 4 个核心假设的实验数据
+- 学术论文（双 Agent 互校 + Bloom 目标空间是 ECOS 的学术创新点）
+
+### 阶段 2：产品化（2-3 月，1K-10K 用户）
+
+**目标**：从 MVP 走向可销售产品
+
+**模式**：B2C 订阅 / B2B 学校合作
+
+**功能**：
+- 完整 ECOS 系统（CTA + LCA + Bloom + 5D 状态）
+- 2-3 个学科（数学 + 物理 + 语文）
+- 学生 chat 界面 + 家长可视化报告 + 教师管理后台
+
+**收入**：
+- C 端：99 元/月（学生订阅）
+- B 端：10 万/校/年（学校 SaaS）
+
+**护城河**：
+- 1-3 个月的个性化认知画像
+- 跨学科、跨场景的成长轨迹
+- 长期数据资产（迁移成本极高）
+
+### 阶段 3：平台化（6-12 月，10K-1M 用户）
+
+**目标**：从单一产品走向 K12 教育认知操作系统平台
+
+**模式**：平台 + 生态
+
+**功能**：
+- K12 全学段全学科
+- 双 Agent 互校标准化
+- Bloom Goal Library 开放
+- 教师 AI 培训（让教师理解并使用 ECOS）
+- 家长 AI 助手（让家长理解孩子状态）
+- 与教育部课程标准深度集成
+
+**收入**：
+- C 端：99-299 元/月（分层订阅）
+- B 端：30-100 万/校/年（含教师培训）
+- 数据服务：教研机构 / 教育局的匿名化数据洞察
+
+**护城河**：
+- 6-12 年长期认知画像（数据资产壁垒）
+- 双 Agent + Bloom 的算法壁垒
+- 跨学校、跨地区的网络效应
+- 与课程标准/教育部的合规壁垒
+
+## 5.5 风险与缓解
+
+### 风险 1：双 Agent 架构的工程复杂度
+
+**描述**：CTA + LCA 双 Agent 互校比 SGE 单一 Agent 复杂得多——状态同步、消息传递、死锁避免等
+
+**影响**：MVP 延期，工程难度大
+
+**缓解**：
+- W1 先实现"伪双 Agent"（一个 Python 类两个方法），验证逻辑后再拆分
+- 用 message queue（Redis/RabbitMQ）解耦 CTA 和 LCA
+- 双 Agent 通信协议标准化（JSON schema + version）
+
+### 风险 2：CTA 状态估计的精度
+
+**描述**：CTA 维护 9D 状态 + BloomProfile，精度难以保证
+
+**影响**：状态错误导致 LCA 策略错误
+
+**缓解**：
+- 使用 IRT/BKT/DKT 等成熟方法做 K 估计（精度有保证）
+- BloomProfile 用 LLM rubric + 人工校准集
+- 维护每个状态变量的 confidence，未达阈值前不信任
+- 状态估计和人工标注对比，发现偏差及时修正
+
+### 风险 3：LCA 策略的可解释性
+
+**描述**：LCA 选择的干预策略对学生/家长/教师需要可解释
+
+**影响**：黑箱策略难以被接受
+
+**缓解**：
+- 干预选择必须输出 rationale（"因为 BloomProfile.analyze=0.41，选择 problem_decomposition 策略"）
+- 教师管理后台显示策略推荐 + 理由
+- 家长可视化报告用自然语言解释
+
+### 风险 4：长期成长轨迹的数据稀疏
+
+**描述**：K12 6~12 年陪伴，初期数据稀疏，难以建立 GrowthTrajectory
+
+**影响**：早期学生体验差
+
+**缓解**：
+- 冷启动：使用问卷 + 初始测评估计初始状态
+- 迁移学习：相似学生数据补充
+- 不承诺"早期个性化"，而是"随时间越来越懂你"
+
+### 风险 5：伦理与隐私
+
+**描述**：学生长期认知画像属于敏感数据，K12 涉及未成年人
+
+**影响**：法律合规风险 + 社会舆论风险
+
+**缓解**：
+- 端侧计算（数据不出学校）
+- 差分隐私 + 同态加密
+- 家长完全控制（可删除、可导出、可携带）
+- 与教育部门/法律顾问合作确保合规
+
+## 5.6 团队与时间线
+
+### 团队（最小配置）
+
+| 角色 | 人数 | 主要职责 |
+|------|------|---------|
+| 研究负责人 | 1 | 学术方向、核心假设设计、论文发表 |
+| 工程师 | 2 | CTA/LCA 实现、persistence、UI |
+| 教育专家 | 1 | K12 课程标准对接、Bloom Goal Library 构建 |
+| 数据科学家 | 1 | 状态估计、策略优化、效果归因 |
+| **合计** | **5** | 2-3 个月 MVP → 产品化 |
+
+### 时间线
+
+```
+Week 0 (当前)         文档 v2.0 完成，决策确认
+Week 1-4              MVP（CTA 状态估计 + LCA 干预 + Bloom Goal Library）
+Week 5-6              MVP 评估 + 论文初稿
+Week 7-10             产品化（完整 ECOS + UI + 学校试点）
+Week 11-12            产品化评估 + 商业模式验证
+Week 13-24            平台化（多学科 + 教师培训 + 家长端）
+Week 25-52            规模化（10K-100K 用户）
+```
+
+---
+
+# 第 6 部分：SelfLab 项目层面的建议
+
+## 6.1 当前项目结构回顾
+
+```
+SelfLab/
+├── CLAUDE.md                       # 项目级指南
+├── README.md
+├── ROADMAP.md
+├── SGE-Key-Insights.md             # 31 条核心洞察
+├── PRD.md / ARCH.md / DESIGN.md / DEVELOP.md / CHANGELOG.md
+├── research/
+│   ├── sge-core/                   # SGE 核心研究
+│   ├── sge-feasibility/            # SGE 工程可行性
+│   ├── sge-learning/               # SGE 借鉴分析
+│   ├── cognitive-architecture/     # 认知架构调研（含 A→B 调研）
+│   └── phase3/                     # SGE Phase 3 规划（18 个文件）
+├── sge/                            # Phase 3 Python 包
+├── experiments/                    # Phase 1+ 实验代码（一次性）
+├── references/                     # 参考资料（含 AiBeing）
+├── discussions/                    # 讨论存档
+└── prototypes/                     # 架构原型
+```
+
+## 6.2 建议 1：ECOS 作为 SelfLab 独立子项目（与 SGE 并列）
+
+### 理由
+
+1. **核心架构根本不同**：SGE = 单一 Agent 12 步；ECOS = 双 Agent 互校
+2. **应用方向不同**：SGE = 让 AI 有自我；ECOS = 让 AI 理解并帮助学生
+3. **状态空间不同**：SGE = AI 自身 value/drive；ECOS = 学生 9D + BloomProfile
+4. **不应混淆**：把 ECOS 塞入 SGE Phase 3 应用层会导致 4 大根本冲突
+
+### 具体建议
+
+**新增 `research/ecos/` 目录**（与 `research/sge-core/`, `research/phase3/` 并列）：
+
+```
+research/ecos/
+├── README.md                       # ECOS SSOT 入口
+├── 00-overview/                    # 战略层
+│   ├── 01-applications.md          # 4 个应用场景
+│   ├── 02-architecture.md          # CTA + LCA + Bloom 三空间
+│   ├── 03-roadmap.md               # MVP → 产品化 → 平台化
+│   └── 04-risks.md                 # 4 大风险矩阵
+├── 10-engineering/                 # 工程层
+│   ├── 01-cta-belief-engine.md     # CTA 信念状态估计
+│   ├── 02-lca-policy-engine.md     # LCA 干预策略
+│   ├── 03-bloom-goal-library.md    # Bloom 目标库
+│   ├── 04-dual-agent-calibration.md # 双 Agent 互校机制
+│   ├── 05-persistence.md           # 学生状态持久化
+│   ├── 06-session.md               # 长期会话管理
+│   ├── 07-context-injection.md     # 学生画像注入
+│   └── 08-testing.md               # 单元测试覆盖
+├── 20-pedagogy/                    # 教学法层
+│   ├── 01-k12-cognitive-structure.md   # K12 认知结构
+│   ├── 02-bloom-application.md         # Bloom 在 K12 的应用
+│   ├── 03-learning-strategies.md       # 学习策略空间
+│   ├── 04-zpd-application.md           # ZPD 在 ECOS 的应用
+│   └── 05-assessment-theory.md         # 形成性 vs 总结性评估
+├── 30-sge-integration/             # 与 SGE 共享
+│   ├── 01-shared-cognitive-tools.md   # 共享 7 个认知科学工具
+│   ├── 02-lca-personality-from-sge.md # LCA 人格来自 SGE
+│   └── 03-engineering-reuse.md        # Phase 3 工程经验复用
+└── 90-mvp/                         # MVP 实施
+    ├── README.md                   # MVP 设计总览
+    ├── 01-scope.md                 # MVP 范围（初中数学）
+    ├── 02-data-collection.md       # 数据采集
+    ├── 03-cta-implementation.md    # CTA 实现
+    ├── 04-lca-implementation.md    # LCA 实现
+    ├── 05-experiment-design.md     # 4 个假设验证
+    └── 06-evaluation-report.md     # MVP 评估报告
+```
+
+**新增 `ecos/` Python 包**（与 `sge/` 并列）：
+
+```
+ecos/
+├── __init__.py
+├── cta/                            # Cognitive Twin Agent
+│   ├── __init__.py
+│   ├── belief_state.py             # 信念状态管理
+│   ├── bloom_profile.py            # BloomProfile
+│   ├── learning_dna.py             # LearningDNA
+│   └── state_estimator.py          # 5D + 9D 状态估计
+├── lca/                            # Learning Coach Agent
+│   ├── __init__.py
+│   ├── bloom_strategy.py           # Bloom → 策略映射
+│   ├── intervention_selector.py    # 干预选择
+│   └── policy_optimizer.py         # policy 优化
+├── dual_agent/                     # 双 Agent 协作
+│   ├── __init__.py
+│   ├── calibration.py              # 互校循环
+│   └── communication.py            # Agent 通信
+├── bloom/                          # Bloom Goal Library
+│   ├── __init__.py
+│   ├── library.py                  # 目标库
+│   ├── math_goals.py               # 数学知识点 × 6 层
+│   └── physics_goals.py            # 物理知识点 × 6 层
+├── persistence/                    # 持久化（借鉴 sge/）
+│   ├── __init__.py
+│   └── student_db.py               # StudentStateDB
+├── session/                        # 会话管理
+│   ├── __init__.py
+│   └── ecos_session.py             # ECOSSession
+├── llm_client.py                   # LLM 客户端（封装 sge/）
+└── orchestrator.py                 # ECOSOrchestrator（CTA + LCA 编排）
+```
+
+## 6.3 建议 2：SGE Phase 3 框架的取舍
+
+### 保留
+
+- **persistence.py**（TwinStateDB）→ 借鉴为 ECOS StudentStateDB
+- **session.py**（TwinSession）→ 借鉴为 ECOS ECOSSession
+- **context_injection.py**（TwinContextBuilder）→ 借鉴为 ECOS TwinContextBuilder
+- **llm_cache.py** → 借鉴为 ECOS LLMCache
+- **prompts/** → 借鉴 prompt 版本管理
+- **tests/** → 借鉴测试覆盖标准
+
+### 调整
+
+**移出 phase3/90-applications/ 的"学生数字孪生"和"教学 AI 教练"**：
+
+理由：4 大根本冲突已论证（见第 2 部分）。
+
+**新增 `phase3/90-applications/` 的应用调整**：
+
+```
+phase3/90-applications/
+├── personal-ai.md                  # 保留（适合 SGE 单一 Agent）
+├── multi-ai-collaboration.md       # 保留（适合 SGE 多人格）
+└── historical-figure.md            # 新增（适合 SGE Identity 涌现）
+```
+
+**删除 `phase3/90-applications/student-digital-twin.md` 和 `teaching-ai-coach.md`**：
+
+- 理由：这两个 PoC 设计已由 ECOS 独立子项目承担
+- 移交流程：在 `phase3/00-overview/01-applications.md` 中明确说明"SGE Phase 3 不再包含学生数字孪生和 AI 教练，迁移至 ECOS 子项目"
+
+**调整 `phase3/20-domain-k12/` 和 `phase3/30-atoB/`**：
+
+- `20-domain-k12/` → 整合到 `research/ecos/20-pedagogy/`
+- `30-atoB/` → 整合到 `research/ecos/` 作为 `30-sge-integration/` 的子模块
+- 理由：K12 认知结构 + A→B 整合本质是 ECOS 的核心，不是 SGE 的依赖
+
+### 不变
+
+- `phase3/00-overview/`（战略层核心不变）
+- `phase3/10-engineering/`（工程层全部保留）
+
+### 调整后的 SGE Phase 3 主要面向
+
+| 应用 | SGE 适合度 | 说明 |
+|------|----------|------|
+| **Personal AI** | ⭐⭐⭐⭐⭐ | SGE 单一 Agent 完美匹配 |
+| **协作 agent** | ⭐⭐⭐⭐⭐ | SGE 多人格 + Identity 涌现完美匹配 |
+| **历史人物数字孪生** | ⭐⭐⭐⭐ | SGE Identity 涌现 + Narrative 完美匹配 |
+| **学生数字孪生** | ⭐⭐ | SGE 价值机制不适合"理解学生"，迁移至 ECOS |
+| **AI 教练** | ⭐⭐ | 双 Agent 互校架构 SGE 无法表达，迁移至 ECOS |
+
+## 6.4 建议 3：项目级文档更新清单
+
+### CLAUDE.md 同步更新
+
+```markdown
+## 项目结构（更新）
+
+SelfLab 现在包含 2 个研究子项目 + 1 个工程包：
+- SGE（主项目）— AI 自我涌现
+- ECOS（新子项目）— K12 教育认知操作系统
+- sge/（工程包）— pip install sge
+- ecos/（工程包，未来）— pip install ecos
+```
+
+### ROADMAP.md 增加 ECOS 阶段
+
+```markdown
+## Phase 4（未来）：ECOS 子项目（2026-07+）
+
+基于 Cognitive-Digital-Twin-Deep-Research.md v2.0 启动 ECOS 子项目：
+- 4.1: ECOS 文档 SSOT 建立（research/ecos/ 目录）
+- 4.2: MVP 实施（初中数学 + 50-100 学生 + 2-4 周）
+- 4.3: 产品化（2-3 月）
+- 4.4: 平台化（6-12 月）
+```
+
+### README.md 增加 ECOS 章节
+
+```markdown
+## 子项目
+
+### SGE（主项目）
+[已有描述]
+
+### ECOS（K12 教育认知操作系统）
+基于学生认知数字孪生 + AI 学习教练 + Bloom 目标空间的教育系统。
+- 详细：[Cognitive-Digital-Twin-Deep-Research.md v2.0](./research/cognitive-architecture/Cognitive-Digital-Twin-Deep-Research.md)
+- 规划：[research/ecos/]（待建立）
+```
+
+## 6.5 建议 4：SGE-Key-Insights 候选洞察
+
+### 候选洞察 31："学生数字孪生与 AI 教练"项目应以 ECOS 独立子项目存在
+
+> **一句话**：学生数字孪生 + AI 学习教练为核心的下一代教育系统（ECOS），不应被简化为 SGE 的"应用"——它在架构、状态空间、目标空间、应用方向上都与 SGE 根本不同，应作为 SelfLab 独立子项目。
+
+**完整论证**：
+
+- 方向错位：SGE 是"AI 模拟学生身份"，ECOS 是"AI 理解真实学生"
+- 维度错位：SGE value/drive 是"AI 自身状态"，ECOS 9D + Bloom 是"对学生的建模"
+- 目标空间缺席：SGE Phase 3 无 Bloom 维度，ECOS 核心是 State + Bloom Goal + Policy
+- 架构错位：SGE 单一 Agent 12 步无法表达双 Agent 互校
+
+**与现有洞察的关系**：与洞察 11（SGE 赋能 A→B）形成对照——洞察 11 说"SGE 验证后 A→B 升级为有灵魂的教育者"，但本洞察说"A→B 的核心（学生数字孪生 + AI 教练）需要自己的独立架构，不能依赖 SGE"。
+
+### 候选洞察 32：SGE 的"价值/驱动"机制不适合建模"对学生的理解"
+
+> **一句话**：SGE 的 ValueLayer 和 DriveMetabolism 是 AI 自身状态变量（AI 重视什么、AI 渴望什么），不能用于建模"对学生的理解"（学生 K/P/S/C 状态）——前者是 AI 视角，后者是观察者视角，方向性不同。
+
+**完整论证**：
+
+- 9D cognitive state 是"对学生的观察"（学生 K=0.4）
+- ValueLayer/DriveMetabolism 是"AI 自身状态"（AI safety=0.7）
+- "knowledge → safety" 这种映射没有语义对应——把"学生不知道 X"映射为"AI 重视 safety"是范畴错误
+
+**与现有洞察的关系**：与洞察 16（SGE 价值向量的语义）形成对照——洞察 16 关注 SGE 价值向量的内部语义，本洞察关注 SGE 价值向量对"建模他人"的不可扩展性。
+
+## 6.6 待用户确认的 4 个项目层决策
+
+文档完成后，Bisen 应在实施前确认以下 4 个决策：
+
+### 决策 1：ECOS 子项目建立
+
+| 选项 | 说明 | 影响 |
+|------|------|------|
+| **A. 立即建立 ECOS 子项目**（推荐）| 新增 `research/ecos/` + `ecos/`，MVP 立即启动 | 4 周 MVP 投入，但获得独立的产品方向 |
+| B. 暂缓，先完善 SGE Phase 3 | 继续把学生数字孪生/AI 教练作为 SGE 应用 | 短期无投入，但会与 v2.0 判断冲突 |
+| C. 改造 SGE Phase 3 适配 ECOS | 调整 SGE Phase 3 让 ECOS 成为应用 | 架构错位，丢失核心（双 Agent + Bloom）|
+
+### 决策 2：SGE Phase 3 调整
+
+| 选项 | 说明 |
+|------|------|
+| **A. 完整执行建议的调整**（推荐）| 移出学生数字孪生/AI 教练，删除相关 PoC 文档，新增历史人物 |
+| B. 保留学生数字孪生/AI 教练作为 SGE 应用 | 与 v2.0 判断冲突，文档分裂 |
+| C. 暂时保留观望 | SGE Phase 3 不变，ECOS 子项目先并行 |
+
+### 决策 3：ECOS 文档目录命名
+
+| 选项 | 命名 |
+|------|------|
+| **A. `research/ecos/`**（推荐）| 短、好记、与 sge/ 风格一致 |
+| B. `research/ecos-system/` | 完整名称，区分于 SGE |
+| C. `research/educational-ai/` | 描述性命名 |
+
+### 决策 4：SGE-Key-Insights 新增
+
+| 选项 | 说明 |
+|------|------|
+| **A. 同时新增洞察 31 和 32**（推荐）| 完整记录本研究的判断 |
+| B. 仅新增洞察 31 | 记录 ECOS 独立子项目判断 |
+| C. 不新增洞察 | 仅在 v2.0 文档中记录，等后续观察 |
 
 ---
 
 # 附录
 
-## A. 与 SGE 的共享基础回顾
+## A. v1.0 → v2.0 变更摘要
 
-详见 [`Shared-Cognitive-Science-Toolbox.md`](./Shared-Cognitive-Science-Toolbox.md) 和 [`SGE-Cognitive-Tools-Application.md`](./SGE-Cognitive-Tools-Application.md)。
+| 维度 | v1.0（基于 3 轮对话）| v2.0（基于 5 轮对话）|
+|------|-------------------|-------------------|
+| **轮次** | 3 轮（1+2+3）| 5 轮（1+2+3+4+5）|
+| **核心架构** | "AI 学习教练 + 学生数字孪生"两个组件 | **双 Agent 共进化系统**（CTA + LCA）|
+| **目标空间** | 三层 B（Knowledge/Capability/Growth）| **State + Bloom Goal + Policy** 三空间 |
+| **思维模式** | 单一思维（AI 学习教练思维）| CTA 认知科学家 + LCA 教练 双思维模式 |
+| **Bloom 维度** | 无 | **6 层认知层级**（Remember→Create）|
+| **互校机制** | 无 | **CTA ⇄ LCA 互校循环**（对抗幻觉）|
+| **项目定位** | SGE Phase 3 应用层 PoC | **SelfLab 独立子项目 ECOS** |
+| **冲突分析** | 无 | **4 大根本冲突**（vs SGE Phase 3）|
+| **实施建议** | MVP 2-4 周（5D 状态 + AI 教练）| MVP 2-4 周（双 Agent + Bloom + 5D + 9D）|
+| **风险** | 5 大风险 | 5 大风险 + SGE Phase 3 4 大风险 |
+| **项目层建议** | 提及 SGE 整合 | **完整建议 ECOS 独立子项目** + SGE Phase 3 调整 |
 
-关键判断：A→B 与 SGE 共享的不是某个具体算法或技术，而是**理解心智如何运作的概念框架和数学工具**。A→B 把这些工具用于"教人学会"，SGE 把这些工具用于"让 AI 成为自己"。底层工具箱相同，应用方向不同。
+## B. 与 SGE-Key-Insights 31 条洞察的关系
 
-## B. 与 Phase 3 sge/ 包的潜在集成
-
-当前 [`sge/`](../../sge/) Python 包已建立，主要面向 SGE 核心引擎。A→B 框架若进入工程实施，可能需要：
-
-| 需求 | sge/ 现状 | 集成方向 |
-|------|----------|---------|
-| 价值向量 | ✅ 已实现 | 借鉴用于 B1/B2/B3 表示 |
-| 状态估计器 | ❌ 无 | 新增 BKT/DKT/IRT 模块 |
-| 干预策略 | ❌ 无 | 新增 policy 模块 |
-| 反思触发 | ✅ 已有（认知失调） | 借鉴用于学习教练反馈 |
-| Learning DNA | ❌ 无 | 新增用户画像模块 |
-| 成长轨迹 | ⚠️ 部分（chunk history） | 强化为轨迹模块 |
+| 现有洞察 | 与 v2.0 关系 |
+|---------|------------|
+| 洞察 11（SGE 赋能 A→B）| 对照——洞察 11 说 SGE 验证后 A→B 升级，v2.0 说 A→B 核心需独立架构 |
+| 洞察 16（价值向量语义）| 支撑——洞察 16 说价值向量是 AI 自身语义，v2.0 强调不能用于建模他人 |
+| 洞察 9（7 个认知工具）| 共享——ECOS 与 SGE 共享 7 个工具 |
+| 洞察 21-30（M2.x 阶段洞察）| 支撑——M2.x 验证的 SGE 机制可作为 ECOS LCA 人格 |
+| 候选洞察 31（ECOS 独立子项目）| 新增 |
+| 候选洞察 32（value/drive 不适合建模他人）| 新增 |
 
 ## C. 参考文档索引
 
-| 文档 | 用途 |
-|------|------|
-| [Cognitive-State-A-to-B-Research.md](./Cognitive-State-A-to-B-Research.md) | 7 页综合调研站点（原框架） |
-| [Cognitive-Digital-Twin.md](./Cognitive-Digital-Twin.md) | 3 轮 GPT 对话记录（修改建议来源） |
-| [Cognitive-State-A-to-B-Distilled.md](./Cognitive-State-A-to-B-Distilled.md) | 精要版 |
-| [Cognitive-Architectures-Overview.md](./Cognitive-Architectures-Overview.md) | 8 个经典认知架构综述 |
-| [Shared-Cognitive-Science-Toolbox.md](./Shared-Cognitive-Science-Toolbox.md) | A→B 与 SGE 共享的工具箱 |
-| [SGE-Cognitive-Tools-Application.md](./SGE-Cognitive-Tools-Application.md) | SGE 中 7 个工具的应用方案 |
-| [SGE-Key-Insights.md 洞察 11](../../SGE-Key-Insights.md) | SGE 验证后可赋能 A→B 升级 |
-| [../sge-learning/SGE-Feasibility-Impact-on-AtoB.md](../sge-learning/SGE-Feasibility-Impact-on-AtoB.md) | SGE 对 A→B 的影响分析 |
-| [../phase3/](../phase3/) | Phase 3 规划文档（潜在应用方向） |
+### 5 轮对话原文
 
----
+- [`research/cognitive-architecture/Cognitive-State-A-to-B-Research.md`](./Cognitive-State-A-to-B-Research.md) — 7 页综合调研站点（279 行）
+- [`research/cognitive-architecture/Cognitive-Digital-Twin.md`](./Cognitive-Digital-Twin.md) — 第 1-3 轮对话（1904 行）
+- [`research/cognitive-architecture/Cognitive-Digital-Twin02.md`](./Cognitive-Digital-Twin02.md) — 第 4-5 轮对话（1244 行）
+- [`research/cognitive-architecture/Cognitive-Digital-Twin03.md`](./Cognitive-Digital-Twin03.md) — 5 轮综合 v0.1（931 行）
 
-## 文档元数据
+### SGE 项目关键文件
 
-- **创建日期**：2026-06-22
+- [`research/phase3/README.md`](../phase3/README.md) — SSOT 入口
+- [`research/phase3/00-overview/01-applications.md`](../phase3/00-overview/01-applications.md) — 4 个应用定义
+- [`research/phase3/00-overview/02-architecture.md`](../phase3/00-overview/02-architecture.md) — sge/ 包架构
+- [`research/phase3/00-overview/03-roadmap.md`](../phase3/00-overview/03-roadmap.md) — Phase 3.1/3.2/3.3 时间线
+- [`research/phase3/20-domain-k12/README.md`](../phase3/20-domain-k12/README.md) — K12 认知结构
+- [`research/phase3/30-atoB/README.md`](../phase3/30-atoB/README.md) — A→B 整合
+- [`research/phase3/90-applications/student-digital-twin.md`](../phase3/90-applications/student-digital-twin.md) — 占位
+- [`research/phase3/90-applications/teaching-ai-coach.md`](../phase3/90-applications/teaching-ai-coach.md) — 占位
+
+### AiBeing 借鉴体系
+
+- [`research/sge-learning/SGE-Learning-from-AiBeing.md`](../sge-learning/SGE-Learning-from-AiBeing.md) — 概念层借鉴
+- [`research/sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md`](../sge-feasibility/SGE-M21-AiBeing-Implementation-Mapping.md) — 引擎层映射
+- [`discussions/2026-06-22-sge-phase3-aibeing-reflection.md`](../../discussions/2026-06-22-sge-phase3-aibeing-reflection.md) — 应用层借鉴
+- [`references/AiBeing-Core-Engine-Reference.md`](../../references/AiBeing-Core-Engine-Reference.md) — AiBeing 完整参考
+
+### 共享基础
+
+- [`research/cognitive-architecture/Shared-Cognitive-Science-Toolbox.md`](./Shared-Cognitive-Science-Toolbox.md) — 7 个认知科学工具
+- [`research/cognitive-architecture/SGE-Cognitive-Tools-Application.md`](./SGE-Cognitive-Tools-Application.md) — SGE 当前应用
+- [`research/sge-learning/SGE-Feasibility-Impact-on-AtoB.md`](../sge-learning/SGE-Feasibility-Impact-on-AtoB.md) — SGE 赋能 A→B
+
+### 项目级文档
+
+- [`SGE-Key-Insights.md`](../../SGE-Key-Insights.md) — 31 条核心洞察
+- [`CLAUDE.md`](../../CLAUDE.md) — 项目协作指南
+- [`ROADMAP.md`](../../ROADMAP.md) — 项目路线图
+- [`README.md`](../../README.md) — 项目概览
+
+### v1.0 历史
+
+- 本文档 v1.0 已被本版本覆盖（关键判断保留为附录 A 的对比表）
+
+## D. 待用户确认的 4 个项目层决策
+
+详见第 6.6 节。文档完成后，请确认：
+1. 是否同意 ECOS 作为 SelfLab 独立子项目（与 SGE 并列）
+2. SGE Phase 3 中"学生数字孪生 / AI 教练"应用的处理（移出 / 调整 / 删除）
+3. ECOS 文档目录命名（`research/ecos/` vs `research/ecos-system/` vs 其他）
+4. 是否新增 SGE-Key-Insights 31/32 候选洞察
+
+## E. 文档元数据
+
+- **版本**：v2.0
+- **创建日期**：2026-06-24
+- **覆盖**：v1.0（基于 3 轮对话，1138 行，2026-06-22 创建）
 - **维护者**：Bisen & Claude
-- **版本**：v1.0
-- **下次更新**：MVP 实验完成后（预计 2026-07+）
-- **关联 PR/Issue**：暂无
+- **下次更新**：ECOS 子项目启动后（约 2026-07+）
+- **关联文档**：
+  - v1.0 历史已在本文件中以附录 A 形式保留
+  - 与 phase3/、sge/、ecos/ 包的工程实施配套
