@@ -1363,3 +1363,189 @@ class DriveProfile:
 3. **三原则的优先级冲突**:当三原则之间冲突时(如"产品底座可扩展性"vs"逐步验证简洁性"),如何裁决?
 
 **来源**:2026-06-19 三原则决策锚点讨论 — [discussions/2026-06-19-sge-phase0-closeout-three-principles-anchoring.md](../discussions/2026-06-19-sge-phase0-closeout-three-principles-anchoring.md)
+
+---
+
+## 洞察 31:ECOS 应作为与 SelfLab 并列的独立项目,而不是 SelfLab 的子项目(2026-06-24)
+
+> **对应 FR**:本洞察是 ECOS 项目的**项目架构层判断**,不是 SGE 引擎的 FR;它影响 ECOS 的存在形式和 SGE 边界的明确性。
+>
+> **来源**:[2026-06-24 ECOS 独立项目决策讨论](../discussions/2026-06-24-ecos-independent-project-decision.md) + [v2.0 深度研究 §6 SelfLab 项目层建议](../research/cognitive-architecture/Cognitive-Digital-Twin-Deep-Research.md)
+
+**一句话**:学生数字孪生 + AI 学习教练为核心的下一代教育系统(ECOS),应在 `/Users/loubicheng/project/ecos/` 作为**与 SelfLab 并列的独立项目**,而不是 SelfLab 的子项目;这是从"避免散乱 + 独立发展 + 降低认知负担 + 合作灵活"四个维度综合判断的结果。
+
+### 完整论证
+
+#### 1. v2.0 之前的判断路径
+
+v1.0(基于 3 轮对话)曾判断 ECOS 适合作为 SGE Phase 3 的"应用层 PoC"。v2.0(基于 5 轮对话 + SGE Phase 3 核查)做出**关键升级**:ECOS 不适合作为 SGE 的"应用",因为存在 4 大根本冲突(方向错位 / 维度错位 + 方法论降级 / Bloom 缺席 / 单 Agent vs 双 Agent)。
+
+Bisen 进一步思考后做出**更激进的判断**:不仅不适合作为 SGE 应用,也不适合作为 SelfLab 子项目——**应作为独立项目**。
+
+#### 2. 4 个核心理由
+
+| 理由 | 具体含义 |
+|------|---------|
+| **避免散乱** | SelfLab 已有 SGE(主项目)+ Phase 3(应用化)+ A→B(调研子项目),再加 ECOS 子项目会让目录结构复杂 |
+| **独立发展** | SGE 关注"AI 自我涌现",ECOS 关注"教育认知操作系统"——研究目标、目标用户、技术栈、用户群体都不同 |
+| **降低认知负担** | Bisen 在研究 ECOS 时被 SGE 内容分散注意力;独立项目让研究者在两个项目间清晰切换 |
+| **合作灵活** | 未来 ECOS 与教育机构合作时,独立项目身份更合适(不需要引入 SGE 的所有上下文) |
+
+#### 3. 与洞察 11(SGE 赋能 A→B)的关系
+
+洞察 11 说"SGE 验证可行后,A→B 项目可以从'优化器'升级为'有灵魂的教育者'"。本洞察 31 与之**形成对照**:
+
+- 洞察 11: 关注 SGE 对 A→B 的**内容赋能**(A→B 可以借助 SGE 的 Identity/Narrative/Value 形成机制)
+- 洞察 31: 关注 A→B/ECOS 的**项目架构**(ECOS 不应被简化为 SGE 的子项目)
+
+两者不矛盾——ECOS 可以借鉴 SGE 的引擎机制,但 ECOS 的项目主体必须独立。
+
+#### 4. ECOS 与 SelfLab 的明确边界
+
+| 维度 | SelfLab (SGE) | ECOS |
+|------|---------------|------|
+| 核心问题 | AI 自我涌现 | AI 理解并帮助学生成长 |
+| 核心架构 | 单一 Agent 12 步 | 双 Agent 互校(CTA + LCA)|
+| 状态空间 | AI 自身 value/drive | 学生 9D + BloomProfile |
+| 共享基础 | 7 个认知科学工具 | 同上(共享)|
+| 不共享 | 自我/身份涌现 | value/drive(方向错位)|
+
+**未来可能的连接**:
+- SGE 可作为 ECOS LCA 的"教师侧人格引擎"(提供内在人格)
+- ECOS Python 包可通过 pip 依赖 `sge` 子集
+- 研究文档互相引用
+
+#### 5. 决策实施
+
+| 操作 | 详情 |
+|------|------|
+| 新建项目 | `/Users/loubicheng/project/ecos/` |
+| Git 初始化 | git init + commit f5eeea0(44 文件, 10610 行) |
+| 迁移文档 | 5 份核心研究 + 5 份共享基础参考 |
+| SelfLab 端删除 | 4 份 ECOS 专属文档(Cognitive-Digital-Twin.md/02/03 + Deep-Research.md v2.0)|
+| 是否推 GitHub | 不自动 push,等用户决定 |
+
+#### 6. 对 SelfLab 项目结构的影响
+
+```
+旧结构:
+SelfLab/
+├── research/sge-core/
+├── research/phase3/
+├── research/cognitive-architecture/  (含 A→B 调研 + ECOS 文档)
+└── sge/  (Python 包)
+
+新结构:
+SelfLab/                                    ECOS/
+├── research/sge-core/                      ├── research/gpt-dialogues/
+├── research/phase3/                        ├── research/deep-research/
+├── research/cognitive-architecture/       ├── research/00-overview/
+│   └── (移除 ECOS 文档)                    ├── research/10-engineering/
+└── sge/  (Python 包)                       ├── research/20-pedagogy/
+                                            ├── research/30-shared-cognitive-tools/
+                                            ├── research/40-aibeing-borrowing/
+                                            ├── research/90-mvp/
+                                            └── ecos/  (Python 包)
+```
+
+两项目**共享 7 个认知科学工具**(在各自 `research/30-shared-cognitive-tools/` 保留副本),各自独立演进。
+
+#### 7. 候选洞察 31/32 的正式化
+
+v2.0 深度研究文档中曾提出 2 条候选洞察。本洞察 31 是候选洞察 31 的**正式化**(从"ECOS 作为 SelfLab 子项目"升级为"ECOS 作为独立项目")。候选洞察 32(SGE value/drive 不适合建模他人)同步升级为洞察 32(见下)。
+
+**来源**:[2026-06-24 ECOS 独立项目决策讨论](../discussions/2026-06-24-ecos-independent-project-decision.md) + [v2.0 深度研究 §6](../research/cognitive-architecture/Cognitive-Digital-Twin-Deep-Research.md)
+
+---
+
+## 洞察 32:SGE 的"价值/驱动"机制不适合建模"对学生的理解"(2026-06-24)
+
+> **对应 FR**:本洞察是**SGE 引擎边界的明确性判断**,影响 SGE 作为"产品底座"的适用范围;它说明 SGE 哪些机制可以被 ECOS 借鉴,哪些不可以。
+>
+> **来源**:[v2.0 深度研究 §2.3 冲突 2:维度错位 + 方法论降级](../research/cognitive-architecture/Cognitive-Digital-Twin-Deep-Research.md) + [2026-06-24 独立项目决策讨论](../discussions/2026-06-24-ecos-independent-project-decision.md)
+
+**一句话**:SGE 的 ValueLayer(6D)和 DriveMetabolism(5D)是**AI 自身状态变量**(AI 重视什么、AI 渴望什么),**不能**用于建模"对学生的理解"(学生 K/P/S/C 状态);前者是 AI 视角,后者是观察者视角,方向性不同——phase3/30-atoB/README.md 提出的"knowledge → safety"等映射是范畴错误。
+
+### 完整论证
+
+#### 1. SGE 价值/驱动机制的本质
+
+SGE 的 ValueLayer(6D 如 safety / justice / autonomy)与 DriveMetabolism(5D 如 exploration / safety / creativity)描述的是 **AI 自身状态**:
+
+- `AI.safety = 0.7` — AI 自身重视安全的程度
+- `AI.exploration = 0.6` — AI 自身对探索的渴望
+
+这是 **AI 视角**——从 AI 内部描述它的价值观和驱动力。
+
+#### 2. ECOS 学生状态建模的本质
+
+ECOS 的 9D cognitive state(5D 核心 K/P/S/C/X + BloomProfile + LearningDNA + GrowthTrajectory)描述的是**对学生的观察**:
+
+- `student.K = 0.4` — 学生对某知识点的掌握度估计
+- `student.BloomProfile.apply = 0.72` — 学生在"应用"层级的表现估计
+
+这是 **观察者视角**——从外部建模学生的认知状态。
+
+#### 3. 方向性错误的本质
+
+phase3/30-atoB/README.md 提出的映射:
+
+| A→B 概念 | SGE 概念 | 候选映射 |
+|---------|---------|---------|
+| 9D cognitive state | ValueLayer (6D) + DriveMetabolism (5D) | knowledge → safety, skill → creativity, motivation → connection |
+
+这犯了**范畴错误**——把"学生不知道 X"(观察者视角)映射为"AI 重视 safety"(AI 视角)。两者**没有语义对应关系**。
+
+具体例子:
+
+- 真实关系:学生 K=0.4(对二次函数知识缺口 60%)
+- SGE 假设:AI safety 维度上升(?)
+- ECOS 实际:CTA 维护学生 K=0.4, BloomProfile.analyze=0.41
+
+强行映射会导致**双向失真**:
+- 学生 K 维度的精确信息被压缩为 AI safety 维度的近似值(信息丢失)
+- AI safety 维度的语义被扭曲为学生 K 的代理(语义错位)
+
+#### 4. 方法论降级问题
+
+更严重的是,phase3/30-atoB/README.md 把 A→B 迁移路径降级为"Actor LLM 输出"——这丢失了 A→B 项目原本的**科学状态估计方法**:
+
+- **IRT**(Item Response Theory) — 题目参数 + 能力估计
+- **BKT**(Bayesian Knowledge Tracing) — 知识点掌握度贝叶斯更新
+- **DKT**(Deep Knowledge Tracing) — RNN 时序建模
+- **认知诊断** — 多维属性掌握向量
+- **LLM rubric + 人工校准** — 开放式能力评估
+
+SGE 的 Actor LLM 自由生成**没有任何科学状态估计基础**——这在教育测量学上是降级。
+
+#### 5. SGE 中可被 ECOS 借鉴的部分
+
+虽然 SGE 的 value/drive 机制不适合建模"对学生的理解",但 SGE 的其他机制可被 ECOS 借鉴:
+
+| SGE 机制 | ECOS 用途 |
+|---------|---------|
+| Identity Layer | LCA 内在人格(教师侧) |
+| Value Layer | LCA 教学价值观 |
+| Narrative Builder | LCA 与学生的共同成长叙事 |
+| 4 层记忆系统 | CTA 的工作/情节/语义记忆 |
+| M2.x 工程经验 | ECOS 长期会话工程基础 |
+| Phase 3 工程基础设施 | persistence/session/context_injection/llm_cache |
+
+#### 6. 核心结论
+
+**SGE 是"AI 自身状态建模引擎",不适合作为"对学生的理解建模引擎"**。两者需要完全不同的状态空间和估计方法。
+
+ECOS 应建立自己的状态估计工程(基于 IRT/BKT/DKT + LLM rubric),而不是借用 SGE 的 value/drive 机制。
+
+这一洞察明确了 SGE 作为"产品底座"的**边界**:SGE 适合为 Personal AI / 协作 agent / 历史人物等"AI 自身需要状态"的场景服务,不适合为"建模他人认知"的服务。
+
+#### 7. 与洞察 16(价值向量语义)和洞察 30(三原则)的关系
+
+| 已有洞察 | 关系 |
+|---------|------|
+| 洞察 16(SGE 价值向量的内部语义) | 支撑 — 价值向量是 SGE 内部语义,不应被外推 |
+| 洞察 30(SGE 三原则) | 支撑 — 原则 1 暗示"产品底座"应明确边界,不可无限外延 |
+| 洞察 10(应用场景都是"角色配置") | 支撑 — 学生数字孪生不是"AI 扮演学生"而是"AI 理解学生",不是同一应用 |
+
+**来源**:[v2.0 深度研究 §2.3](../research/cognitive-architecture/Cognitive-Digital-Twin-Deep-Research.md) + [2026-06-24 独立项目决策讨论](../discussions/2026-06-24-ecos-independent-project-decision.md)
+
