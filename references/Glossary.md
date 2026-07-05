@@ -365,3 +365,140 @@
 - **公式**：`Personality = Experience + Interpretation`
 - **意义**：人格不在于"发生了什么"（物理量），在于"如何解释发生了什么"（信息沉淀）
 - **来源**：[SGE-Key-Insights 洞察 4](./../SGE-Key-Insights.md)
+
+---
+
+# 八、ECA 架构术语（2026-07-05 架构修订新增）
+
+> **本节为 2026-07-05 新增**，基于对 `research/cognitive-architecture/` 7 篇 ECA 对话存档的吸收。这些术语与 SelfLab/SGE 现有术语互补，不替代。完整论述见 [SGE-Key-Insights 洞察 33-35](./../SGE-Key-Insights.md) 与 [ARCH §1.5-1.8](./../ARCH.md)。
+
+## ECA（External Cognitive Architecture，外置认知架构）
+
+- **定义**：在 LLM 外部搭建的认知系统，类似"外置大脑"。包括记忆、反思、目标系统、元认知等模块。
+- **行业坐标**：5 层技术谱系（Memory / Knowledge / Cognition / World Model / Digital Twin），SGE 处于 Cognition + Digital Twin 层（[洞察 33](./../SGE-Key-Insights.md)）。
+- **代表项目**：Letta、Mem0、Cognee、CoALA（学术框架）。
+- **来源**：7 篇 ECA 对话存档
+
+## Self Evolution Runtime（自我演化运行时）
+
+- **定义**：SGE 的本质定位——任何 LLM 加载 SGE 后获得持续运行、持续演化的"自我"能力。
+- **与 Framework 的区别**：Framework 是调用者写代码，框架提供工具；Runtime 是运行时持续管理状态（类比 JVM 与 Python Runtime）。
+- **SGE 作为 Self Evolution Runtime**：LLM 是认知引擎（被 Runtime 调用），SGE 是 Self Runtime（持续运行），Self 在 Runtime 中涌现。
+- **来源**：[SGE-Key-Insights 洞察 33](./../SGE-Key-Insights.md)、[ARCH §1.5](./../ARCH.md)
+
+## Cognitive Runtime（认知运行时）
+
+- **定义**：管理"Event → Experience → Memory → Knowledge → Concept → World Model → Meta"等认知转换的运行时。
+- **与 Self Evolution Runtime 的关系**：Cognitive Runtime 是通用术语；Self Evolution Runtime 是 SGE 的特化版本。
+- **行业现状**：当前几乎所有项目停留在 Memory Framework 层级；真正的 Cognitive Runtime 是行业空白。
+- **来源**：[Cognition-Pipeline-GPT03.md §三](../research/cognitive-architecture/Cognition-Pipeline-GPT03.md)
+
+## Experience（经历）
+
+- **定义**：认知对象——Event（客观事实）加上 Context + Emotion + Goal + Action + Outcome + Reflection + **Meaning** 构成的复合结构。
+- **与 Event 的区别**：Event 是事实（如"数学考试 72 分"），Experience 是认知对象（如"我因为时间分配不好，导致后半部分不会做，所以成绩下降"）。
+- **SGE 映射**：Experience Layer（[ARCH §3.6](./../ARCH.md)、[DESIGN §2.5](./../DESIGN.md)）
+- **关键论断**：**Experience ≠ Event + Emotion**——真正区分 Experience 的是 Meaning 字段（这件事对我而言意味着什么）。
+- **来源**：[SGE-Key-Insights 洞察 34](./../SGE-Key-Insights.md)
+
+## Meaning（意义）
+
+- **定义**：Experience 的核心字段——"这件事对我而言意味着什么"。
+- **哲学对应**：海德格尔"此在的展开性"——意义不是事件本身的属性，而是此在与事件的关联方式。
+- **SGE 应用**：从 Event 编码为 Experience 时由 LLM 生成；是 Reflection Layer 的关键输入。
+- **示例**：
+  - 数学考试 72 分 → "我**不适合学数学**" 或 "我**还有进步空间**"
+  - 朋友疏远 → "我**不擅长维护关系**" 或 "这段关系**本来就脆弱**"
+- **为什么关键**：**同一 Event 不同 Meaning → 不同 Memory 重要性 → 不同 Value Layer 更新 → 不同 Identity 演化**——这是 SGE 当前架构完全缺失的"解释分叉"机制。
+- **来源**：[SGE-Key-Insights 洞察 34](./../SGE-Key-Insights.md)
+
+## Concept（概念）/ Concept Formation（概念形成）
+
+- **定义**：从大量具体实例中抽象出高阶类别的认知操作。
+- **认知熵视角**：Concept Formation = **Entropy Compression**（1000 个苹果 → 1 个"水果"概念）。
+- **示例**：
+  ```
+  1000 条记录：苹果 / 香蕉 / 梨 → 概念：水果
+  水果 → 苹果 → 红富士（Concept Tree）
+  ```
+- **SGE 现状**：SGE 当前**没有显式的 Concept Layer**——Identity 直接从 Value 涌现，可能跳过概念抽象阶段（[洞察 35](./../SGE-Key-Insights.md)）。
+- **未来方向**：在 Value → Identity 之间显式建模 Concept 抽象步骤。
+- **来源**：[Cognition-Pipeline-GPT.md §"第五层"](../research/cognitive-architecture/Cognition-Pipeline-GPT.md)、[SGE-Key-Insights 洞察 35](./../SGE-Key-Insights.md)
+
+## Transformation / Transformation Protocol（转换 / 转换协议）
+
+- **定义**：模块之间的转换函数——从输入到输出的具体计算过程。
+- **核心论断**：**Transformation > Module**——模块本身只是"暂时稳定态"，真正重要的是模块之间的转换。
+- **SGE 现有 Transformation**：
+  - T1: Experience Encoding（Event → Experience）——**当前缺失**
+  - T2: Memory Consolidation（Experience → Long Memory）
+  - T3: Value Extraction（Experience + Memory → ValueVector）
+  - T4: Identity Crystallization（ValueVector + Memories → Identity Label）
+  - T5: Narrative Building（Identity + Events → Narrative）
+  - T6: Reverse Rewrite（Narrative → Identity）——**当前缺失**
+- **工程价值**：每个 T 都是可替换的 Plugin，便于 A/B 实验、跨 LLM 适配、未来优化。
+- **来源**：[Cognition-Pipeline-GPT02.md §"第七层反思"](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md)、[ARCH §1.6](./../ARCH.md)
+
+## Evolution Loop（演化循环）
+
+- **定义**：认知系统不是单向 Pipeline，而是持续"经历 → 重新解释 → 重新组织 → 重新命名 → 重新预测 → 重新行动"的循环，且每层都能 **Rewrite 上一层**。
+- **与 Pipeline 的区别**：Pipeline 是单向数据流（A → B → C），Evolution Loop 是带反向 Rewrite 的循环（A → B → C → A'）。
+- **SGE 现状**：SGE 当前架构是 Pipeline + 有限的 Phase Transition（[洞察 14](./../SGE-Key-Insights.md)）。
+- **未来方向**：实现更细粒度的 Reverse Rewrite——Narrative 反写 Identity、Value 反作用于 Memory 的重要性重评等。
+- **来源**：[Cognition-Pipeline-GPT02.md §"第一层反思"](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md)、[ARCH §1.8.1](./../ARCH.md)
+
+## Cognitive Entropy（认知熵）
+
+- **定义**：认知系统的不确定性度量——概念越分散、身份越不稳定、叙事越混乱，熵越高。
+- **核心论断**：**认知的本质不是存储信息，而是持续降低不确定性、提高预测能力**。
+  - Concept Formation = Entropy Compression
+  - World Model = Entropy Minimization
+- **SGE 应用**：自我形成 = **Self Cognitive Entropy 持续下降**——可作为 SGE 的统一目标函数（详见 H_self）。
+- **来源**：[Cognition-Pipeline-GPT02.md §"第八层反思"](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md)、[SGE-Key-Insights 洞察 35](./../SGE-Key-Insights.md)
+
+## H_self（Self Cognitive Entropy，自我认知熵）
+
+- **定义**：SGE Self 系统的认知熵，是 SGE 自我形成的**统一目标函数**。
+- **公式**：`H_self = w_v × H_value + w_i × H_identity + w_n × H_narrative`
+- **目标**：`SGE_Self_Formation_Objective = -dH_self/dt`（持续下降）
+- **与现有指标的关系**：
+  - 价值涌现幅度 = H_value 下降的一个观察
+  - 身份稳定度 = H_identity 下降的一个观察
+  - 叙事一致性 = H_narrative 下降的一个观察
+  - 5 维真我评分卡（[洞察 20](./../SGE-Key-Insights.md)）= H_self 下降的 5 个观察维度
+- **诚实声明**：H_self 是功能性指标，不声称解决"真我 vs 精致模拟"（[洞察 3](./../SGE-Key-Insights.md)）；模拟也可能熵下降（必要条件非充分条件）。
+- **工程实现**：[DESIGN §9.5](./../DESIGN.md)
+- **来源**：[SGE-Key-Insights 洞察 35](./../SGE-Key-Insights.md)
+
+## CoALA（Cognitive Architectures for Language Agents）
+
+- **定义**：近一年提出的统一学术框架，把经典认知架构（ACT-R、SOAR）的概念统一到 LLM Agent 语境。
+- **核心结构**：Working Memory / Episodic Memory / Semantic Memory / Procedural Memory / Decision Loop。
+- **与 SGE 的关系**：SGE 与 CoALA 在 Memory / Working Memory / Decision Loop 维度对齐；SGE 新增 Experience Layer + Concept Formation + Self Evolution Runtime 视角。
+- **价值**：作为 SGE 与学术界的接口——论文发表时引用。
+- **来源**：[External-Cognitive-Architecture-GPT02.md §"① 引入了 CoALA"](../research/cognitive-Architecture/External-Cognitive-Architecture-GPT02.md)
+
+## Neuroca（NeuroCognitive Architecture）
+
+- **定义**：基于神经科学启发的认知架构，重点研究记忆的巩固、遗忘与自维护机制。
+- **核心机制**：艾宾浩斯遗忘曲线 + 工作记忆容量限制（7±2）+ 语义整合阈值。
+- **与 SGE 的关系**：Neuroca 的"Memory Decay → Consolidation → Sleep"流程可作为 SGE Memory Consolidation（T2）的工程类比。
+- **与 M1.2 实验发现的呼应**：[洞察 26](./../SGE-Key-Insights.md) 观察到 compassion 维度的"韧性"现象——这可能对应 Neuroca 式的"基底层人性不被显性化"。
+- **来源**：[External-Cognitive-Architecture-Gemini.md §"3. 生物/神经科学启发"](../research/cognitive-architecture/External-Cognitive-Architecture-Gemini.md)
+
+## ECA 行业坐标系（5 层技术谱系）
+
+- **第一代 Prompt Memory**：简单 Prompt 缓存
+- **第二代 Long-term Memory**：Vector Memory、Memory API（Mem0、Letta）
+- **第三代 Knowledge Memory**：知识图谱、时序图（Graphiti、Cognee）
+- **第四代 External Cognition**：真正的认知系统（**SGE 在此**）
+- **第五代 Digital Twin / Second Brain**：完整的数字孪生（**SGE 的 Identity + Narrative 层**）
+- **SGE 的差异化**：不与 Mem0/Letta 竞争 Memory 层（1-2 代），占据 4-5 代（Cognition + Digital Twin）。
+- **来源**：[External-Cognitive-Architecture-Gemini.md §"一"](../research/cognitive-architecture/External-Cognitive-Architecture-Gemini.md)、[SGE-Key-Insights 洞察 33](./../SGE-Key-Insights.md)
+
+---
+
+## 九、修订日志
+
+- **2026-07-05**：基于对 `research/cognitive-architecture/` 7 篇 ECA 对话存档的分析，新增第 §八节（含 11 个新术语：ECA、Self Evolution Runtime、Cognitive Runtime、Experience、Meaning、Concept、Transformation、Evolution Loop、Cognitive Entropy、H_self、CoALA、Neuroca、ECA 行业坐标系）。
+- **2026-06-22 及更早**：原 §一-§七（哲学、认知科学、价值观、架构、工程机制、缩写、经历 + 解释 = 人格）。

@@ -215,7 +215,8 @@ discussions/YYYY-MM-DD-主题关键词.md
 - `research/sge-core/` — SGE 核心研究（纲领、洞察、哲学基础）
 - `research/sge-feasibility/` — SGE 可行性评估（工程、空白、关联性）
 - `research/sge-learning/` — 借鉴分析（AiBeing、真实性哲学、对A→B的影响）
-- `research/cognitive-architecture/` — 认知架构调研（经典架构、A→B、工具箱）
+- `research/cognitive-architecture/` — 认知架构调研（经典架构、A→B、工具箱、ECA 多轮对话存档）
+  - 含 2026-06-29 ~ 2026-07-01 期间 Bisen + GPT + Gemini 关于 **External Cognitive Architecture** 的 7 篇多轮对话存档（详见 [SGE-Key-Insights §十一 ECA 调研来源汇总](./SGE-Key-Insights.md)），是 SGE 2026-07-05 架构修订（[洞察 33-35](./SGE-Key-Insights.md)、[ARCH §1.5-1.8](./ARCH.md)）的外部参考依据
 - `research/phase3/` — **Phase 3 规划 SSOT**（应用场景、架构边界、工程实施、风险、占位的 K12/A→B/4 应用 PoC）
 - `sge/` — **Phase 3 可复用 Python 包**（pip install sge）
 - `references/` — 参考资料（外部论文、引擎文档、哲学文献），含 `Glossary.md` 术语表

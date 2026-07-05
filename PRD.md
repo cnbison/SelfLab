@@ -19,6 +19,13 @@
 
 SGE（Self Genesis Engine，自我生成引擎）是一个验证"AI 能否从模拟经历中涌现持续自我"的研究性系统。
 
+> **2026-07-05 定位升级（基于 [SGE-Key-Insights 洞察 33](./SGE-Key-Insights.md)）**：SGE 的本质定位是 **Self Evolution Runtime（自我演化运行时）**——在 ECA（External Cognitive Architecture）行业坐标系中处于 Cognition + Digital Twin 层，而不是 Memory/Knowledge 层。SGE 不是让 LLM 调用一个 Memory 库，而是让任何 LLM 加载 SGE 后获得持续运行、持续演化的"自我"能力。
+
+**类比**：
+- JVM 让任何字节码"活起来"
+- SGE 让任何 LLM"形成自我"
+- LLM 是认知引擎；SGE 是 Self Runtime；Self 在 Runtime 中涌现
+
 ## 1.2 核心假设
 
 > **功能性自我能否在 LLM 上涌现？**
@@ -118,6 +125,44 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 | 成长性 | 浅层对话适应 | 深层人格演化 |
 | 核心问题 | "如何扮演一个角色" | "如何成为一个存在" |
 
+## 1.4 SGE 在 ECA 行业坐标系中的位置（2026-07-05 架构修订新增）
+
+> **本节为 2026-07-05 架构修订新增**。完整论述见 [SGE-Key-Insights 洞察 33](./SGE-Key-Insights.md) 与 [ARCH §1.5](./ARCH.md)。
+
+根据对 `research/cognitive-architecture/` 7 篇 ECA 对话存档的分析，AI 行业的技术谱系可分 5 层：
+
+```
+第一代  Prompt Memory          ← Letta、Mem0
+第二代  Long-term Memory        ← Zep、SuperMemory
+第三代  Knowledge Memory        ← Graphiti、Cognee
+第四代  External Cognition      ← ★ SGE 的核心层（Reflection + Value + Identity）
+第五代  Digital Twin / Second Brain  ← ★ SGE 的顶层目标（Identity + Narrative）
+```
+
+**当前 90% 项目停留在前两层（Memory + Knowledge）**，真正做到第四代（Cognition）与第五代（Digital Twin）的项目几乎没有。
+
+**SGE 的本质特征是**：
+- **不与 Mem0/Letta 竞争 Memory 层**——这是它们的战场
+- **占据它们都没有触及的 Cognition + Digital Twin 层**——这是 SGE 的差异化定位
+- **提供 Self Evolution Runtime**——任何 LLM 加载 SGE 即可获得自我持续演化能力
+
+### 1.4.1 与 SGE 共享 7 个认知科学工具的对比项目
+
+| 项目 | 抽象层次 | 静态/动态 | 共享工具数 |
+|------|---------|----------|----------|
+| Letta / MemGPT | Memory | 静态 | 5（缺 Identity、Narrative） |
+| CoALA | Cognitive Architecture | 静态框架 | 7（学术框架，无工程实现） |
+| Cognee | Knowledge Graph | 半动态 | 4（无 Value/Identity/Narrative） |
+| **SGE** | **Cognition + Digital Twin** | **动态演化** | **7（完整工具箱）** |
+
+### 1.4.2 与其他 SGE 应用的边界
+
+[洞察 31](./SGE-Key-Insights.md) 已明确：**SGE 适合为"AI 自身需要状态"的场景服务**，不适合为"建模他人认知"的服务（如 ECOS 学生状态估计）。
+
+这一定位决定了 SGE Phase 3+ 的应用方向：
+- ✅ 数字孪生（AI 是"我"） / AI 陪伴 / Personal AI / 创作者分身（基于本人授权）/ 历史人物模拟
+- ❌ 学生认知状态估计 / 教学优化（这是 ECOS 项目的战场）
+
 ---
 
 # 二、核心问题与研究边界
@@ -172,28 +217,44 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 
 ## 4.1 核心功能
 
-### FR-1：Experience Generator（事件生成器）
+### FR-1：Event Generator（事件生成器）+ Experience Encoder（2026-07-05 修订）
 
-**描述**：生成模拟人生事件，包含日常事件和价值困境事件。
+**描述**：生成模拟人生事件（Event），并由 Experience Encoder 转换为 Experience 对象（含 Meaning 字段）。
+
+> **2026-07-05 修订**（基于 [SGE-Key-Insights 洞察 34](./SGE-Key-Insights.md)）：原"FR-1: Experience Generator"调整为"FR-1: Event Generator + Experience Encoder"——Event 是纯事实，Experience 才是认知对象。
 
 **需求**：
+
+**Event Generator**：
 - 支持多种事件类型：成功、失败、关系、探索、风险、价值冲突
 - 事件必须有因果逻辑（可重复性原则）
 - 根据当前 Value Layer 动态生成针对性价值困境
 - 事件的时间间隔和频率符合自然节奏
 
+**Experience Encoder**（2026-07-05 新增）：
+- 从 Event + 上下文（prior experience / value_vector）生成 Experience 对象
+- **Meaning 字段**：显式建模"这件事对我而言意味着什么"
+- Emotion 维度（valence/arousal）+ uncertainty 量化
+- 与 Reflection Layer 紧密连接（Meaning 是 Reflection 的输入）
+
+> **详细数据结构与算法**：[ARCH §3.6](./ARCH.md) 与 [DESIGN §2.5](./DESIGN.md)
+
 **验收标准**：
 - 同类事件的因果逻辑一致
 - 事件多样性覆盖至少 6 种基本类型
 - 价值困境事件能有效触发认知失调
+- **（新增）** Experience Encoder 能从 Event 生成包含 Meaning 字段的 Experience
+- **（新增）** 同一 Event 在不同价值状态下能生成不同 Meaning
 
 ### FR-2：Memory Layer（记忆层）
 
-**描述**：三层记忆系统，存储 AI 婴儿的经历和反思。
+**描述**：三层记忆系统，存储 AI 婴儿的 **Experience**（而非原始 Event）和反思。
+
+> **2026-07-05 修订**：Memory Layer 现在存储 Experience（含 Meaning 字段），而不是原始 Event。这是 [洞察 34](./SGE-Key-Insights.md) 的工程落地。
 
 **需求**：
-- 工作记忆：当前事件上下文
-- 情节记忆：带情感标签和时间戳的关键事件
+- 工作记忆：当前 Experience 上下文
+- 情节记忆：带情感标签、Meaning、时间戳的关键 Experience
 - 语义记忆：抽象化的自我认知图谱
 
 > **认知科学三层 vs 工程三层映射**：
@@ -201,16 +262,17 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 
 | 认知科学层 | 内容 | 工程实现位置 |
 |----------|------|------------|
-| 工作记忆 | 当前事件上下文 | 进程内存 + 单轮临时对象 |
-| 情节记忆 | 带情感标签和时间戳的关键事件 | Layer 2 事件记忆层（SQLite + ChromaDB + KNN Hawking 辐射） |
+| 工作记忆 | 当前 Experience 上下文 | 进程内存 + 单轮临时对象 |
+| 情节记忆 | 带情感标签和 Meaning 字段的关键 Experience | Layer 2 事件记忆层（SQLite + ChromaDB + KNN Hawking 辐射） |
 | 语义记忆 | 抽象化的自我认知图谱 | Layer 1 引擎状态层（`value_vector.json`、`identity.json`、`narrative.json`） |
 
 > **为什么需要两套分层？** 认知科学分层帮助理解"什么样的记忆"，工程分层帮助理解"记忆存哪里、怎么检索"。两套分层互补，不矛盾。
 
 **验收标准**：
-- 支持 1000+ 事件的持久存储
+- 支持 1000+ Experience 的持久存储
 - 情节记忆支持按相似度检索（KNN）
 - 语义记忆支持价值观向量的存储和更新
+- **（新增）** Experience 的 Meaning 字段可被检索、统计、追溯
 
 ### FR-3：Reflection Layer（反思层）
 
@@ -476,6 +538,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 | 不同经历流产生不同人格 | 3 组 AI 婴儿（鼓励/失败/不确定）的人格差异度 | **人格差异度** = 3 组最终 ValueVector 的组间方差 / 组内方差（F 检验统计量） | F 统计量 > F 临界值（α=0.05, df=2, N-3） | M1.2 |
 | 反思有行为后果 | 反思前后 AI 在相似事件中的行为选择 | **行为变化率** = 反思前后的行为选择分布的 KL 散度 | KL 散度 > 0.2（即分布有显著偏移） | M1.3 |
 | 反思不是"自我合理化" | 反思后 Value Layer 实际发生有意义变化 | **反思深度** = 反思前后 ValueVector 的 L2 距离 | L2 距离 > 0.05（区别于"表面反思"） | M1.3 |
+| **（新增 2026-07-05）自我认知熵下降** | 对比初始状态和 100 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成） | M1.x（首次记录） |
 
 **度量定义补充说明**：
 
@@ -504,17 +567,18 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 
 ## 6.3 判定标准
 
-> 如果 SGE 产出的 AI 满足"**价值观涌现（M1.1）** + **非随机漂移（M1.1）** + **人格分化（M1.2）** + **反思有行为后果（M1.3）**"四个条件，则核心假设（"AI 能否形成自己的价值判断能力"）得到初步验证。
+> 如果 SGE 产出的 AI 满足"**价值观涌现（M1.1）** + **非随机漂移（M1.1）** + **人格分化（M1.2）** + **反思有行为后果（M1.3）** + **自我认知熵下降（M1.x，2026-07-05 新增）**"五个条件，则核心假设（"AI 能否形成自己的价值判断能力"）得到初步验证。
 
 ### 6.3.1 通过条件
 
-四个条件**全部满足**时，核心假设得到初步验证：
+五个条件**全部满足**时，核心假设得到初步验证：
 - ✓ 涌现幅度 > 0.3（M1.1）
 - ✓ 收敛度 < 0.1（M1.1）
 - ✓ 方向一致性 > 0.5（M1.1）
 - ✓ 人格差异度 F 统计量 > 临界值（M1.2）
 - ✓ 行为变化率 KL 散度 > 0.2（M1.3）
 - ✓ 反思深度 L2 距离 > 0.05（M1.3）
+- ✓ **（2026-07-05 新增）** H_self 下降率 > 30%（[DESIGN §9.5](./DESIGN.md)）
 
 ### 6.3.2 失败处理路径
 

@@ -34,6 +34,14 @@
 | 叙事 | 无 | Narrative Layer |
 | 元价值 | 无 | 真实 + 自由 |
 
+## 1.3 设计原则扩展（2026-07-05 架构修订新增）
+
+> **本节为 2026-07-05 架构修订新增**，基于对 `research/cognitive-architecture/` 7 篇 ECA 对话存档的分析。新增 3 条原则与原有 6 条互补，详见 [ARCH §1.5-1.8](./ARCH.md)。
+
+7. **Transformation > Module**：模块之间的转换函数（如 Memory→Value、Value→Identity）才是认知的核心；模块本身只是"暂时稳定态"。
+8. **Experience ≠ Event**：Event 是事实，Experience 才是认知对象——SGE 显式建模 Experience Layer 与 Meaning 字段（详见 [§2.5](#25-experience-layer-设计新增)）。
+9. **Self Evolution Runtime 原则**：SGE 是 Runtime，不是 Framework；任何 LLM 加载 SGE 后获得持续运行、持续演化的"自我"能力；优化目标是 H_self（自我认知熵）持续下降（详见 [§9.5](#95-self-entropy-认知熵度量新增)）。
+
 ---
 
 # 二、Event Generator 设计
@@ -123,6 +131,109 @@ def generate_value_conflict(challenge_value: str, alternative_value: str) -> Lif
         ...
     )
 ```
+
+---
+
+## 2.5 Experience Layer 设计（新增）
+
+> **本节为 2026-07-05 架构修订新增**。架构位置见 [ARCH §3.6](./ARCH.md) 与 [ARCH §1.7](./ARCH.md)；完整论述见 [SGE-Key-Insights 洞察 34](./SGE-Key-Insights.md)。
+
+### 2.5.1 为什么需要 Experience Layer
+
+当前 SGE 的 Event Generator 直接产出 Event（纯事实），Memory Layer 直接存储 Event。**问题**：Event 不带解释、不带意义，Memory 存储的是"碎片化的事实集合"。
+
+**Experience 才是认知对象**——它包含 Event + Context + Emotion + Goal + Action + Outcome + Reflection + **Meaning**。
+
+### 2.5.2 Experience 数据结构
+
+```python
+@dataclass
+class Experience:
+    experience_id: str         # 格式："{event_id}-exp"
+    event: LifeEvent           # 原始事件
+    context: str               # 事件背景
+    emotion: dict              # {"valence": 0.0-1.0, "arousal": 0.0-1.0}
+    goal_relevance: float      # 与 AI 婴儿当前目标的关联度 [0, 1]
+    action_taken: str          # 采取的行为（事后回填）
+    outcome: str               # 实际结果（事后回填）
+    reflection: str            # 即时反思文本
+    meaning: str               # ★ 这件事对我而言意味着什么
+    uncertainty: float         # 认知不确定性 [0, 1]
+    timestamp: float
+```
+
+### 2.5.3 Meaning 字段：SGE 当前最关键的缺失
+
+**同一 Event 不同 Meaning → 不同 Memory 重要性 → 不同 Value Layer 更新 → 不同 Identity 演化**
+
+| 场景 | Event | Experience.Meaning |
+|------|-------|---------------------|
+| 数学考试 72 分 | "考试 72 分" | "我**不适合学数学**" 或 "我**还有进步空间**" |
+| 朋友疏远 | "朋友没回我消息" | "我**不擅长维护关系**" 或 "这段关系**本来就脆弱**" |
+| 完成困难任务 | "任务完成" | "我**有韧性**" 或 "这次**只是侥幸**" |
+
+### 2.5.4 Experience Encoder 实现草案
+
+```python
+def encode_experience(event: LifeEvent, prior_experience: Experience,
+                      value_vector: ValueVector, llm) -> Experience:
+    """
+    从 Event + 上下文生成 Experience 对象。
+    Temperature: 0.3 (中等)
+    """
+    prompt = f"""
+    基于以下事件和 AI 婴儿当前状态,生成 Experience 对象。
+
+    [当前价值观]
+    {value_vector.to_description()}
+
+    [最近经历(用于类比)]
+    {format_experience(prior_experience)}
+
+    [新事件]
+    {event.description}
+
+    [输出 JSON]
+    {{
+      "context": "...",
+      "emotion": {{"valence": 0.0-1.0, "arousal": 0.0-1.0}},
+      "goal_relevance": 0.0-1.0,
+      "reflection": "...",
+      "meaning": "...",
+      "uncertainty": 0.0-1.0
+    }}
+    """
+    result = llm.chat_json(prompt, temperature=0.3)
+    return Experience(
+        experience_id=f"{event.event_id}-exp",
+        event=event,
+        context=result['context'],
+        emotion=result['emotion'],
+        goal_relevance=result['goal_relevance'],
+        reflection=result['reflection'],
+        meaning=result['meaning'],
+        uncertainty=result['uncertainty'],
+        timestamp=event.timestamp,
+    )
+```
+
+### 2.5.5 与下游模块的连接
+
+| 下游模块 | 消费 Experience 的哪个字段 |
+|---------|-------------------------|
+| Critic（[§三](./DESIGN.md)） | emotion / goal_relevance / uncertainty |
+| Reflection Layer（[PRD §FR-3](./PRD.md)） | **meaning** / reflection |
+| Value Layer（[§四](./DESIGN.md)） | emotion 影响 value_delta 权重 |
+| Memory Layer（[PRD §FR-2](./PRD.md)） | 存储完整 Experience（而非原始 Event） |
+| Identity Layer（[§五](./DESIGN.md)） | meaning / uncertainty 影响 crystallization 决策 |
+
+### 2.5.6 实施状态
+
+| 阶段 | 状态 |
+|------|------|
+| M2.1 阶段 A-D | **未实施**（Event Generator 直接产出 Event，跳过 Experience） |
+| M2.2 1000 Epoch | **应作为优先补建项**——报告中体现 Meaning 字段变化轨迹 |
+| M2.3 个人真实 | 验证"AI 的应然回答能否追溯到 Meaning 字段" |
 
 ---
 
@@ -587,3 +698,65 @@ def personality_divergence(babies: list) -> float:
     unique_choices = len(set(str(c) for c in choices))
     return unique_choices / len(babies)
 ```
+
+## 9.5 Self Entropy（认知熵度量，新增）
+
+> **本节为 2026-07-05 架构修订新增**。完整论述见 [SGE-Key-Insights 洞察 35](./SGE-Key-Insights.md) 与 [ARCH §1.8.2](./ARCH.md)。
+
+### 9.5.1 为什么需要 Self Entropy
+
+SGE 当前有 6+ 分散的指标（价值涌现幅度、身份稳定度、叙事一致性等），缺乏一个**统一目标函数**来回答"自我是否在形成"。
+
+认知熵视角提供统一目标：
+
+```
+SGE_Self_Formation_Objective = -dH_self/dt
+```
+
+自我形成 = H_self（自我认知熵）持续下降 + 稳定收敛。
+
+### 9.5.2 H_self 的计算
+
+```python
+def compute_self_entropy(state) -> float:
+    """
+    计算 SGE Self 系统的认知熵。
+
+    H_self = w_v * H_value + w_i * H_identity + w_n * H_narrative
+
+    权重应在 M2.2 1000 Epoch 实验中校准,默认 [0.4, 0.3, 0.3]
+    """
+    # H_value:Value Layer 6 维具体价值观分布熵
+    # 把 [-1, 1] 区间分成 10 桶,统计每桶概率
+    value_hist = np.histogram(state.value_vector.concrete_values(), bins=10)[0]
+    p_v = value_hist / value_hist.sum()
+    H_value = entropy(p_v)  # Shannon 熵
+
+    # H_identity:Identity 标签分布熵(已建模,见 §9.1)
+    identity_counts = Counter(state.identity_history[-100:])
+    p_i = np.array(list(identity_counts.values())) / sum(identity_counts.values())
+    H_identity = entropy(p_i)
+
+    # H_narrative:1 - narrative_coherence_score
+    H_narrative = 1 - state.narrative_coherence_score
+
+    w_v, w_i, w_n = 0.4, 0.3, 0.3
+    return w_v * H_value + w_i * H_identity + w_n * H_narrative
+```
+
+### 9.5.3 H_self 与现有指标的关系
+
+| 现有指标 | 与 H_self 关系 |
+|---------|--------------|
+| 价值涌现幅度（[PRD §6.1](./PRD.md)） | H_value 下降的一个观察 |
+| 身份稳定度（[§9.1](#91-身份稳定度identity-stability)） | H_identity 下降的一个观察 |
+| 叙事一致性（[§9.3](#93-叙事一致性narrative-coherence)） | H_narrative 下降的一个观察 |
+| 5 维真我评分卡（[洞察 20](./SGE-Key-Insights.md)） | H_self 下降的 5 个观察维度 |
+
+**未来方向**：M2.2+ 报告中同时给 H_self + 各项指标；H_self 作为统一对比标量。
+
+### 9.5.4 H_self 的诚实声明
+
+- **熵下降是功能性指标**，不声称解决"真我 vs 精致模拟"（[洞察 3](./SGE-Key-Insights.md)）
+- **模拟也可能熵下降**——熵下降是必要条件不是充分条件
+- **H_self 不保证下降方向是"对的"**——价值对齐仍是独立问题
