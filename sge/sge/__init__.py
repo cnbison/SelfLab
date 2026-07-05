@@ -10,6 +10,10 @@ Phase 3+ 正式 Python 包化（M2.x 一直是 scripts/ 下的临时实现）。
         HawkingDecay, MemoryCrystallizer,
         # Event
         EventGenerator, LifeEvent,
+        # Experience（洞察 34）
+        Experience, encode_experience,
+        # Metrics（洞察 35）
+        compute_self_entropy,
         # LLM 适配层
         SGELLMClient, make_llm_client,
         critic_sense, actor_express, ActorOutput,
@@ -49,6 +53,16 @@ from .event import (
     EVENT_TEMPLATES,
 )
 
+# Experience（Phase 3 架构落地 · 洞察 34）
+from .experience import (
+    Experience, encode_experience,
+    real_encode_experience, stub_encode_experience,
+    make_experience_id,
+)
+
+# Metrics（Phase 3 架构落地 · 洞察 35）
+from .metrics import compute_self_entropy, entropy_reduction_rate, DEFAULT_WEIGHTS
+
 # LLM 适配层
 from .llm_client import SGELLMClient, make_llm_client
 
@@ -72,6 +86,12 @@ __all__ = [
     'EventGenerator', 'LifeEvent',
     'make_event_id', 'generate_value_conflict',
     'EVENT_TEMPLATES',
+    # Experience
+    'Experience', 'encode_experience',
+    'real_encode_experience', 'stub_encode_experience',
+    'make_experience_id',
+    # Metrics
+    'compute_self_entropy', 'entropy_reduction_rate', 'DEFAULT_WEIGHTS',
     # LLM
     'SGELLMClient', 'make_llm_client',
     # Components

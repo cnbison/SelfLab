@@ -25,6 +25,10 @@ from sge import (
     Agent, DriveMetabolism, ValueLayer, MemoryCrystallizer, HawkingDecay,
     # 事件生成
     EventGenerator, LifeEvent,
+    # 经验编码（洞察 34）
+    Experience, encode_experience,
+    # 自我熵度量（洞察 35）
+    compute_self_entropy, entropy_reduction_rate,
     # LLM 适配层
     SGELLMClient, make_llm_client,
     # Critic / Actor
@@ -87,16 +91,25 @@ traces = orchestrator.run(n_epochs=1000)
 ```
 sge/
 ├── __init__.py            # 公开 API
+├── RUNTIME_AUDIT.md       # Self Evolution Runtime 定位审计（洞察 33）
 ├── baseline.py            # Agent / DriveMetabolism / ValueLayer / HawkingDecay / MemoryCrystallizer
 ├── event.py               # EventGenerator + LifeEvent
+├── experience.py          # Experience + encode_experience（Step 2.5，洞察 34）
+├── metrics.py             # compute_self_entropy / H_self（Step 16，洞察 35）
 ├── llm_client.py          # SGELLMClient (含 retry/warmup/timeout)
 ├── critic.py              # Critic LLM 适配
 ├── actor.py               # Actor LLM 适配
 ├── identity.py            # IdentityLayer
 ├── narrative.py           # NarrativeBuilder
-├── orchestrator.py        # 12 步编排器
+├── orchestrator.py        # 12+3 步编排器（含 Step 2.5 Experience + Step 16 H_self）
 └── tests/                 # 单元测试
 ```
+
+> **Runtime 定位**：SGE 是 **Self Evolution Runtime**（自我演化运行时），而非 Memory Framework——
+> 编排器提供受控时钟、单步执行、组件可插拔、逐步 trace。Step 2.5 把裸 Event 编码为含
+> **meaning** 的 Experience（"这件事对我意味着什么"），Step 16 计算 **H_self**（自我认知熵）
+> 作为自我形成的统一目标函数。详见 [RUNTIME_AUDIT.md](./RUNTIME_AUDIT.md) 与
+> [SGE-Key-Insights 洞察 33-35](../SGE-Key-Insights.md)。
 
 ## Phase 3 路线图
 

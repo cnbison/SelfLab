@@ -55,6 +55,8 @@ from .baseline import (
 from .critic import critic_sense
 from .actor import actor_express, ActorOutput
 from .event import EventGenerator, LifeEvent
+from .experience import encode_experience, Experience
+from .metrics import compute_self_entropy
 from .identity import IdentityLayer
 from .narrative import NarrativeBuilder
 from .llm_client import SGELLMClient, make_llm_client
@@ -95,6 +97,10 @@ class OrchestratorStep:
     phase_xition: bool = False        # Step 12: Phase Transition 触发
     identity: Optional[str] = None    # Step 13: Identity Crystallize（可能为 None）
     narrative: Optional[str] = None   # Step 14: Narrative Build（可能为 None）
+
+    # ── 经验侧 / 熵度量（Step 2.5 / Step 16，洞察 34 / 35）──
+    experience: Optional[dict] = None # Step 2.5: Experience Encoder 输出（含 meaning）
+    self_entropy: Optional[dict] = None  # Step 16: H_self 度量（含 H_value/H_identity/H_narrative）
 
     # ── 元数据 ──
     timestamp_hours: float = 0.0      # 受控时钟（epoch * 1h）
@@ -224,9 +230,27 @@ class SGEOrchestrator:
             value_vector=self.value_layer,
         )
 
-        # ── Step 3: Critic Sense（temperature=0.2）──
-        critic_context, critic_value_delta = critic_sense(
+        # ── Step 2.5: Experience Encoding（洞察 34）──
+        # 把裸 Event 解释为含 meaning 的 Experience。同一 Event，不同 Self
+        # 应产生不同 meaning → 不同 value_delta。meaning 注入 Critic 的事件描述，
+        # 使"这件事对我意味着什么"真正影响下游 value 更新。
+        experience = encode_experience(
             event=event.to_dict(),
+            value_state=self.value_layer.value_state,
+            use_real_llm=self.use_real_llm,
+            llm=self.llm,
+            seed=hash((epoch, 'experience')) % (2**31),
+        )
+
+        # ── Step 3: Critic Sense（temperature=0.2）──
+        event_for_critic = event.to_dict()
+        if experience.meaning:
+            event_for_critic['description'] = (
+                f"{event_for_critic.get('description', '')}\n\n"
+                f"[我的解读] {experience.meaning}"
+            )
+        critic_context, critic_value_delta = critic_sense(
+            event=event_for_critic,
             drives=self.agent.drive_state,
             values=self.value_layer.value_state,
             use_real_llm=self.use_real_llm,
@@ -367,6 +391,14 @@ class SGEOrchestrator:
                 seed=hash((epoch, 'phase_xition')) % (2**31),
             )
 
+        # ── Step 16: Compute Self Entropy（洞察 35）──
+        # 每 epoch 计算 H_self，作为自我形成的统一目标函数与验收指标。
+        self_entropy = compute_self_entropy(
+            value_layer=self.value_layer,
+            identity_layer=self.identity_layer,
+            narrative_builder=self.narrative_builder,
+        )
+
         if self.verbose:
             flags = []
             if phase_xition:
@@ -382,7 +414,8 @@ class SGEOrchestrator:
             print(
                 f'[epoch {epoch + 1}/{self._n_epochs_hint}] '
                 f'event={event.event_type} actor={actor_label} '
-                f'|val|={self.value_layer.magnitude():.3f}{flag_str}',
+                f'|val|={self.value_layer.magnitude():.3f} '
+                f'H_self={self_entropy["H_self"]:.3f}{flag_str}',
                 flush=True,
             )
 
@@ -391,6 +424,7 @@ class SGEOrchestrator:
             event=event.to_dict(),
             critic_context=critic_context,
             critic_value_delta=critic_value_delta,
+            experience=experience.to_dict(),
             value_state_before=value_state_before,
             value_state_after=value_state_after,
             hawking_removed=hawking_removed,
@@ -403,6 +437,7 @@ class SGEOrchestrator:
             phase_xition=phase_xition,
             identity=identity,
             narrative=narrative,
+            self_entropy=self_entropy,
             timestamp_hours=timestamp,
         )
 
@@ -541,7 +576,23 @@ def _run_unit_tests() -> bool:
         assert abs(last_t.value_state_after[k] - value_layer.value_state[k]) < 1e-9
     print(f"  ✓ [测试 10: 终态一致] value_state_after == value_layer.value_state")
 
-    print(f"\n  状态: ✅ PASS — 10/10 测试通过")
+    # ── 测试 11: Experience Encoding（Step 2.5，洞察 34）──
+    assert t0.experience is not None, "experience trace missing"
+    assert t0.experience.get('meaning'), "experience.meaning empty"
+    assert t0.experience['experience_id'] == f"{t0.event['event_id']}-exp"
+    print(f"  ✓ [测试 11: Experience 编码] meaning='{t0.experience['meaning'][:20]}...'")
+
+    # ── 测试 12: Self Entropy（Step 16，洞察 35）──
+    assert t0.self_entropy is not None, "self_entropy trace missing"
+    for key in ('H_self', 'H_value', 'H_identity', 'H_narrative'):
+        v = t0.self_entropy[key]
+        assert 0.0 <= v <= 1.0, f"{key} out of [0,1]: {v}"
+    h_start = traces[0].self_entropy['H_self']
+    h_end = traces[-1].self_entropy['H_self']
+    print(f"  ✓ [测试 12: H_self 度量] {h_start:.3f} → {h_end:.3f} "
+          f"(ε降 {(h_start - h_end):+.3f})")
+
+    print(f"\n  状态: ✅ PASS — 12/12 测试通过")
     return True
 
 
