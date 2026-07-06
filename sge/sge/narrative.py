@@ -255,6 +255,8 @@ class NarrativeBuilder:
         use_real_llm: bool = False,
         consistency_threshold: float = 0.5,
         llm=None,
+        dedup_threshold: float = 0.0,  # M3.x 试点
+        dedup_window: int = 1,
     ):
         """
         Args:
@@ -263,12 +265,16 @@ class NarrativeBuilder:
             use_real_llm: True 调用真实 LLM
             consistency_threshold: 重建叙事的一致性阈值（DESIGN §6.3 规定 0.5）
             llm: SGELLMClient 实例（阶段 D 统一接口）
+            dedup_threshold: Jaccard 阈值（>0 启用去重）
+            dedup_window: 比对窗口
         """
         self.current_narrative = current_narrative
         self.build_every_n_epochs = build_every_n_epochs
         self.use_real_llm = use_real_llm
         self.consistency_threshold = consistency_threshold
         self.llm = llm
+        self.dedup_threshold = dedup_threshold
+        self.dedup_window = max(1, dedup_window)
         self.narrative_history = []  # [(epoch, narrative, coherence_score), ...]
 
     def should_build(self, epoch: int) -> bool:
@@ -328,6 +334,20 @@ class NarrativeBuilder:
             narrative = stub_build_narrative(
                 crystallized_events, current_identity, seed=seed,
             )
+
+        # M3.x 试点：narrative 去重（同 IdentityLayer 逻辑）
+        if (getattr(self, 'dedup_threshold', 0) > 0
+                and self.narrative_history):
+            from .identity import _jaccard_similarity
+            recent = self.narrative_history[-getattr(self, 'dedup_window', 1):]
+            max_sim = max(
+                _jaccard_similarity(narrative, h['narrative'])
+                for h in recent
+            )
+            if max_sim >= self.dedup_threshold:
+                self.current_narrative = self.narrative_history[-1]['narrative']
+                return self.narrative_history[-1]['narrative']
+
         self.current_narrative = narrative
         # 记录到 history（含 coherence 分数）
         coherence = self.check_consistency(

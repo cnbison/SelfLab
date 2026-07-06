@@ -239,6 +239,19 @@ def real_validate_identity(
 # ══════════════════════════════════════════════
 
 
+def _jaccard_similarity(a: str, b: str) -> float:
+    """两字符串的字符级 Jaccard 相似度（[0,1]）
+
+    用于 IdentityLayer 去重（M3.x 试点）：
+      - A∩B / A∪B 的字符集合
+      - 简单但足以捕获"语义相近但措辞不同"的身份描述
+    """
+    if not a or not b:
+        return 0.0
+    sa, sb = set(a), set(b)
+    return len(sa & sb) / len(sa | sb)
+
+
 class IdentityLayer:
     """SGE Identity Layer
 
@@ -256,6 +269,8 @@ class IdentityLayer:
         crystallize_every_n_epochs: int = 20,  # DESIGN §5.1 触发条件
         use_real_llm: bool = False,
         llm=None,
+        dedup_threshold: float = 0.0,  # 0=关闭；>0 时启用 Jaccard 去重
+        dedup_window: int = 1,  # 与最近 N 个 identity 比对
     ):
         """
         Args:
@@ -263,11 +278,17 @@ class IdentityLayer:
             crystallize_every_n_epochs: 每 N 个 Epoch 触发一次
             use_real_llm: True 调用真实 LLM，False 用 stub
             llm: SGELLMClient 实例（阶段 D 统一接口）
+            dedup_threshold: Jaccard 相似度阈值；新 identity 与最近 N 个之一
+              相似度 ≥ 阈值 → 视为"重复"，保留旧 identity 不追加新值
+              （M3.x 试点；M2.2 v2 显示 47/47 唯一，Insight 35B 需要这个机制）
+            dedup_window: 比对窗口大小（默认 1，只比最后一个）
         """
         self.identity_history = identity_history or []
         self.crystallize_every_n_epochs = crystallize_every_n_epochs
         self.use_real_llm = use_real_llm
         self.llm = llm
+        self.dedup_threshold = dedup_threshold
+        self.dedup_window = max(1, dedup_window)
 
     def should_crystallize(self, epoch: int) -> bool:
         """DESIGN §5.1 触发条件：每 N 个 Epoch（跑完第 N 个 epoch 后触发）
@@ -329,6 +350,19 @@ class IdentityLayer:
 
         if identity is None:
             return None
+
+        # 1.5 去重检查（M3.x 试点；Insight 35B 修订依据）
+        # 与最近 N 个 identity 比对相似度，超过阈值则视为"已稳定"，
+        # 不追加新值（保留旧 identity），让 H_identity 在累积意义上能下降
+        if self.dedup_threshold > 0 and self.identity_history:
+            recent = self.identity_history[-self.dedup_window:]
+            max_sim = max(
+                _jaccard_similarity(identity, h['identity'])
+                for h in recent
+            )
+            if max_sim >= self.dedup_threshold:
+                # 视为重复，不追加；返回最近一次成功 identity 保持兼容
+                return self.identity_history[-1]['identity']
 
         # 2. 验证
         if self.use_real_llm or force_validate:

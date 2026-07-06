@@ -21,6 +21,7 @@
 #   ./run_chunks_v2.sh --max-chunks-per-baby 1               # 只跑每个 baby 的 chunk 0（~1.5h）
 #   ./run_chunks_v2.sh --babies encouraged                    # 只跑 encouraged × 4 chunks
 #   ./run_chunks_v2.sh --babies encouraged --max-chunks 1    # 只跑 encouraged chunk 0（~30 min 烟测）
+#   ./run_chunks_v2.sh --dedup-threshold 0.3                  # 启用 IdentityLayer/Narrative 去重（M3.x 试点）
 
 set -u
 
@@ -35,6 +36,8 @@ LOG_FILE=${LOG_FILE:-/tmp/m22_v2_chunks_run.log}
 # 解析自定义参数
 CUSTOM_BABIES=()
 CUSTOM_MAX_CHUNKS=0
+DEDUP_THRESHOLD=0.0
+DEDUP_WINDOW=1
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --babies)
@@ -47,6 +50,16 @@ while [[ $# -gt 0 ]]; do
         --max-chunks-per-baby|--max-chunks)
             shift
             CUSTOM_MAX_CHUNKS="$1"
+            shift
+            ;;
+        --dedup-threshold)
+            shift
+            DEDUP_THRESHOLD="$1"
+            shift
+            ;;
+        --dedup-window)
+            shift
+            DEDUP_WINDOW="$1"
             shift
             ;;
         *)
@@ -62,6 +75,13 @@ if [ "$CUSTOM_MAX_CHUNKS" -gt 0 ]; then
     CHUNKS=($(seq 0 $((CUSTOM_MAX_CHUNKS - 1))))
 fi
 
+# 根据 dedup 选 output dir
+if [ "$(echo "$DEDUP_THRESHOLD > 0" | bc -l 2>/dev/null || echo 0)" = "1" ]; then
+    RESULT_DIR="/Users/loubicheng/project/SelfLab/experiments/output/m22_v3_dedup"
+else
+    RESULT_DIR="/Users/loubicheng/project/SelfLab/experiments/output/m22_v2_exph_self"
+fi
+
 TOTAL_CHUNKS=$((${#BABIES[@]} * ${#CHUNKS[@]}))
 
 echo "=== M2.2 v2 Chunk Wrapper ==="
@@ -70,6 +90,8 @@ echo "  Babies: ${BABIES[@]}"
 echo "  Chunks per baby: ${CHUNKS[@]}"
 echo "  Total: $TOTAL_CHUNKS chunks"
 echo "  Gap between chunks: ${GAP_SECONDS}s"
+echo "  Dedup threshold: $DEDUP_THRESHOLD (window=$DEDUP_WINDOW)"
+echo "  Result dir: $RESULT_DIR"
 echo "  Log: $LOG_FILE"
 echo ""
 
@@ -92,7 +114,7 @@ for baby in "${BABIES[@]}"; do
              "Starting $baby chunk $chunk" | tee -a "$LOG_FILE"
         echo "===============================================" | tee -a "$LOG_FILE"
 
-        RESULT_FILE="/Users/loubicheng/project/SelfLab/experiments/output/m22_v2_exph_self/${baby}_chunk${chunk}_result.json"
+        RESULT_FILE="$RESULT_DIR/${baby}_chunk${chunk}_result.json"
         if [ -f "$RESULT_FILE" ]; then
             echo "  ⊙ SKIP $baby chunk $chunk（已有 $RESULT_FILE）" | tee -a "$LOG_FILE"
             SKIPPED=$((SKIPPED + 1))
@@ -103,6 +125,8 @@ for baby in "${BABIES[@]}"; do
         python "$V2_SCRIPT" \
             --baby "$baby" \
             --chunk-index "$chunk" \
+            --dedup-threshold "$DEDUP_THRESHOLD" \
+            --dedup-window "$DEDUP_WINDOW" \
             > "$CHUNK_LOG" 2>&1
         EXIT_CODE=$?
 

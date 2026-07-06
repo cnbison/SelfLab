@@ -56,8 +56,12 @@ from sge.llm_client import make_llm_client
 from m22_triplet_config import load_triplet_config, TRIPLET_CONFIGS
 
 
-OUTPUT_DIR = Path(__file__).resolve().parent.parent / "output" / "m22_v2_exph_self"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+OUTPUT_DIR_BASE = Path(__file__).resolve().parent.parent / "output" / "m22_v2_exph_self"
+OUTPUT_DIR_DEDUP = Path(__file__).resolve().parent.parent / "output" / "m22_v3_dedup"
+
+
+# ── 全局 state：由 main() 设置 dedup_threshold 后传进 run_one_baby ──
+_DEDUP_STATE = {'threshold': 0.0, 'window': 1}
 
 
 # 沿用 E4 seed 分配（让事件流差异成为唯一变量，与 E4 可比）
@@ -72,6 +76,7 @@ def run_one_baby(
     name: str,
     yaml_path: str,
     seed: int,
+    output_dir: Path,
     n_steps: int = 250,
     sample_every: int = 50,
     chunk_idx: int = 0,
@@ -115,8 +120,16 @@ def run_one_baby(
         value_conflict_prob=cfg['value_conflict_prob'],
         distribution_by_epoch=cfg['distribution_by_epoch'],
     )
-    identity_layer = IdentityLayer(crystallize_every_n_epochs=20)
-    narrative_builder = NarrativeBuilder(build_every_n_epochs=20)
+    identity_layer = IdentityLayer(
+        crystallize_every_n_epochs=20,
+        dedup_threshold=_DEDUP_STATE['threshold'],
+        dedup_window=_DEDUP_STATE['window'],
+    )
+    narrative_builder = NarrativeBuilder(
+        build_every_n_epochs=20,
+        dedup_threshold=_DEDUP_STATE['threshold'],
+        dedup_window=_DEDUP_STATE['window'],
+    )
 
     orchestrator = SGEOrchestrator(
         agent=agent, value_layer=value_layer,
@@ -212,7 +225,7 @@ def run_one_baby(
 
         # ── Checkpoint 写入（每 100 epoch）──
         if (epoch_idx + 1) % checkpoint_interval == 0:
-            checkpoint_path = OUTPUT_DIR / f"{name}_chunk{chunk_idx}_checkpoint.json"
+            checkpoint_path = output_dir / f"{name}_chunk{chunk_idx}_checkpoint.json"
             checkpoint_data = {
                 'name': name,
                 'baby_id': cfg['baby_id'],
@@ -309,23 +322,23 @@ def run_one_baby(
     ]
 
     # ── 写输出 ──
-    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_result.json").write_text(
+    (output_dir / f"{name}_chunk{chunk_idx}_result.json").write_text(
         json.dumps(result, indent=2, ensure_ascii=False, default=str),
         encoding='utf-8',
     )
-    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_identity_history.json").write_text(
+    (output_dir / f"{name}_chunk{chunk_idx}_identity_history.json").write_text(
         json.dumps(identity_history, indent=2, ensure_ascii=False),
         encoding='utf-8',
     )
-    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_narrative_history.json").write_text(
+    (output_dir / f"{name}_chunk{chunk_idx}_narrative_history.json").write_text(
         json.dumps(narrative_history, indent=2, ensure_ascii=False),
         encoding='utf-8',
     )
-    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_meaning_samples.json").write_text(
+    (output_dir / f"{name}_chunk{chunk_idx}_meaning_samples.json").write_text(
         json.dumps(meaning_samples, indent=2, ensure_ascii=False),
         encoding='utf-8',
     )
-    (OUTPUT_DIR / f"{name}_chunk{chunk_idx}_checkpoint.json").unlink(missing_ok=True)
+    (output_dir / f"{name}_chunk{chunk_idx}_checkpoint.json").unlink(missing_ok=True)
 
     print(f"\n  ✓ {name} chunk {chunk_idx} 完成 "
           f"(epochs {start_epoch}-{start_epoch+n_steps-1}, "
@@ -387,18 +400,31 @@ def main() -> int:
                         help='只跑聚合（不跑新 chunks）')
     parser.add_argument('--max-chunks-per-baby', type=int, default=4,
                         help='每 baby 最多跑几个 chunk（默认 4 = 全 1000 epoch）')
+    parser.add_argument('--dedup-threshold', type=float, default=0.0,
+                        help='IdentityLayer/NarrativeBuilder 去重阈值（0=关闭，>0 启用 Jaccard）')
+    parser.add_argument('--dedup-window', type=int, default=1,
+                        help='去重比对窗口（最近 N 个，默认 1）')
     args = parser.parse_args()
+
+    # 选择 output dir：dedup > 0 时去独立目录，避免污染 v2 基线
+    output_dir = OUTPUT_DIR_DEDUP if args.dedup_threshold > 0 else OUTPUT_DIR_BASE
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # 全局 state：供 run_one_baby 读取（避免再传 N 层参数）
+    _DEDUP_STATE['threshold'] = args.dedup_threshold
+    _DEDUP_STATE['window'] = max(1, args.dedup_window)
 
     print("═" * 60)
     print("  M2.2 v2 — Experience Encoder + H_self 补跑")
     print("═" * 60)
     print(f"  执行模式: 串行 chunk（chunk_size={args.chunk_size}）")
     print(f"  Seed 分配: {SEEDS}")
-    print(f"  Output dir: {OUTPUT_DIR}")
+    print(f"  Dedup: threshold={args.dedup_threshold}, window={args.dedup_window}")
+    print(f"  Output dir: {output_dir}")
     print()
 
     if args.aggregate_only:
-        return aggregate_results()
+        return aggregate_results(output_dir)
 
     if args.baby:
         babies_to_run = [(args.baby, TRIPLET_CONFIGS[args.baby])]
@@ -416,7 +442,7 @@ def main() -> int:
             chunks_to_run = list(range(args.max_chunks_per_baby))
 
         for chunk_idx in chunks_to_run:
-            result_path = OUTPUT_DIR / f"{baby_name}_chunk{chunk_idx}_result.json"
+            result_path = output_dir / f"{baby_name}_chunk{chunk_idx}_result.json"
             if result_path.exists():
                 print(f"\n  ⊙ Skip {baby_name} chunk {chunk_idx}（已有 {result_path.name}）")
                 continue
@@ -428,6 +454,7 @@ def main() -> int:
                 result = run_one_baby(
                     baby_name, yaml_path,
                     seed=SEEDS[baby_name],
+                    output_dir=output_dir,
                     n_steps=n_steps,
                     chunk_idx=chunk_idx,
                     start_epoch=start_epoch,
@@ -450,7 +477,7 @@ def main() -> int:
     return 0
 
 
-def aggregate_results() -> int:
+def aggregate_results(output_dir: Path) -> int:
     """合并所有 chunks 的 JSON 成最终 per-baby result"""
     print("\n  聚合 chunks...")
 
@@ -460,7 +487,7 @@ def aggregate_results() -> int:
     for baby in babies:
         chunks = []
         for ci in range(4):
-            p = OUTPUT_DIR / f"{baby}_chunk{ci}_result.json"
+            p = output_dir / f"{baby}_chunk{ci}_result.json"
             if p.exists():
                 chunks.append(json.loads(p.read_text(encoding='utf-8')))
 
@@ -529,7 +556,7 @@ def aggregate_results() -> int:
         'aggregated': aggregated,
         'personality_divergence': divergence,
     }
-    (OUTPUT_DIR / "v2_summary.json").write_text(
+    (output_dir / "v2_summary.json").write_text(
         json.dumps(summary, indent=2, ensure_ascii=False, default=str),
         encoding='utf-8',
     )
@@ -548,11 +575,13 @@ def aggregate_results() -> int:
     if divergence.get('pairwise_cosine_distance'):
         print(f"\n  Personality divergence (avg): {divergence['avg_divergence']:.4f}")
 
-    print(f"\n  状态快照: {OUTPUT_DIR}/v2_summary.json")
+    print(f"\n  状态快照: {output_dir}/v2_summary.json")
     return 0
 
 
 if __name__ == "__main__":
     if '--aggregate-only' in sys.argv:
-        sys.exit(aggregate_results())
+        # aggregate-only 模式：从 base dir 读取（保持向后兼容）
+        OUTPUT_DIR_BASE.mkdir(parents=True, exist_ok=True)
+        sys.exit(aggregate_results(OUTPUT_DIR_BASE))
     sys.exit(main())
