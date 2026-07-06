@@ -591,8 +591,9 @@ def encode_experience(event: LifeEvent, prior_experience: Experience,
 |------|------|
 | M2.1 阶段 A/B/C/D | 未实施（Event Generator 直接产出 Event，跳过 Experience） |
 | **Phase 3 架构落地（2026-07-05）** | ✅ **已实施** — `sge/sge/experience.py`（`Experience` dataclass + `encode_experience` stub/real 双实现），编排器 **Step 2.5 Experience Encoding**（meaning 注入 Critic 事件描述），`OrchestratorStep.experience` 字段 trace；H_self 同步落地为 `sge/sge/metrics.py` **Step 16**。审计见 [sge/RUNTIME_AUDIT.md](./sge/RUNTIME_AUDIT.md) |
-| M2.2 1000 Epoch | 待补跑——在报告中体现 Meaning 字段变化与 H_self 曲线 |
-| M2.3 个人真实 | 验证"AI 的应然回答能否追溯到 Meaning 字段" |
+| **M2.2 v2 实证（2026-07-06）** | ✅ Experience Encoder 落地验证通过（24 个 meaning 样本 first-person 哲学反思）；❌ H_self 下降率 -13.1% 未达 30% 验收（[M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)）。根因：IdentityLayer 47 次结晶 0% 重复 → H_identity=1.0 恒定 |
+| **M3.x 待办** | IdentityLayer 加去重机制（与最近 N 个 identity 比对相似度，仅当 similarity < θ 时接受新身份）+ H_self 改滑窗公式 |
+| M2.3 个人真实 | 待做（应验证"AI 的应然回答能否追溯到 Meaning 字段"）|
 
 ### 3.6.6 学术对应
 

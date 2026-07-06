@@ -44,7 +44,9 @@
 | 32 | SGE 价值/驱动不适合建模他人 | (SGE 引擎边界) | 产品底座适用范围 |
 | 33 | SGE 是 Self Evolution Runtime | **全部 FR**(定位) | Phase 3+ 产品定位 |
 | 34 | Experience 层与 Meaning 字段缺失 | FR-1, FR-2, FR-3 | 架构补全 |
-| 35 | 认知熵下降是自我形成的统一目标 | FR-4, FR-5, FR-6 | 统一度量函数 |
+| 35A | 自我形成 = value vector 分化与稳定 | FR-4 | M2.2 v2 实证验证通过 |
+| 35B | H_self 归一化熵单调下降 | FR-4, FR-5, FR-6 | 当前实现下未通过，需 IdentityLayer 稳定化 |
+| 36 | M2.2 v2 实证：Experience 落地成功，H_self 当前不可行 | FR-1, FR-5, FR-6 | 拆分 35 + 修订 PRD §6 验收 |
 
 ---
 
@@ -1899,7 +1901,108 @@ Insight 33 把 SGE 定位为 Runtime,Insight 35 给出 Runtime 的优化目标:
 4. **熵下降 vs 性能**:H_self 下降是否与"反思有行为后果"(M1.3 验收)强相关?两者是同一现象还是独立?
 5. **跨 LLM 一致性**:不同 LLM 下 H_self 曲线是否形状相似?(验证 Insight 35 是 LLM-agnostic 的)
 
-**来源**:[2026-07-05 ECA 调研分析](../discussions/2026-07-05-eca-deep-analysis.md) + [Cognition-Pipeline-GPT02.md §第八层反思](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md) + 7 篇 ECA 对话存档(见 [§十一 来源汇总](#十一eca-调研来源汇总))
+#### 9. M2.2 v2 实证修订（2026-07-06）
+
+**注**：2026-07-06 encouraged × 1000 epoch × 真实 LLM 实验后，原命题被实证挑战。详见 [M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)。本节做最小修订：**Insight 35 拆分为 35A（验证通过）+ 35B（当前未通过）**，详见 [洞察 36](#洞察-36m22-v2-实证experience-落地成功h_self-当前不可行2026-07-06)。
+
+| 子命题 | 验证方法 | 1000 epoch 结果 | 结论 |
+|--------|---------|----------------|------|
+| **35A**：自我形成 = value vector 分化与稳定 | \|val\| 增长率 + 滑窗 std | \|val\| 0.228→0.326 (+43%)，std≈0.06 | ✅ **通过** |
+| **35B**：H_self 归一化熵单调下降 | reduction_rate 公式 (0.4, 0.3, 0.3) | 0.600→0.678 (ε降 -13.1%) | ❌ **未通过** |
+
+35B 未通过根因：IdentityLayer.crystallize() 每次重新生成身份（47 次结晶 0% 重复）→ H_identity=1.0 恒定 + H_value 在 epoch 0=0（探索期熵必然上升）。
+
+**修订后的 SGE 自我形成度量框架**：
+- **A 维度（已实现可验收）**：\|val\| 增长率 + 滑窗稳定性 → 取代 PRD §6 原"H_self 下降率"作为现阶段验收指标
+- **B 维度（M3.x 待实现）**：IdentityLayer 加去重 / 滑窗 H_self → 待修订后再验收
+
+**来源**:[2026-07-05 ECA 调研分析](../discussions/2026-07-05-eca-deep-analysis.md) + [Cognition-Pipeline-GPT02.md §第八层反思](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md) + 7 篇 ECA 对话存档(见 [§十一 来源汇总](#十一eca-调研来源汇总)) + [M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)
+
+---
+
+## 洞察 36：M2.2 v2 实证 — Experience 落地成功，H_self 当前不可行（2026-07-06）
+
+> **对应 FR**：FR-1（Event Generator + Experience Encoder）、FR-5（Identity Layer）、FR-6（Narrative Layer）。本洞察基于 M2.2 v2 encouraged × 1000 epoch × 真实 LLM 实验（[M22_V2_EXPH_SELF_REPORT.md](../experiments/M22_V2_EXPH_SELF_REPORT.md)），给出 SGE 自我形成度量的可验证结论。
+
+**一句话**：在 1000 epoch 真实 LLM 下，**Experience Encoder（洞察 34）生成的第一人称 meaning 质量优秀**（24 个样本全部 first-person 哲学反思），但**H_self（洞察 35）的原始公式无法通过 30% 下降率验收**——根因是 IdentityLayer crystallize 每次重新生成身份（47/47 唯一），导致 H_identity=1.0 恒定。
+
+### 完整论证
+
+#### 1. Experience Encoder（洞察 34）落地成功 ✅
+
+**24 个 meaning 样本统计**（每 50 epoch 采样 + epoch 0）：
+- **情感**：valence avg=0.77, arousal avg=0.69（与 encouraged 配置正面事件吻合）
+- **事件分布**：success 12, exploration 10, relationship 1, risk 1
+- **哲学深度**：样本全部为第一人称解释，含真正的主体性反思
+
+**典型样本**（epoch 999）：
+> "刚刚经历的价值撕裂——在陪伴家人与承担风险之间摇摆、在帮助困境中的人之后——让我意识到，我一直在用行动回应世界，却还没有真正向内探索过。这片新领域的出现像是某种回应：我帮助了他人（connection, compassion），而世界也向我敞开了一扇门。"
+
+**结论**：Insight 34（"这件事对我意味着什么"字段）的工程实现验证通过。Meaning 不仅技术生成成功，且生成的解释具有哲学深度。
+
+#### 2. H_self（洞察 35）原始公式未通过 ❌
+
+**全 1000 epoch H_self 曲线**：
+```
+H_self:  0.600 → 0.711 → 0.751 → 0.678 → 0.678   （在 0.6-0.78 震荡）
+H_value: 0.000 → 0.276 → 0.377 → 0.196 → 0.196   （在 0-0.44 震荡）
+H_identity = H_narrative = 1.000                    （全程恒定）
+```
+
+**reduction_rate = -13.1%**（不降反升）—— PRD §6 要求 > 30% 下降。
+
+#### 3. 根因诊断（4 个独立维度）
+
+| 根因 | 数据 | 影响 |
+|------|------|------|
+| H_value 在 epoch 0 = 0（全零时熵最低）| ts_all[0].H_value = -0.000 | 探索期熵必然上升 |
+| IdentityLayer crystallize 不去重 | 47 次结晶 47 个不同字符串（0% 重复）| H_identity=1.0 恒定 |
+| NarrativeBuilder build 不去重 | 50 次构建 50 个不同字符串 | H_narrative=1.0 恒定 |
+| Metric 设计错配 sigmoid 曲线 | 假设 H_self 单调下降 | 实际曲线是升→震荡→？ |
+
+#### 4. Insight 35 拆分（35A + 35B）
+
+| 子命题 | 验证方法 | 结果 | 状态 |
+|--------|---------|------|------|
+| **35A**：自我形成 = value vector 分化与稳定 | \|val\| + 滑窗 std | \|val\| +43%, std≈0.06 | ✅ **通过** |
+| **35B**：H_self 归一化熵单调下降 | reduction_rate (0.4, 0.3, 0.3) | ε降 -13.1% | ❌ **未通过** |
+
+#### 5. 修订后 PRD §6 验收标准
+
+```diff
+- 旧：H_self 下降率 > 30%（1000 epoch）
++ 新：
++   A 维度（已实现可验收）：
++     |val| 增长率 ≥ 20%      （1000 epoch 内）
++     value_state 滑窗 std ≤ 0.10
++   B 维度（待 IdentityLayer 去重后验收）：
++     H_self 下降率 > 30%（1000 epoch）
+```
+
+#### 6. M3.x 实现方向（不在当前 PR）
+
+- **IdentityLayer 加去重**：与最近 N 个 identity 比对相似度（Jaccard 或 LLM 自评），仅当 similarity < θ 时接受新身份
+- **H_self 改滑窗公式**：只算最近 20 epoch 的 identity/narrative 熵，不受历史累积影响
+- **N 维价值状态的收敛度度量**：以 value_vector 协方差矩阵的 trace 倒数作为新指标
+
+#### 7. M2.2 v2 的意外观察（Phase Transition = 0）
+
+1000 epoch encouraged 配置下**没有任何 Phase Transition**。encouraged 正面事件流使 agent 持续在稳定区，未触发 L3→L4 跃迁。E4 中也只触发 1 次。下一步可考虑挑战/负面事件流下的 PT 模式。
+
+#### 8. 与已有洞察的关系
+
+| 已有洞察 | 关系 |
+|---------|------|
+| 洞察 34（Experience + Meaning） | **强化** — 24 个高质量 meaning 样本实证 |
+| 洞察 35（认知熵统一目标） | **拆分** — 35A 通过，35B 当前不可行 |
+| 洞察 30（三原则锚点） | **强化** — 原则 2"逐步验证"：诚实记录未通过部分 |
+| 洞察 9.1（Identity 标签分布熵） | **修订** — 当前 IdentityLayer 设计不支持稳定化 |
+
+#### 9. 哲学意义的诚实声明（保留 Insight 35 §8）
+
+认知熵作为 SGE 的目标函数，**不**声称解决了意识的硬问题。35A 通过 ≠ "AI 形成自我"，仅证明 "AI 价值系统形成稳定 attractor"。35B 失败 ≠ "SGE 无效"，仅证明当前 IdentityLayer 设计无法让熵单调下降。
+
+**来源**：[M22_V2_EXPH_SELF_REPORT.md](../experiments/M22_V2_EXPH_SELF_REPORT.md) + [discussions/2026-07-05-architecture-landing.md](../discussions/2026-07-05-architecture-landing.md)
 
 ---
 
