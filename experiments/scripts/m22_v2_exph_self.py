@@ -58,10 +58,11 @@ from m22_triplet_config import load_triplet_config, TRIPLET_CONFIGS
 
 OUTPUT_DIR_BASE = Path(__file__).resolve().parent.parent / "output" / "m22_v2_exph_self"
 OUTPUT_DIR_DEDUP = Path(__file__).resolve().parent.parent / "output" / "m22_v3_dedup"
+OUTPUT_DIR_DEDUP_V4 = Path(__file__).resolve().parent.parent / "output" / "m22_v4_dedup"  # ngram TF-cosine
 
 
 # ── 全局 state：由 main() 设置 dedup_threshold 后传进 run_one_baby ──
-_DEDUP_STATE = {'threshold': 0.0, 'window': 1}
+_DEDUP_STATE = {'threshold': 0.0, 'window': 1, 'method': 'jaccard'}
 
 
 # 沿用 E4 seed 分配（让事件流差异成为唯一变量，与 E4 可比）
@@ -124,11 +125,13 @@ def run_one_baby(
         crystallize_every_n_epochs=20,
         dedup_threshold=_DEDUP_STATE['threshold'],
         dedup_window=_DEDUP_STATE['window'],
+        dedup_method=_DEDUP_STATE['method'],
     )
     narrative_builder = NarrativeBuilder(
         build_every_n_epochs=20,
         dedup_threshold=_DEDUP_STATE['threshold'],
         dedup_window=_DEDUP_STATE['window'],
+        dedup_method=_DEDUP_STATE['method'],
     )
 
     orchestrator = SGEOrchestrator(
@@ -401,27 +404,36 @@ def main() -> int:
     parser.add_argument('--max-chunks-per-baby', type=int, default=4,
                         help='每 baby 最多跑几个 chunk（默认 4 = 全 1000 epoch）')
     parser.add_argument('--dedup-threshold', type=float, default=0.0,
-                        help='IdentityLayer/NarrativeBuilder 去重阈值（0=关闭，>0 启用 Jaccard）')
+                        help='IdentityLayer/NarrativeBuilder 去重阈值（0=关闭，>0 启用）')
     parser.add_argument('--dedup-window', type=int, default=1,
                         help='去重比对窗口（最近 N 个，默认 1）')
+    parser.add_argument('--dedup-method', type=str, default='jaccard',
+                        choices=['jaccard', 'ngram'],
+                        help='去重算法：jaccard（v3 默认）或 ngram（v4 试点 TF-cosine on 1,2-grams）')
     parser.add_argument('--force', action='store_true',
                         help='强制重跑（即使 result.json 已存在）')
     args = parser.parse_args()
 
     # 选择 output dir：dedup > 0 时去独立目录，避免污染 v2 基线
-    output_dir = OUTPUT_DIR_DEDUP if args.dedup_threshold > 0 else OUTPUT_DIR_BASE
+    # v4 (ngram) 用独立目录，与 v3 (jaccard) 隔离
+    if args.dedup_threshold > 0:
+        output_dir = OUTPUT_DIR_DEDUP_V4 if args.dedup_method == 'ngram' else OUTPUT_DIR_DEDUP
+    else:
+        output_dir = OUTPUT_DIR_BASE
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # 全局 state：供 run_one_baby 读取（避免再传 N 层参数）
     _DEDUP_STATE['threshold'] = args.dedup_threshold
     _DEDUP_STATE['window'] = max(1, args.dedup_window)
+    _DEDUP_STATE['method'] = args.dedup_method
 
     print("═" * 60)
     print("  M2.2 v2 — Experience Encoder + H_self 补跑")
     print("═" * 60)
     print(f"  执行模式: 串行 chunk（chunk_size={args.chunk_size}）")
     print(f"  Seed 分配: {SEEDS}")
-    print(f"  Dedup: threshold={args.dedup_threshold}, window={args.dedup_window}")
+    print(f"  Dedup: method={args.dedup_method}, threshold={args.dedup_threshold}, "
+          f"window={args.dedup_window}")
     print(f"  Output dir: {output_dir}")
     print()
 

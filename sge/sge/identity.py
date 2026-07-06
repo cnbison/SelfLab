@@ -20,7 +20,9 @@ SGE Identity Layer（C3 实施）
 from __future__ import annotations
 
 import json
+import math
 import random
+from collections import Counter
 from typing import Optional
 
 
@@ -252,6 +254,53 @@ def _jaccard_similarity(a: str, b: str) -> float:
     return len(sa & sb) / len(sa | sb)
 
 
+def _char_ngram_vector(s: str, ns: tuple = (1, 2)) -> Counter:
+    """字符 n-gram 计数向量（用于 TF-cosine similarity）
+
+    默认同时使用 unigram + bigram：
+      - unigram 捕获字符级别重叠（如"创意"vs"创造"共享"创"）
+      - bigram 捕获词级别特征（如"团队"、"协作"作为整体识别）
+
+    为什么不用 trigram+：身份描述只有 30 字左右，trigram 过细会过度稀疏。
+    """
+    vec: Counter = Counter()
+    for n in ns:
+        if len(s) < n:
+            continue
+        for i in range(len(s) - n + 1):
+            vec[s[i:i + n]] += 1
+    return vec
+
+
+def _tfidf_cosine(a: Counter, b: Counter) -> float:
+    """TF-cosine 相似度（无 IDF，纯 Python 0 依赖）
+
+    用于 IdentityLayer 去重（v4 升级）：
+      - 比 Jaccard 字符级更鲁棒（捕获词级别 bigram 特征）
+      - 比 Jaccard 字符级更严格（基于频率加权，常见词占比更小）
+      - 解决 v3 的根因：LLM 通过同义词替换绕过 unigram Jaccard
+
+    Returns:
+        [0, 1] 范围的相似度
+    """
+    if not a or not b:
+        return 0.0
+    common = set(a.keys()) & set(b.keys())
+    if not common:
+        return 0.0
+    dot = sum(a[k] * b[k] for k in common)
+    norm_a = math.sqrt(sum(v * v for v in a.values()))
+    norm_b = math.sqrt(sum(v * v for v in b.values()))
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot / (norm_a * norm_b)
+
+
+def _ngram_similarity(a: str, b: str, ns: tuple = (1, 2)) -> float:
+    """TF-cosine 字符串相似度（封装）"""
+    return _tfidf_cosine(_char_ngram_vector(a, ns), _char_ngram_vector(b, ns))
+
+
 class IdentityLayer:
     """SGE Identity Layer
 
@@ -269,8 +318,9 @@ class IdentityLayer:
         crystallize_every_n_epochs: int = 20,  # DESIGN §5.1 触发条件
         use_real_llm: bool = False,
         llm=None,
-        dedup_threshold: float = 0.0,  # 0=关闭；>0 时启用 Jaccard 去重
+        dedup_threshold: float = 0.0,  # 0=关闭；>0 时启用去重
         dedup_window: int = 1,  # 与最近 N 个 identity 比对
+        dedup_method: str = 'jaccard',  # 'jaccard' | 'ngram'（v3 试点）
     ):
         """
         Args:
@@ -278,10 +328,13 @@ class IdentityLayer:
             crystallize_every_n_epochs: 每 N 个 Epoch 触发一次
             use_real_llm: True 调用真实 LLM，False 用 stub
             llm: SGELLMClient 实例（阶段 D 统一接口）
-            dedup_threshold: Jaccard 相似度阈值；新 identity 与最近 N 个之一
+            dedup_threshold: 相似度阈值；新 identity 与最近 N 个之一
               相似度 ≥ 阈值 → 视为"重复"，保留旧 identity 不追加新值
               （M3.x 试点；M2.2 v2 显示 47/47 唯一，Insight 35B 需要这个机制）
             dedup_window: 比对窗口大小（默认 1，只比最后一个）
+            dedup_method: 去重算法
+              - 'jaccard' (v3)：字符集 Jaccard 相似度，简单但短文本易绕过
+              - 'ngram' (v4 试点)：TF-cosine on char (1,2)-grams，更鲁棒
         """
         self.identity_history = identity_history or []
         self.crystallize_every_n_epochs = crystallize_every_n_epochs
@@ -289,6 +342,7 @@ class IdentityLayer:
         self.llm = llm
         self.dedup_threshold = dedup_threshold
         self.dedup_window = max(1, dedup_window)
+        self.dedup_method = dedup_method  # 'jaccard' or 'ngram'
 
     def should_crystallize(self, epoch: int) -> bool:
         """DESIGN §5.1 触发条件：每 N 个 Epoch（跑完第 N 个 epoch 后触发）
@@ -356,8 +410,13 @@ class IdentityLayer:
         # 不追加新值（保留旧 identity），让 H_identity 在累积意义上能下降
         if self.dedup_threshold > 0 and self.identity_history:
             recent = self.identity_history[-self.dedup_window:]
+            # 根据 dedup_method 选择相似度算法
+            if self.dedup_method == 'ngram':
+                sim_fn = _ngram_similarity
+            else:  # 'jaccard' (默认 / 向后兼容)
+                sim_fn = _jaccard_similarity
             max_sim = max(
-                _jaccard_similarity(identity, h['identity'])
+                sim_fn(identity, h['identity'])
                 for h in recent
             )
             if max_sim >= self.dedup_threshold:
