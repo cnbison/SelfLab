@@ -404,6 +404,8 @@ def main() -> int:
                         help='IdentityLayer/NarrativeBuilder 去重阈值（0=关闭，>0 启用 Jaccard）')
     parser.add_argument('--dedup-window', type=int, default=1,
                         help='去重比对窗口（最近 N 个，默认 1）')
+    parser.add_argument('--force', action='store_true',
+                        help='强制重跑（即使 result.json 已存在）')
     args = parser.parse_args()
 
     # 选择 output dir：dedup > 0 时去独立目录，避免污染 v2 基线
@@ -443,9 +445,16 @@ def main() -> int:
 
         for chunk_idx in chunks_to_run:
             result_path = output_dir / f"{baby_name}_chunk{chunk_idx}_result.json"
-            if result_path.exists():
+            if result_path.exists() and not args.force:
                 print(f"\n  ⊙ Skip {baby_name} chunk {chunk_idx}（已有 {result_path.name}）")
                 continue
+            if args.force and result_path.exists():
+                print(f"\n  ⚠ Force 重跑 {baby_name} chunk {chunk_idx}（将覆盖 {result_path.name}）")
+                result_path.unlink(missing_ok=True)
+                # 顺便清掉 history / meaning 文件，让重跑结果干净
+                for suffix in ('_identity_history.json', '_narrative_history.json',
+                               '_meaning_samples.json'):
+                    (output_dir / f"{baby_name}_chunk{chunk_idx}{suffix}").unlink(missing_ok=True)
 
             start_epoch = args.start_epoch if args.start_epoch is not None else chunk_idx * args.chunk_size
             n_steps = args.n_steps if args.n_steps is not None else args.chunk_size
