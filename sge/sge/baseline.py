@@ -151,7 +151,13 @@ TEMP_FLOOR = 0.03                 # 温度下限
 #
 # 来源: AiBeing engine/genome/genome_engine.py:203-204
 HEBB_LR = 0.02                    # Hebbian 学习率
-PHASE_THRESHOLD = 2.0             # 相变触发阈值（挫败感超过此值）
+PHASE_THRESHOLD = 0.5             # 相变触发阈值（挫败感超过此值）
+# 2026-07-08: 从 2.0 降至 0.5（P0-3 修复）
+# 原 2.0 是 AiBeing 默认值（阶段 A 禁用 PT），但 v2/v3/v4 实验中 0/250 PT 触发
+# Monte Carlo 验证（experiments/scripts/simulate_pt_v6.py）：
+#   threshold=2.0 → mean PT count = 0.0
+#   threshold=0.5 → mean PT count = 2.5（10 seeds × 250 epochs）
+# 详见 research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md §3 + §4 P0-3
 
 
 # ══════════════════════════════════════════════
