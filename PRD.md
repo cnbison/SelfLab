@@ -539,7 +539,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 | 反思有行为后果 | 反思前后 AI 在相似事件中的行为选择 | **行为变化率** = 反思前后的行为选择分布的 KL 散度 | KL 散度 > 0.2（即分布有显著偏移） | M1.3 |
 | 反思不是"自我合理化" | 反思后 Value Layer 实际发生有意义变化 | **反思深度** = 反思前后 ValueVector 的 L2 距离 | L2 距离 > 0.05（区别于"表面反思"） | M1.3 |
 | **（修订 2026-07-06，原 2026-07-05）自我形成可测量维度（A 维度）** | 对比初始状态和 1000 Epoch 后的 value vector | **\|val\| 增长率** = (\|val\|_final - \|val\|_initial) / \|val\|_initial **AND** **value_state 滑窗 std** = 最近 5 个采样点的 ValueVector 漂移标准差 | \|val\| 增长率 ≥ 20% **AND** 滑窗 std ≤ 0.10 | M1.x（首次记录） |
-| **（新增 2026-07-05，2026-07-06 标记未通过）自我认知熵下降（B 维度）** | 对比初始状态和 1000 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成）—— **M2.2 v2 实证 -13.1% 未通过**（[M22_V2_EXPH_SELF_REPORT.md](../experiments/M22_V2_EXPH_SELF_REPORT.md) §3.2） | 待 IdentityLayer 去重（M3.x）后重新验收 |
+| **（2026-07-05 新增，2026-07-08 通过）自我认知熵下降（B 维度）** | 对比初始状态和 1000 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成）—— **M2.2 v5 实证 +52.3% 通过**（[M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md) §3.1，公式 A2 + PT 0.5）| ✅ M2.2 v5 通过 |
 
 **度量定义补充说明**：
 
@@ -570,7 +570,12 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 
 > 如果 SGE 产出的 AI 满足"**价值观涌现（M1.1）** + **非随机漂移（M1.1）** + **人格分化（M1.2）** + **反思有行为后果（M1.3）** + **自我形成 A 维度（2026-07-06 修订）**"五个条件，则核心假设（"AI 能否形成自己的价值判断能力"）得到初步验证。
 
-> **2026-07-06 修订注**：原 H_self 下降率（B 维度）经 M2.2 v2 1000 epoch × 真实 LLM 实证为 -13.1%，未达 30% 验收。根因为 IdentityLayer crystallize 不去重（47/47 唯一）+ H_value 在 epoch 0=0（探索期熵必然上升）。B 维度降级为"待 IdentityLayer 去重（M3.x）后重新验收"，现阶段以 A 维度（\|val\| 增长率 + 滑窗 std）作为自我形成度量的替代指标。
+> **2026-07-06 修订注**：原 H_self 下降率（B 维度）经 M2.2 v2 1000 epoch × 真实 LLM 实证为 -13.1%，未达 30% 验收。根因为 IdentityLayer crystallize 不去重（47/47 唯一）+ H_value 在 epoch 0=0（探索期熵必然上升）。
+>
+> **2026-07-08 修订注**：v5 联调实验（公式 A2 + PHASE_THRESHOLD=0.5）首次达成 B 维度：H_self 下降率 +52.3%（远超 30% 阈值），PT 触发 1 次 @ epoch 87。详见 [M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md) + [Insight 35 §10](./SGE-Key-Insights.md)。修复要点：
+> - **公式 A2**（`sge/sge/metrics.py`）：H_identity / H_narrative 改为基于 N_unique 线性映射，原公式归一化基准 log2(N_total) 导致结构性地板 0.6
+> - **PHASE_THRESHOLD**（`sge/sge/baseline.py:154`）：2.0 → 0.5（Monte Carlo 验证 mean PT = 2.5/250ep）
+> - **dedup 状态**：v5 关闭 dedup 仍达成 H_self 下降目标 → dedup 不再是 B 维度的必要条件
 
 ### 6.3.1 通过条件
 
@@ -582,7 +587,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 - ✓ 行为变化率 KL 散度 > 0.2（M1.3）
 - ✓ 反思深度 L2 距离 > 0.05（M1.3）
 - ✓ **（2026-07-06 修订）** \|val\| 增长率 ≥ 20% **AND** value_state 滑窗 std ≤ 0.10（A 维度，替代原 H_self 验收）
-- ⏸ **（2026-07-05 新增，2026-07-06 标记未通过）** H_self 下降率 > 30%——**待 IdentityLayer 去重（M3.x）后重新验收**
+- ✓ **（2026-07-05 新增，2026-07-08 通过）** H_self 下降率 > 30%——**v5 实证 +52.3%（公式 A2 + PT 0.5）**
 
 ### 6.3.2 失败处理路径
 

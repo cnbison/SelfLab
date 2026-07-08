@@ -264,7 +264,7 @@ Event → Memory → Reflection → Value → Identity → Narrative
 
 当前 SGE 仅实现了 Phase Transition（洞察 14），更细粒度的 Reverse Rewrite 是 M3.x 演进方向。
 
-### 1.8.2 Cognitive Entropy：自我形成的统一目标函数
+### 1.8.2 Cognitive Entropy：自我形成的统一目标函数（公式 A2，2026-07-08 修订）
 
 ECA 调研提出：
 
@@ -272,26 +272,36 @@ ECA 调研提出：
 > - Concept Formation = **Entropy Compression（熵压缩）**
 > - World Model = **Entropy Minimization（熵最小化）**
 
-SGE 自我形成的统一目标函数（[洞察 35](./SGE-Key-Insights.md)）：
+SGE 自我形成的统一目标函数（[洞察 35 §4](./SGE-Key-Insights.md)）：
 
 ```
 SGE_Self_Formation_Objective = -dH_self/dt
 ```
 
-其中 `H_self` 是 SGE 自我系统的认知熵：
+其中 `H_self` 是 SGE 自我系统的认知熵，**公式 A2**（2026-07-08 修订，原 Shannon 归一化有结构性地板 0.6 bug）：
 
 ```python
-def compute_self_entropy(state) -> float:
+def compute_self_entropy(state, weights=(0.4, 0.3, 0.3)) -> dict:
     """
     H_self = w_v * H_value + w_i * H_identity + w_n * H_narrative
+
+    公式 A2：H_identity / H_narrative 基于 N_unique 线性映射
+      H = 1.0                          if N_unique == 0
+      H = 0.0                          if N_unique == 1
+      H = (N_unique - 1) / (N_MAX - 1) if 2 <= N_unique <= N_MAX
+      H = 1.0                          if N_unique > N_MAX
     """
-    # H_value:Value Layer 6 维具体价值观分布熵
-    # H_identity:Identity 标签分布熵(已建模,见 DESIGN §9.1)
-    # H_narrative:Narrative 复杂度(1 - narrative_coherence_score)
+    # H_value:Value Layer 6 维 → 10 bin 直方图 → Shannon 熵归一化到 [0,1]
+    # H_identity/H_narrative: 公式 A2 (N_MAX=20)
+    # 实现:sge/sge/metrics.py:compute_self_entropy()
     ...
 ```
 
 **Self Evolution Runtime = 持续运行 + 持续降低 H_self**——这是 SGE 与"普通 Memory Framework"的根本区别（后者只存储，不优化）。
+
+**配套修复（2026-07-08）**：
+- **PHASE_THRESHOLD** 2.0 → 0.5（`sge/sge/baseline.py:154`）：Monte Carlo 验证 mean PT/250ep = 2.5
+- 详见 [M22_H_SELF_DIAGNOSIS.md §3-4](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md) + [M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md)
 
 ### 1.8.3 H_self 与现有指标的关系
 
