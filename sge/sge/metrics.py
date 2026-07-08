@@ -16,6 +16,12 @@ SGE Self Entropy 度量（Phase 3 架构落地 · 洞察 35）
 
 **权重校准**：默认 (0.4, 0.3, 0.3)，应在 M2.2 1000 Epoch 实验中校准。
 
+**H_identity / H_narrative 公式演进**（2026-07-08 修订）：
+    原公式：归一化 Shannon 熵 / log2(N_total) → 全 unique → 永远 = 1.0 → 结构性地板 0.6
+    新公式（公式 A2）：基于 unique 数线性映射 → 1 unique → 0.0，N_MAX → 1.0 → 数学下界 0
+    详见 [research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md](../../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md)
+    与 [experiments/M22_V3_DEDUP_REPORT.md](../../experiments/M22_V3_DEDUP_REPORT.md)
+
 关联文档：
 - [DESIGN.md §9.5 Self Entropy](../../DESIGN.md)
 - [SGE-Key-Insights.md 洞察 35](../../SGE-Key-Insights.md)
@@ -36,6 +42,10 @@ DEFAULT_WEIGHTS = (0.4, 0.3, 0.3)  # (w_value, w_identity, w_narrative)
 _VALUE_BINS = 10
 _VALUE_LO = -1.0
 _VALUE_HI = 1.0
+
+# H_identity / H_narrative 公式 A2 的发散阈值（unique 数 > N_MAX 视为完全发散）
+# 选择依据：chunk_size=250 时 ~8% 唯一性 = "发散"，适合绝大多数训练场景
+N_MAX_DIVERGENT = 20
 
 
 def _shannon_entropy(probs: list[float], base: float = 2.0) -> float:
@@ -64,23 +74,38 @@ def _histogram_entropy_normalized(
     return h / math.log(bins, 2)
 
 
-def _sequence_entropy_normalized(items: list) -> float:
+def _sequence_entropy_normalized(items: list, n_max: int = N_MAX_DIVERGENT) -> float:
     """离散序列（身份串/叙事串）的归一化熵 [0, 1]
 
-    归一化基准 = log2(N)（N 个样本全不同时熵最大）。
-    空序列 → 1.0（未形成 = 最大不确定性）。
-    单一/全同 → 0.0（已固化）。
+    公式 A2（2026-07-08 修订，替代原 Shannon 归一化）：
+        H = 1.0                        if N_unique == 0  (未形成)
+        H = 0.0                        if N_unique == 1  (完全稳定)
+        H = (N_unique - 1) / (N_MAX - 1)   if 2 <= N_unique <= N_MAX
+        H = 1.0                        if N_unique > N_MAX  (完全发散)
+
+    优点（相对原公式）：
+      1. 数学下界为 0（H_self → 0 当所有身份/叙事收敛到唯一表征）
+      2. 1 unique identity → H=0（真正反映"稳定"）
+      3. dedup 效果可观测：减少 unique 数 → 直接降低 H
+
+    原公式缺陷：归一化基准 = log2(N_total)，全 unique → 永远 = 1.0
+      → H_self 结构性地板 0.6 → Insight 35A "下降率 >30%" 不可达
+
+    Args:
+        items: 序列条目列表（identity 串 / narrative 串）
+        n_max: 发散阈值（默认 N_MAX_DIVERGENT=20）
+
+    Returns:
+        [0, 1] 范围的归一化熵
     """
-    n = len(items)
-    if n == 0:
-        return 1.0  # 未形成的自我 = 最大熵
-    if n == 1:
-        return 1.0  # 仅一个样本，尚不足以判定稳定 → 视为高不确定
-    counts = Counter(items)
-    probs = [c / n for c in counts.values()]
-    h = _shannon_entropy(probs)
-    denom = math.log(n, 2)
-    return h / denom if denom > 0 else 0.0
+    if n_max < 2:
+        raise ValueError(f"n_max must be >= 2, got {n_max}")
+    n_unique = len(set(items)) if items else 0
+    if n_unique == 0:
+        return 1.0  # 未形成 = 最大不确定性
+    if n_unique == 1:
+        return 0.0  # 完全稳定
+    return min(1.0, (n_unique - 1) / (n_max - 1))
 
 
 def compute_self_entropy(
@@ -158,11 +183,13 @@ def entropy_reduction_rate(h_start: float, h_end: float) -> float:
 
 
 def _run_unit_tests() -> bool:
-    """验证：
+    """验证（公式 A2）：
       1. 全部熵值 ∈ [0, 1]
-      2. 固化身份（全同）H_identity → 0；摇摆身份 H_identity 更高
+      2. 固化身份（全同，N=1）H_identity → 0.0；摇摆身份（N>1）H_identity > 0
       3. 空身份/叙事 → H = 1.0（未形成）
-      4. 下降率计算正确
+      4. 发散身份（N>N_MAX）H_identity → 1.0（clamped）
+      5. 下降率计算正确
+      6. wobbly[4 unique] = (4-1)/(20-1) = 3/19 ≈ 0.1579
     """
     ok = True
 
@@ -183,24 +210,46 @@ def _run_unit_tests() -> bool:
     vl = _VL({'safety': 0.8, 'creativity': -0.5, 'connection': 0.3,
               'autonomy': 0.0, 'justice': 0.6, 'compassion': -0.2})
 
-    # 固化身份（全同）vs 摇摆身份
+    # 固化身份（全同 N=1）vs 摇摆身份（N=5）vs 发散身份（N=25>N_MAX=20）
     stable = compute_self_entropy(vl, _IL(['探索者'] * 5), _NB(['叙事A'] * 5))
     wobbly = compute_self_entropy(vl, _IL(['A', 'B', 'C', 'D', 'E']),
                                   _NB(['n1', 'n2', 'n3', 'n4', 'n5']))
+    divergent = compute_self_entropy(
+        vl,
+        _IL([f'id_{i}' for i in range(25)]),
+        _NB([f'n_{i}' for i in range(25)]),
+    )
     unformed = compute_self_entropy(vl, None, None)
 
-    for res, name in [(stable, 'stable'), (wobbly, 'wobbly'), (unformed, 'unformed')]:
+    for res, name in [(stable, 'stable'), (wobbly, 'wobbly'),
+                      (divergent, 'divergent'), (unformed, 'unformed')]:
         for key in ('H_self', 'H_value', 'H_identity', 'H_narrative'):
             if not (0.0 <= res[key] <= 1.0):
                 print(f"FAIL: {name}.{key} out of [0,1]: {res[key]}")
                 ok = False
 
+    # 公式 A2: 5 unique → (5-1)/(20-1) = 4/19 ≈ 0.2105
+    expected_wobbly_id = 4 / 19
+    expected_wobbly_na = 4 / 19
+    if abs(wobbly['H_identity'] - expected_wobbly_id) > 1e-9:
+        print(f"FAIL: wobbly H_identity ({wobbly['H_identity']}) "
+              f"!= 4/19 ({expected_wobbly_id})")
+        ok = False
+    if abs(wobbly['H_narrative'] - expected_wobbly_na) > 1e-9:
+        print(f"FAIL: wobbly H_narrative ({wobbly['H_narrative']}) "
+              f"!= 4/19 ({expected_wobbly_na})")
+        ok = False
     if stable['H_identity'] >= wobbly['H_identity']:
         print(f"FAIL: stable H_identity ({stable['H_identity']}) "
               f"should be < wobbly ({wobbly['H_identity']})")
         ok = False
     if stable['H_identity'] != 0.0:
         print(f"FAIL: all-same identity should give H_identity=0, got {stable['H_identity']}")
+        ok = False
+    # 发散场景: 25 unique > N_MAX=20 → H_identity clamped to 1.0
+    if divergent['H_identity'] != 1.0:
+        print(f"FAIL: divergent (>N_MAX) H_identity should be 1.0, "
+              f"got {divergent['H_identity']}")
         ok = False
     if unformed['H_identity'] != 1.0 or unformed['H_narrative'] != 1.0:
         print("FAIL: unformed self should give H_identity=H_narrative=1.0")
