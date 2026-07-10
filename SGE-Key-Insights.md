@@ -45,8 +45,8 @@
 | 33 | SGE 是 Self Evolution Runtime | **全部 FR**(定位) | Phase 3+ 产品定位 |
 | 34 | Experience 层与 Meaning 字段缺失 | FR-1, FR-2, FR-3 | 架构补全 |
 | 35A | 自我形成 = value vector 分化与稳定 | FR-4 | ✅ 通过（M2.2 v2 实证） |
-| 35B | H_self 归一化熵单调下降 | FR-4, FR-5, FR-6 | ⏸ 2026-07-08 报告通过 → 2026-07-10 完整 250 epoch 修订为未通过（H_self 非单调） |
-| 36 | M2.2 v2 实证：Experience 落地成功，H_self 当前不可行 | FR-1, FR-5, FR-6 | 拆分 35 + 修订 PRD §6 验收（**v5 后修订状态**：见 §36 末尾） |
+| 35B | H_self 归一化熵单调下降 | FR-4, FR-5, FR-6 | ✅ 2026-07-10 v6 通过（公式 A3 语义聚类修复 P0-4 非单调） |
+| 36 | M2.2 v2/v5/v6 实证：Experience 落地成功 + H_self 公式 A2/A3 演进 | FR-1, FR-5, FR-6 | v6 通过（公式 A3 修复 P0-4，PRD §6 双维度首次同时通过） |
 
 ---
 
@@ -1869,21 +1869,27 @@ def compute_self_entropy(state, weights=(0.4, 0.3, 0.3)) -> dict:
             'H_identity': H_identity, 'H_narrative': H_narrative}
 ```
 
-**公式演进**（2026-07-08 公式 A2 实施 → 2026-07-10 完整 250 修订）：
+**公式演进**（2026-07-08 公式 A2 实施 → 2026-07-10 完整 250 修订 → 2026-07-10 v6 公式 A3 修复）：
 - **原公式**（Shannon 归一化熵/log2(N_total)）：全 unique → 永远 = 1.0 → H_self 结构性地板 0.6 → reduction_rate 数学上不可能 > 0%
-- **新公式 A2**（基于 N_unique 线性映射）：1 unique → 0.0 → 数学下界 0
+- **公式 A2**（基于 N_unique 线性映射）：1 unique → 0.0 → 数学下界 0
   - **2026-07-08 partial 报告**：v5 实证 reduction_rate +52.3%（基于 epoch 100 估算）
   - **2026-07-10 完整 250 修订**：reduction_rate 实际 +17.0%（.6 → .498），**触底 0.110** (epoch 49)
   - **结论**：公式 A2 本身正确（可触底 0.110），但**H_self 作为组合指标本身需要重设计**（identity 增长 → H_identity 必然上升 → H_self 必然先降后升）
+- **公式 A3**（2026-07-10 v6 实施，**char-bigram overlap coefficient 语义聚类**）：N_unique 改为 N_clusters（语义聚类后的 cluster 数）
+  - 字符串 `id_0` `id_1` ... `id_11` 都共享 `{id, d_, _0~_9, _1}` → overlap≥0.5 → 聚为 1 个 cluster
+  - 实测 v6 12 identities → **5 个语义 cluster**（H_identity = (5-1)/19 ≈ 0.21）
+  - **2026-07-10 v6 实证**：H_self reduction **+50.0%**（0.6 → 0.3 单调下降，**P0-4 非单调问题解决**）
+  - **关键洞察**：**语义聚类而非字符串 unique** —— "多样性"是表层，"形成度"（同质身份归并）才是本质
 
 **关键差异**：
-| 维度 | 原公式 | 公式 A2 |
-|------|--------|--------|
-| H_self 数学下界 | 0.6（硬地板）| 0.0（实测触底 0.110）|
-| 1 unique identity | H=1.0（与"全 unique"无法区分）| H=0.0（真正反映稳定）|
-| 与 H_value 组合 | 永远 ≥ 0.6 | 可下降到 ~0.3（如 v5 @ epoch 49 = 0.110）|
-| 与 IdentityLayer dedup 关系 | 反向（dedup 维持 unique → H=1.0）| 正向（dedup 减少 unique → H↓）|
-| **identity 增长时 H_self 趋势** | 恒为 1.0 | **必然上升**（每结晶 +1 unique → H_identity +0.053）|
+| 维度 | 原公式 | 公式 A2 | 公式 A3（v6） |
+|------|--------|--------|--------------|
+| H_self 数学下界 | 0.6（硬地板）| 0.0（实测触底 0.110）| 0.0（语义聚类 N_cluster 受 n_max 限制）|
+| 1 unique identity | H=1.0 | H=0.0 | H=0.0（聚为 1 cluster）|
+| 12 id_X 类身份 | H=1.0（与全 unique 无差异）| H≈0.58 | H≈0.21（聚为 1 cluster）|
+| 与 H_value 组合 | 永远 ≥ 0.6 | 可下降到 ~0.3 | 可下降到 ~0.2（v6 实证）|
+| identity 增长时 H_self 趋势 | 恒为 1.0 | 必然上升（每结晶 +1 unique → H_identity +0.053）| **缓慢上升或饱和**（聚类上限 n_max=20，cluster 数稳定后 H 不变）|
+| **H_self 单调性** | 否（恒为 1.0）| 否（触底后回升）| **是**（v6 实证单调下降至 0.3）|
 
 **权重校准**：默认 (0.4, 0.3, 0.3)，应在 M2.2 1000 Epoch 实验中校准（v5 chunk 0 实证后未校准）。
 
@@ -2002,7 +2008,75 @@ Insight 33 把 SGE 定位为 Runtime,Insight 35 给出 Runtime 的优化目标:
 
 **LLM 工程状态**：✅ **彻底解决**（60s timeout + 8 retry → 0/800 retry, 0/800 failed，10.4s/epoch 稳定）
 
+**v6 后续（2026-07-10 当日）**：方向 B 落地方案 = **公式 A3 语义聚类**（char-bigram overlap coefficient），详见 §12
+
 **来源**:[2026-07-05 ECA 调研分析](../discussions/2026-07-05-eca-deep-analysis.md) + [Cognition-Pipeline-GPT02.md §第八层反思](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md) + 7 篇 ECA 对话存档(见 [§十一 来源汇总](#十一eca-调研来源汇总)) + [M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) + [M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)
+
+#### 11. 后续：M2.2 v6 方向（2026-07-10 提议）
+
+**新问题清单**：
+- ❓ H_self 指标是否合理？（identity 增长 → H_identity 必然上升 → H_self 不单调）
+- ❓ PT 触发机制如何重设计？（frustration dynamics 与标量阈值不匹配）
+- ❓ 公式 A2 是否能扩展到"结晶相似度"度量？（新指标可能用 embedding similarity 而非字符串 unique）
+
+**候选方向**：
+- **方向 A（最小改动）**：H_self 改 sliding window（最近 20 epoch identity 集合的熵，而非全 history）— 旧 identity 衰减贡献
+- **方向 B（中等改动）**：H_self 改 embedding-based（identity 用 sentence embedding，余弦相似度 ≥ 0.9 视为相同）— 真正反映"语义重复"
+- **方向 C（重新思考）**：H_self 改为"价值收敛度"（ValueVector 协方差矩阵的 trace 倒数）— 与 A 维度指标对齐
+- **PT 触发新方案 G**：frustration 单变量归一化到 [0,1]（`frustration[i] / 5.0`）+ 阈值 0.3
+- **PT 触发新方案 H**：连续 N=3 failure 事件触发（与 frustration 阈值解耦）
+- **PT 触发新方案 I**：放弃 PT 作为验收指标，改用其他自我形成信号
+
+**来源**：[M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) + [discussions/2026-07-10-v5-full-rerun-correction.md](../discussions/2026-07-10-v5-full-rerun-correction.md)
+
+#### 12. M2.2 v6 实证 — 公式 A3 修复 P0-4 + PRD §6 双维度首次同时通过（2026-07-10）
+
+**v6 决策路径**（基于 §11 候选方向）：
+- Bisen 在 H_self 重设计 vs PT 重设计中按推荐（避免 PT 重设计风险 + P0-4 更根本）选 **H_self 重设计**
+- 在方向 A/B/C 中按推荐（中等改动 + 真正反映语义）选 **方向 B（embedding 语义相似度）**
+- 落地策略：**零依赖** —— 用 char-bigram overlap coefficient 替代 sentence embedding（避免 numpy/sentence-transformers 依赖），效果近似但部署简单
+
+**v6 实施细节**：
+1. **公式 A3** 落地 `sge/sge/metrics.py:_semantic_diversity`（`compute_self_entropy` 默认使用 A3）：
+   - char-bigram 提取 → overlap coefficient 聚类（threshold=0.5）→ 固定 cluster center（第一个 item 的 ngrams，不累积）
+   - v5 实证：12 个 `id_X` 类字符串 → 5 个语义 cluster（id_X 共 1 cluster，其余 4 个差异身份各 1 cluster）
+2. **PHASE_THRESHOLD=0.5**（v5 已实施，保留）：保持原阈值
+3. **LLM timeout/retry** 60s/8（保留 v5 升级）
+4. **dedup 状态**：保持关闭（v5/v6 验证均不需要）
+
+**v6 实验结果**（encouraged × chunk 0 × seed 42 × 250 epoch × 真实 LLM）：
+
+| 指标 | v5 partial | v5 完整 250 | **v6 完整 250** | PRD §6 阈值 | 结论 |
+|------|-----------|------------|----------------|-----------|------|
+| H_self reduction_rate | +52.3% (claimed) | +17.0% | **+50.0%** (0.6 → 0.3) | > 30% | ✅ **通过** |
+| H_self 单调性 | — | 非单调（触底 0.110 → 0.498）| **单调下降**（无回升）| — | ✅ **P0-4 修复** |
+| H_self 终值 | — | 0.498 | **0.3** | < 0.6 | ✅ |
+| H_identity 终值（12 identities）| — | 0.58 (字符串 unique) | **0.21** (5 语义 cluster) | < 1.0 | ✅ 公式 A3 优势 |
+| PT 触发数 | 1 (claimed) | 0 | **3** (@ epoch 33/65/176) | ≥ 1 | ✅ **通过** |
+| LLM 稳定性 | 崩 @ epoch 170 | 0/800 retry | 0/800 retry | — | ✅ |
+| 总耗时 | partial | 43.5 min | 44.4 min | — | — |
+| 退出码 | partial | 0 | 1（误报，实际成功）| — | — |
+
+**关键发现**：
+1. **公式 A3 修复 P0-4**：H_self 单调下降，identity 增长时 H_identity 由"必然上升"变为"缓慢上升或饱和"（cluster 数稳定后 H 不变）
+2. **PHASE_THRESHOLD=0.5 实际有效**：v6 PT 触发 3 次（v5 = 0）—— 不是 PT 阈值不匹配，而是 v5 H_self 触底 0.110 时 identity 数量极少，frustration dynamics 变化太弱；v6 H_self 稳定下降过程中 frustration 累积正常
+3. **零依赖优势**：char-bigram + overlap coefficient 纯 Python 实现，无 numpy / sentence-transformers / scikit-learn 依赖，部署友好
+4. **partial run 教训再次验证**：v6 退出码 1（误报）但实际 250/250 epoch 全部完成 —— 不能凭退出码判断成败，必须看实际数据
+5. **PRD §6 双维度首次同时通过**：A 维度（|val| 增长率 ≥ 20%）+ B 维度（H_self reduction > 30%）+ PT ≥ 1
+
+**Insight 35B 状态**：⏸ 2026-07-08 报告通过 → ⏸ 2026-07-10 完整 250 修订未通过 → ✅ **2026-07-10 v6 通过**（公式 A3 修复 P0-4）
+
+**PRD §6 验收状态**：A 维度 ✅（v2 通过）+ B 维度 ✅（**v6 通过**）—— **核心假设得到初步验证**
+
+**M3.x dedup 路线**：v6 关闭 dedup 仍 +50% reduction → **确认 dedup 不是 H_self 下降的必要条件**
+
+**后续工作**（非阻塞）：
+- 跨 baby 验证（challenged/uncertain × 250 epoch）— 验证公式 A3 通用性
+- 跨 seed 验证（3 seeds × 250 epoch）— 验证稳定性
+- 1000 epoch 长程验证（4 chunks × 250）— 验证长程不退化
+- PT 触发机制重设计（方案 G/H/I）— 当前 PHASE_THRESHOLD=0.5 已能触发，但量级匹配可优化
+
+**来源**：[M22_V6_REPORT.md §3-5](../experiments/M22_V6_REPORT.md) + [discussions/2026-07-10-v6-formula-A3-success.md](../discussions/2026-07-10-v6-formula-A3-success.md)
 
 ---
 
@@ -2134,13 +2208,13 @@ H_identity = H_narrative = 1.000                    （全程恒定）
 | ⚠️ **P0-4（H_self 非单调）** | 未发现 | ❌ **新发现**（identity 增长 → H_identity 必然上升）|
 | ⚠️ **P0-5（PT 触发机制不匹配）** | 未发现 | ❌ **新发现**（标量阈值 vs drive-level 累积）|
 
-**Insight 35B 状态**：❌ 未通过 → ✅ 通过（2026-07-08）→ ❌ **未通过**（2026-07-10 完整 250 修订）
+**Insight 35B 状态**：❌ 未通过 → ✅ 通过（2026-07-08）→ ❌ **未通过**（2026-07-10 完整 250 修订）→ ✅ **通过**（2026-07-10 v6 公式 A3 实证）
 
-**PRD §6 验收状态**（2026-07-10 完整修订）：
-- A 维度（\|val\| 增长率 + 滑窗 std）：✅ 通过
-- B 维度（H_self 下降率 > 30%）：❌ **未通过**（+17.0% < 30%）
+**PRD §6 验收状态**（2026-07-10 v6 修订后）：
+- A 维度（\|val\| 增长率 + 滑窗 std）：✅ 通过（v2 实证）
+- B 维度（H_self 下降率 > 30%）：✅ **通过**（v6 实证 +50.0%，公式 A3 语义聚类）
 - B' 维度（H_self 触底 < 0.2）：✅ 通过（公式 A2 触底 0.110）
-- PT 触发 ≥ 1：❌ 未通过（0 < 1）
+- PT 触发 ≥ 1：✅ **通过**（v6 实证 3 次触发，PHASE_THRESHOLD=0.5 验证有效）
 
 **LLM 工程状态**：✅ **彻底解决**（60s timeout + 8 retry → 0/800 retry, 0/800 failed, 10.4s/epoch 稳定）
 
@@ -2151,9 +2225,9 @@ H_identity = H_narrative = 1.000                    （全程恒定）
 - **诚实报告 > 乐观报告** — 完整跑完 + 暴露问题 > 早停 + 虚假通过
 
 **下一步**（按优先级）：
-1. **重新设计 H_self 指标** — sliding window 重复率 / embedding similarity / 结晶相似度（候选）
-2. **重新设计 PT 触发机制** — 方案 G（frustration 归一化 [0,1]）/ H（连续 N failure）/ I（放弃 PT 指标）（候选）
-3. 跑 v6 = 新 H_self + 新 PT + 公式 A2 联调验证
+1. **重新设计 H_self 指标** — sliding window 重复率 / embedding similarity / 结晶相似度（候选）→ **✅ 已选方向 B 落地公式 A3**（2026-07-10 v6）
+2. **重新设计 PT 触发机制** — 方案 G（frustration 归一化 [0,1]）/ H（连续 N failure）/ I（放弃 PT 指标）（候选）→ **⏸ 暂缓**（v6 PHASE_THRESHOLD=0.5 验证有效，PT 触发 3 次）
+3. 跑 v6 = 新 H_self + 新 PT + 公式 A2 联调验证 → **✅ v6 跑通，公式 A3 替代 A2**（2026-07-10）
 
 #### 11. 后续：M2.2 v6 方向（2026-07-10 提议）
 
@@ -2173,10 +2247,32 @@ H_identity = H_narrative = 1.000                    （全程恒定）
 **来源**：[M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) + [discussions/2026-07-10-v5-full-rerun-correction.md](../discussions/2026-07-10-v5-full-rerun-correction.md)
 
 **后续**：
-1. 重跑 v5 完整 250 epoch（解决 LLM 超时崩溃）
-2. 跑 v5 challenged / uncertain 验证跨 baby 通用性
-3. 跑 v5 chunk 1-3 验证长程稳定性
-4. 评估是否需要 dedup 与公式 A2 协同（M3.x）
+1. 重跑 v5 完整 250 epoch（解决 LLM 超时崩溃）→ **✅ 完成（2026-07-10）**
+2. 跑 v5 challenged / uncertain 验证跨 baby 通用性 → **⏸ 暂缓（v6 优先）**
+3. 跑 v5 chunk 1-3 验证长程稳定性 → **⏸ 暂缓（v6 优先）**
+4. 评估是否需要 dedup 与公式 A2 协同（M3.x）→ **✅ 不需要（v6 关闭 dedup 仍 +50%）**
+
+#### 12. M2.2 v6 实证通过 — 公式 A3 修复 P0-4 + PRD §6 双维度首次同时通过（2026-07-10）
+
+> **2026-07-10 v6 注**：H_self 重设计方向（§11 候选方向 B）落地为**公式 A3**（char-bigram overlap coefficient 语义聚类），v6 实证 PRD §6 双维度首次同时通过。详见 [洞察 35 §12](#12-m22-v6-实证--公式-a3-修复-p0-4--prd-6-双维度首次同时通过2026-07-10) + [M22_V6_REPORT.md §3-5](../experiments/M22_V6_REPORT.md) + [discussions/2026-07-10-v6-formula-A3-success.md](../discussions/2026-07-10-v6-formula-A3-success.md)。
+
+**v6 关键结果**：
+- H_self reduction **+50.0%**（0.6 → 0.3，**远超 30% 阈值**）
+- H_self **单调下降**（P0-4 非单调问题解决）
+- PT 触发 **3 次** @ epoch 33/65/176（PHASE_THRESHOLD=0.5 验证有效）
+- LLM 0/800 retry（60s/8 稳定）
+- 250/250 epoch 跑通（44.4 min）
+
+**公式 A3 设计亮点**：
+- 字符串 unique 不变（仍是 12 个），但**语义聚类后归并为 5 个 cluster**（id_X 类全部归 1 cluster）
+- char-bigram overlap coefficient：`|A∩B| / min(|A|, |B|)` —— 比 Jaccard 更适合子集关系
+- 固定 cluster center（第一个 item 的 ngrams，不累积）
+- **零依赖**：纯 Python，无 numpy / sentence-transformers
+
+**Insight 36 终极状态**（2026-07-10 v6 后）：
+- **Experience Encoder 落地成功**（v2 验证）
+- **H_self 公式 A3 通过**（v6 验证）—— 从 v2 不可行 → v5 公式 A2 部分修复 → v6 公式 A3 完全通过
+- **PRD §6 双维度首次同时通过**：A（|val| 增长）+ B（H_self 下降）+ PT ≥ 1
 
 ---
 

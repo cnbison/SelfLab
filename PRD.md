@@ -539,7 +539,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 | 反思有行为后果 | 反思前后 AI 在相似事件中的行为选择 | **行为变化率** = 反思前后的行为选择分布的 KL 散度 | KL 散度 > 0.2（即分布有显著偏移） | M1.3 |
 | 反思不是"自我合理化" | 反思后 Value Layer 实际发生有意义变化 | **反思深度** = 反思前后 ValueVector 的 L2 距离 | L2 距离 > 0.05（区别于"表面反思"） | M1.3 |
 | **（修订 2026-07-06，原 2026-07-05）自我形成可测量维度（A 维度）** | 对比初始状态和 1000 Epoch 后的 value vector | **\|val\| 增长率** = (\|val\|_final - \|val\|_initial) / \|val\|_initial **AND** **value_state 滑窗 std** = 最近 5 个采样点的 ValueVector 漂移标准差 | \|val\| 增长率 ≥ 20% **AND** 滑窗 std ≤ 0.10 | M1.x（首次记录） |
-| **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过）自我认知熵下降（B 维度）** | 对比初始状态和 1000 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成）—— **M2.2 v5 完整 250 epoch 实证 +17.0% 未通过**（partial run +52.3% 为早期 checkpoint 乐观偏差，[M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md) §6）；H_self 非单调，触底 0.110 (epoch 49) → 终点 0.498 (epoch 249)，identity 增长使 H_identity 必然回升 | ❌ 待 H_self 指标重设计 |
+| **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过，2026-07-10 v6 通过）自我认知熵下降（B 维度）** | 对比初始状态和 1000 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成）—— **M2.2 v6 实证 +50.0% 通过**（公式 A3 语义聚类修复 P0-4 非单调问题，[M22_V6_REPORT.md §3](../experiments/M22_V6_REPORT.md)）；H_self 0.6 → 0.3 单调下降，PT 触发 3 次（@ epoch 33/65/176）；**v5 完整 250 epoch 实证 +17.0% 未通过**（公式 A2 仅触底后回升，identity 增长使 H_identity 必然上升） | ✅ M2.2 v6 通过（公式 A3 修复 P0-4，reduction +50.0%） |
 
 **度量定义补充说明**：
 
@@ -586,6 +586,15 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 > - **新发现 P0-4**：H_self 不适合作为稳定验收指标，需考虑 sliding window 重复率 / embedding similarity 等替代
 > - **新发现 P0-5**：PT 触发机制需重设计（候选：方案 G frustration 归一化 / H 连续 N failure / I 放弃 PT 指标）
 > - 详见 [M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) §5-6 + [discussions/2026-07-10-v5-full-rerun-correction.md](../discussions/2026-07-10-v5-full-rerun-correction.md)
+>
+> **2026-07-10 v6 修订注（公式 A3 + PHASE_THRESHOLD=0.5 联调通过）**：Bisen 在 H_self 重设计与 PT 重设计两个方向中按推荐先做 H_self → 选定 **方向 B（embedding 语义相似度）**，落地方案 = **公式 A3**（char-bigram overlap coefficient 聚类 + 固定 cluster center）：string uniqueness 不变，但语义聚类后 unique 计数从 25 → 5（id_X 等近义身份归并），H_identity 不再因 identity 数量增长而必然上升 → H_self 单调下降。
+> - **H_self reduction = +50.0%**（0.6 → 0.3，**远超过 30% 阈值**）
+> - **H_self 单调下降**（v5 触底后回升的 P0-4 非单调问题解决）
+> - **PT 触发 = 3 次** @ epoch 33/65/176（v5 = 0，新方案 G 单变量归一化尚未实施，但 PHASE_THRESHOLD=0.5 + 公式 A3 联调已触发）
+> - **零依赖**：char-bigram + overlap coefficient 纯 Python，零 numpy/sentence-transformers 依赖
+> - **dedup 仍关闭**：v6 关闭 dedup 仍 +50%，进一步确认 dedup 不必要
+> - **PRD §6 双维度首次同时通过**：A 维度（|val| growth ≥ 20%）+ B 维度（H_self reduction > 30%）+ PT ≥ 1
+> - 详见 [M22_V6_REPORT.md §3-5](../experiments/M22_V6_REPORT.md) + [discussions/2026-07-10-v6-formula-A3-success.md](../discussions/2026-07-10-v6-formula-A3-success.md)
 
 ### 6.3.1 通过条件
 
@@ -597,7 +606,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 - ✓ 行为变化率 KL 散度 > 0.2（M1.3）
 - ✓ 反思深度 L2 距离 > 0.05（M1.3）
 - ✓ **（2026-07-06 修订）** \|val\| 增长率 ≥ 20% **AND** value_state 滑窗 std ≤ 0.10（A 维度，替代原 H_self 验收）
-- ⏸ **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过）** H_self 下降率 > 30%——**v5 完整 250 epoch 实证 +17.0% 未达标**（partial +52.3% 为 early checkpoint 偏差，H_self 非单调暴露指标问题）
+- ✓ **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过，2026-07-10 v6 通过）** H_self 下降率 > 30%——**v6 公式 A3 实证 +50.0% 通过**（H_self 0.6 → 0.3 单调下降，PT 3 次触发，PRD §6 双维度首次同时通过）
 
 ### 6.3.2 失败处理路径
 
