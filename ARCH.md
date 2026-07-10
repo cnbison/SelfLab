@@ -264,7 +264,7 @@ Event → Memory → Reflection → Value → Identity → Narrative
 
 当前 SGE 仅实现了 Phase Transition（洞察 14），更细粒度的 Reverse Rewrite 是 M3.x 演进方向。
 
-### 1.8.2 Cognitive Entropy：自我形成的统一目标函数（公式 A2，2026-07-08 修订）
+### 1.8.2 Cognitive Entropy：自我形成的统一目标函数（公式 A2，2026-07-08 修订 / 2026-07-10 完整 250 修订）
 
 ECA 调研提出：
 
@@ -299,9 +299,18 @@ def compute_self_entropy(state, weights=(0.4, 0.3, 0.3)) -> dict:
 
 **Self Evolution Runtime = 持续运行 + 持续降低 H_self**——这是 SGE 与"普通 Memory Framework"的根本区别（后者只存储，不优化）。
 
-**配套修复（2026-07-08）**：
+**配套修复（2026-07-08 partial 报告 → 2026-07-10 完整 250 修订）**：
 - **PHASE_THRESHOLD** 2.0 → 0.5（`sge/sge/baseline.py:154`）：Monte Carlo 验证 mean PT/250ep = 2.5
-- 详见 [M22_H_SELF_DIAGNOSIS.md §3-4](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md) + [M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md)
+  - **2026-07-10 完整 250 修订**：实测 PT 触发数 = 0，**Monte Carlo 预测与实测偏差**（frustration dynamics 与标量阈值量级不匹配）
+  - **状态**：PT 触发机制**仍需重设计**（候选：方案 G frustration 归一化 / H 连续 N failure / I 放弃 PT 指标）
+- **LLM timeout 升级**（2026-07-10）：30→60s, retry 5→8（`sge/sge/llm_client.py:158 + 210`）→ 0/800 retry 完美稳定
+- 详见 [M22_H_SELF_DIAGNOSIS.md §3-4](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md) + [M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md)
+
+**H_self 指标状态**（2026-07-10 完整 250 修订）：
+- 公式 A2 本身正确：H_self 可触底 0.110（实测 epoch 49）
+- **H_self 作为组合指标本身非单调**：identity 每结晶 +1 unique → H_identity 必然上升 → H_self 必然先降后升
+- 完整 250 epoch 实测：H_self 0.600 → 触底 0.110 (epoch 49) → 回升 0.498 (epoch 249)，**reduction_rate +17.0% 未达 30% 阈值**
+- **未来方向**：H_self 作为统一度量的"持续降低"目标在 identity 增长场景下数学上不可达 — 需重新设计指标（如 sliding window 重复率 / embedding similarity）
 
 ### 1.8.3 H_self 与现有指标的关系
 

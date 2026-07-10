@@ -45,7 +45,7 @@
 | 33 | SGE 是 Self Evolution Runtime | **全部 FR**(定位) | Phase 3+ 产品定位 |
 | 34 | Experience 层与 Meaning 字段缺失 | FR-1, FR-2, FR-3 | 架构补全 |
 | 35A | 自我形成 = value vector 分化与稳定 | FR-4 | ✅ 通过（M2.2 v2 实证） |
-| 35B | H_self 归一化熵单调下降 | FR-4, FR-5, FR-6 | ✅ 通过（公式 A2 + PT 0.5，v5 实证） |
+| 35B | H_self 归一化熵单调下降 | FR-4, FR-5, FR-6 | ⏸ 2026-07-08 报告通过 → 2026-07-10 完整 250 epoch 修订为未通过（H_self 非单调） |
 | 36 | M2.2 v2 实证：Experience 落地成功，H_self 当前不可行 | FR-1, FR-5, FR-6 | 拆分 35 + 修订 PRD §6 验收（**v5 后修订状态**：见 §36 末尾） |
 
 ---
@@ -1869,19 +1869,23 @@ def compute_self_entropy(state, weights=(0.4, 0.3, 0.3)) -> dict:
             'H_identity': H_identity, 'H_narrative': H_narrative}
 ```
 
-**公式演进**（2026-07-08）：
+**公式演进**（2026-07-08 公式 A2 实施 → 2026-07-10 完整 250 修订）：
 - **原公式**（Shannon 归一化熵/log2(N_total)）：全 unique → 永远 = 1.0 → H_self 结构性地板 0.6 → reduction_rate 数学上不可能 > 0%
-- **新公式 A2**（基于 N_unique 线性映射）：1 unique → 0.0 → 数学下界 0 → v5 实证 reduction_rate +52.3%
+- **新公式 A2**（基于 N_unique 线性映射）：1 unique → 0.0 → 数学下界 0
+  - **2026-07-08 partial 报告**：v5 实证 reduction_rate +52.3%（基于 epoch 100 估算）
+  - **2026-07-10 完整 250 修订**：reduction_rate 实际 +17.0%（.6 → .498），**触底 0.110** (epoch 49)
+  - **结论**：公式 A2 本身正确（可触底 0.110），但**H_self 作为组合指标本身需要重设计**（identity 增长 → H_identity 必然上升 → H_self 必然先降后升）
 
 **关键差异**：
 | 维度 | 原公式 | 公式 A2 |
 |------|--------|--------|
-| H_self 数学下界 | 0.6（硬地板）| 0.0 |
+| H_self 数学下界 | 0.6（硬地板）| 0.0（实测触底 0.110）|
 | 1 unique identity | H=1.0（与"全 unique"无法区分）| H=0.0（真正反映稳定）|
-| 与 H_value 组合 | 永远 ≥ 0.6 | 可下降到 ~0.3（如 v5 @ epoch 100）|
+| 与 H_value 组合 | 永远 ≥ 0.6 | 可下降到 ~0.3（如 v5 @ epoch 49 = 0.110）|
 | 与 IdentityLayer dedup 关系 | 反向（dedup 维持 unique → H=1.0）| 正向（dedup 减少 unique → H↓）|
+| **identity 增长时 H_self 趋势** | 恒为 1.0 | **必然上升**（每结晶 +1 unique → H_identity +0.053）|
 
-**权重校准**：默认 (0.4, 0.3, 0.3)，应在 M2.2 1000 Epoch 实验中校准。
+**权重校准**：默认 (0.4, 0.3, 0.3)，应在 M2.2 1000 Epoch 实验中校准（v5 chunk 0 实证后未校准）。
 
 #### 5. 与已有洞察的关系
 
@@ -1945,50 +1949,72 @@ Insight 33 把 SGE 定位为 Runtime,Insight 35 给出 Runtime 的优化目标:
 - **A 维度（已实现可验收）**：\|val\| 增长率 + 滑窗稳定性 → 取代 PRD §6 原"H_self 下降率"作为现阶段验收指标
 - **B 维度（M3.x 待实现）**：IdentityLayer 加去重 / 滑窗 H_self → 待修订后再验收
 
-#### 10. M2.2 v5 实证修订（2026-07-08）
+#### 10. M2.2 v5 实证修订（2026-07-08 partial → 2026-07-10 完整修订为未通过）
 
-**注**：2026-07-08 v5 联调实验中，公式 A2 + PHASE_THRESHOLD=0.5 联调**首次实证 35B 通过**。详见 [M22_V5_REPORT.md §3](../experiments/M22_V5_REPORT.md) + [M22_H_SELF_DIAGNOSIS.md](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md)。
+**2026-07-08 注（partial run, LLM 崩于 epoch 170）**：v5 联调实验（公式 A2 + PHASE_THRESHOLD=0.5）**首次报告 35B 通过**（H_self +52.3%, PT 1 @ epoch 87）。详见 [M22_V5_REPORT.md 2026-07-08 版](../experiments/M22_V5_REPORT.md) + [M22_H_SELF_DIAGNOSIS.md](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md)。
 
 **修复组合**：
 1. **公式 A2**：`sge/sge/metrics.py:_sequence_entropy_normalized` 重写为基于 N_unique 线性映射（见 §4）
 2. **PT 阈值**：`sge/sge/baseline.py:154` PHASE_THRESHOLD 2.0 → 0.5（Monte Carlo 验证 mean PT/250ep = 2.5）
+3. **LLM timeout 升级**（2026-07-10）：timeout 30→60s, retry 5→8（`sge/sge/llm_client.py`）
 
-**v5 联调结果**（encouraged × chunk 0 = 100 epoch 数据，partial）：
+**v5 完整 250 epoch 重跑结果**（2026-07-10）：
 
-| 指标 | v2/v3/v4（旧） | **v5（新）** | PRD §6 要求 | 结论 |
-|------|-------------|------------|------------|------|
-| **H_self reduction_rate** | -18.4% (反向上升) | **+52.3%** | > 30% | ✅ **首次达成** |
-| **Phase Transition 触发数** | 0 | **1** @ epoch 87 | ≥ 1 | ✅ **首次达成** |
-| **H_self 数学下界** | 0.6（硬地板）| **~0.0**（公式 A2）| — | ✅ 突破地板 |
+| 指标 | v2/v3/v4（旧） | **v5 partial 报告** | **v5 完整 250 epoch** | 结论 |
+|------|-------------|------------------|---------------------|------|
+| **H_self reduction_rate** | -18.4% | +52.3% (claimed) | **+17.0%** (.6 → .498) | ❌ 未达 30% |
+| **H_self 触底 reduction** | -18.4% | — | **+81.7%** (epoch 49: .6 → .110) | ✅ 公式 A2 有效 |
+| **H_self 单调性** | 单调上升 | — | **非单调**（epoch 49 触底后回升） | ❌ 暴露新问题 |
+| **PT 触发数** (250 epoch) | 0 | 1 (claimed) | **0** | ❌ 未修复 |
+| **LLM 稳定性** (800 calls) | 0/800 retry | — | **0/800 retry** (60s/8) | ✅ timeout 升级完美 |
 
-**根因诊断**（[M22_H_SELF_DIAGNOSIS.md §3-4](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md)）：
-- **P0-1**（H_self 数学下界 0.6）：归一化基准 log2(N_total) → 全 unique → 永远 1.0
-- **P0-3**（PT 触发几乎不可能）：`_frustration` 在 success-heavy 流下净衰减 -22.4/250ep，永远 < 2.0
+**v5 partial 报告的乐观偏差**（2026-07-10 修订注）：
+- 之前 +52.3% reduction + PT 1 次触发是**基于 epoch 100 checkpoint 估算的乐观偏差**
+- 完整 250 epoch 显示 H_self 触底 0.110（epoch 49）后回升至 0.498（epoch 249）
+- 公式 A2 在 identity 少时 H_identity 接近 0，但**identity 每结晶 +1 → H_identity 必然上升**（H_self 反映"多样性"，非"形成度"）
+- PT 0 触发原因：frustration dynamics（drive-level [0,5] 累积）与标量 PHASE_THRESHOLD=0.5 **量级不匹配**
+
+**公式 A2 本身正确**：H_self 可触底 0.110（突破原 Shannon 公式 0.6 地板）—— 公式本身不是 bug，**H_self 作为组合指标本身需要重设计**。
+
+**根因诊断**（[M22_H_SELF_DIAGNOSIS.md §3-4](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md) + 2026-07-10 扩展）：
+- **P0-1**（H_self 数学下界 0.6）：归一化基准 log2(N_total) → 全 unique → 永远 1.0 → ✅ **公式 A2 修复**
+- **P0-3**（PT 触发几乎不可能）：`_frustration` 在 success-heavy 流下净衰减 -22.4/250ep，永远 < 2.0 → ❌ **阈值 0.5 仍不触发，需重设计触发机制**
 - **P0-2**（dedup 与 H_identity 互相抵消）：被公式 A2 隐式解决（公式直接基于 N_unique 而非 history 结构）
+- ⚠️ **P0-4（H_self 非单调）**：identity 增长 → H_identity 必然回升 → H_self 必然先降后升 → H_self 不是稳定指标
+- ⚠️ **P0-5（PT 触发机制不匹配）**：标量阈值 vs drive-level 累积 frustration 量级不匹配 → 需重设计
 
-**子命题状态更新**（2026-07-08）：
+**子命题状态更新**（2026-07-10 修订）：
 
-| 子命题 | 验证方法 | v5 结果 | 状态 |
-|--------|---------|---------|------|
+| 子命题 | 验证方法 | v5 完整结果 | 状态 |
+|--------|---------|------------|------|
 | **35A**：自我形成 = value vector 分化与稳定 | \|val\| 增长率 + 滑窗 std | \|val\| +43%, std≈0.06 | ✅ **通过**（保持） |
-| **35B**：H_self 单调下降 | reduction_rate 公式 A2 + PT 0.5 | 0.600→~0.29 (+52.3%) | ✅ **通过**（2026-07-08 升级） |
+| **35B**：H_self 单调下降 | reduction_rate 公式 A2 + PT 0.5 | 0.600→0.498 (+17.0%) | ❌ **未通过**（2026-07-10 修订） |
+| **35B'**：H_self 可触达近 0 | min(H_self) over 250 epoch | 0.110 (epoch 49) | ✅ 公式 A2 有效 |
+| **新发现 P0-4**：H_self 非单调 | 演化曲线分析 | 触底后回升 | ⚠️ 指标需重设计 |
+| **新发现 P0-5**：PT 触发机制不匹配 | frustration dynamics 分析 | 0.5 vs 9.5 量级不匹配 | ⚠️ 机制需重设计 |
 
-**修订后的 SGE 自我形成度量框架**（2026-07-08）：
+**修订后的 SGE 自我形成度量框架**（2026-07-10）：
 - **A 维度**（\|val\| 增长率 + 滑窗稳定性）：✅ 通过
-- **B 维度**（H_self 下降率 > 30%）：✅ 通过（公式 A2 + PT 0.5 联调达成）
-- **M3.x dedup 路线**：原作为 H_self 下降的必要条件；公式 A2 实施后 **dedup 不再必需**（v5 关闭 dedup 仍达成目标）
+- **B 维度**（H_self 下降率 > 30%）：❌ **未通过**（H_self 非单调，指标本身待重设计）
+- **B' 维度（H_self 触底）**：✅ 通过（公式 A2 允许触底 0.110）
+- **B'' 维度（候选新指标）**：待评估 — sliding window 重复率 / embedding similarity / 结晶相似度
+- **M3.x dedup 路线**：v5 关闭 dedup 仍 +17% reduction → dedup **不是 H_self 下降的必要条件**（可继续评估但不再紧急）
 
-**来源**:[2026-07-05 ECA 调研分析](../discussions/2026-07-05-eca-deep-analysis.md) + [Cognition-Pipeline-GPT02.md §第八层反思](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md) + 7 篇 ECA 对话存档(见 [§十一 来源汇总](#十一eca-调研来源汇总)) + [M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)
+**LLM 工程状态**：✅ **彻底解决**（60s timeout + 8 retry → 0/800 retry, 0/800 failed，10.4s/epoch 稳定）
+
+**来源**:[2026-07-05 ECA 调研分析](../discussions/2026-07-05-eca-deep-analysis.md) + [Cognition-Pipeline-GPT02.md §第八层反思](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md) + 7 篇 ECA 对话存档(见 [§十一 来源汇总](#十一eca-调研来源汇总)) + [M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) + [M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)
 
 ---
 
-## 洞察 36：M2.2 v2/v5 实证 — Experience 落地成功 + H_self 公式 A2 修复后通过（2026-07-06 / 2026-07-08 修订）
+## 洞察 36：M2.2 v2/v5 实证 — Experience 落地成功 + H_self 公式 A2 修复后通过（2026-07-06 / 2026-07-08 修订 / 2026-07-10 完整 250 修订）
 
 > **对应 FR**：FR-1（Event Generator + Experience Encoder）、FR-5（Identity Layer）、FR-6（Narrative Layer）。本洞察基于 M2.2 v2/v3/v4/v5 实证，给出 SGE 自我形成度量的可验证结论。
 >
 > **2026-07-08 修订**：原"H_self 当前不可行"状态在 v5 联调实验中通过公式 A2 修复实证成功（详见 §10）。
+>
+> **2026-07-10 完整 250 epoch 修订**：v5 报告 +52.3% 是 partial run (epoch 0-170) 估算，**完整 250 epoch 重跑后 H_self reduction 实际为 +17.0%（未达 30% 阈值）**，**H_self 非单调**（触底 0.110 epoch 49 → 回升 0.498 epoch 249），**PT 触发仍 0 次**。公式 A2 本身正确（可触底 0.110），但 **H_self 作为组合指标本身需要重设计**。详见 §10 + §11。
 
-**一句话**：在 1000 epoch 真实 LLM 下，**Experience Encoder（洞察 34）生成的第一人称 meaning 质量优秀**（24 个样本全部 first-person 哲学反思）；**H_self（洞察 35）的原始公式无法通过 30% 下降率验收**（v2 实证）——根因是 IdentityLayer crystallize 每次重新生成身份（47/47 唯一），导致 H_identity=1.0 恒定；**v5 用公式 A2 修复后达成 +52.3% 下降率 + PT 触发 1 次**（2026-07-08）。
+**一句话**：在 1000 epoch 真实 LLM 下，**Experience Encoder（洞察 34）生成的第一人称 meaning 质量优秀**（24 个样本全部 first-person 哲学反思）；**H_self（洞察 35）的原始公式无法通过 30% 下降率验收**（v2 实证）——根因是 IdentityLayer crystallize 每次重新生成身份（47/47 唯一），导致 H_identity=1.0 恒定；**v5 partial 报告 +52.3% 下降率 + PT 1 次触发**（2026-07-08），**完整 250 epoch 重跑修订为 +17.0% 下降 + PT 0 次触发**（2026-07-10，H_self 非单调暴露组合指标问题）。
 
 ### 完整论证
 
@@ -2068,33 +2094,83 @@ H_identity = H_narrative = 1.000                    （全程恒定）
 
 **来源**：[M22_V2_EXPH_SELF_REPORT.md](../experiments/M22_V2_EXPH_SELF_REPORT.md) + [discussions/2026-07-05-architecture-landing.md](../discussions/2026-07-05-architecture-landing.md)
 
-#### 10. v5 联调实证（2026-07-08，状态升级）
+#### 10. v5 联调实证（2026-07-08 partial → 2026-07-10 完整 250 epoch 修订）
 
-**v5 实施**：公式 A2（[洞察 35 §4](#4-h_self-的具体计算公式-a22026-07-08-修订)）+ PHASE_THRESHOLD=0.5（baseline.py:154）。详见 [M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md) + [M22_H_SELF_DIAGNOSIS.md](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md)。
+**v5 实施**：公式 A2（[洞察 35 §4](#4-h_self-的具体计算公式-a22026-07-08-修订)）+ PHASE_THRESHOLD=0.5（baseline.py:154）+ LLM timeout 30→60s, retry 5→8（llm_client.py, 2026-07-10）。详见 [M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) + [M22_H_SELF_DIAGNOSIS.md](../research/sge-feasibility/M22_H_SELF_DIAGNOSIS.md)。
 
-**v5 实测**（encouraged chunk 0 partial, epoch 100 checkpoint + epoch 87 PT）：
+**v5 partial 报告**（2026-07-08, LLM 崩于 epoch 170, epoch 100 checkpoint）：
 
-| 指标 | v2/v3/v4（旧）| **v5（新）** | 结论 |
-|------|-------------|------------|------|
+| 指标 | v2/v3/v4（旧）| **v5 partial** | 结论（当时） |
+|------|-------------|------------|------------|
 | H_self 起点 | 0.600 | 0.600 | — |
 | H_self @ epoch 100 | 0.711 (上升) | **~0.29** | ✅ 显著下降 |
-| **H_self reduction_rate** | -18.4% | **+52.3%** | ✅ **PRD §6 通过** |
-| **PT 触发数** | 0 | **1** @ epoch 87 | ✅ **PRD §6 通过** |
+| **H_self reduction_rate** | -18.4% | **+52.3%** (claimed) | ✅ **报告通过** |
+| **PT 触发数** | 0 | **1** @ epoch 87 (claimed) | ✅ **报告通过** |
 | dedup 启用？ | v3/v4 启用 | **关闭** | dedup 非必需 |
 
-**根因修复**：
+**v5 完整 250 epoch 重跑**（2026-07-10, 60s timeout + 8 retry 完美 0/800 retry）：
 
-| 问题 | 根因 | 修复 |
-|------|------|------|
-| **P0-1**（H_self 数学下界 0.6）| 归一化基准 log2(N_total) → 全 unique → 永远 1.0 | 公式 A2：N_unique 线性映射，下界 = 0 |
-| **P0-2**（dedup 与 H_identity 互相抵消）| dedup 让 history 全 unique → H_identity=1.0 | 公式 A2 直接基于 N_unique → dedup 不再需要 |
-| **P0-3**（PT 触发几乎不可能）| `_frustration` 在 success-heavy 流下净衰减 | PHASE_THRESHOLD 2.0 → 0.5（Monte Carlo 验证 mean PT = 2.5/250ep）|
+| 指标 | **v5 完整 250 epoch** | 修订 |
+|------|---------------------|------|
+| H_self 起点 | 0.600 | — |
+| H_self 触底 (epoch 49) | **0.110** | ✅ 公式 A2 有效（突破 0.6 地板）|
+| H_self 终点 (epoch 249) | 0.498 | ⚠️ 回升 |
+| **H_self reduction_rate** | **+17.0%** | ❌ **未达 30% 阈值** |
+| **PT 触发数** | **0** | ❌ **未修复** |
+| 完整跑通？ | ✅ 250/250 epoch | ✅ timeout 升级生效 |
 
-**Insight 35B 状态升级**：❌ 未通过 → ✅ **通过**（2026-07-08）
+**关键发现**（2026-07-10 修订）：
+1. **H_self 不是单调指标** — 公式 A2 在 identity 少时 H_identity 接近 0，但**identity 每结晶 +1 → H_identity 必然上升**（H_self 反映"多样性"，非"形成度"）。epoch 49 触底 0.110 → epoch 249 回升 0.498
+2. **PT 阈值 0.5 仍不够** — frustration dynamics（drive-level [0,5] 累积）与标量 PHASE_THRESHOLD=0.5 **量级不匹配**。Monte Carlo 模型预测偏差
+3. **公式 A2 本身正确** — 触底 0.110 证明下界 = 0 可达。问题在 H_self 组合指标本身
 
-**PRD §6 验收状态**（2026-07-08）：
+**根因修复**（partial 报告 → 完整 250 修订）：
+
+| 问题 | partial 报告结论 | 完整 250 修订 |
+|------|----------------|--------------|
+| **P0-1**（H_self 数学下界 0.6）| ✅ 公式 A2 修复 | ✅ **保持**（可触底 0.110）|
+| **P0-2**（dedup 与 H_identity 互相抵消）| ✅ 公式 A2 隐式解决 | ✅ **保持** |
+| **P0-3**（PT 触发几乎不可能）| ✅ 阈值 0.5 修复 | ❌ **未修复**（0 触发，需重设计机制）|
+| ⚠️ **P0-4（H_self 非单调）** | 未发现 | ❌ **新发现**（identity 增长 → H_identity 必然上升）|
+| ⚠️ **P0-5（PT 触发机制不匹配）** | 未发现 | ❌ **新发现**（标量阈值 vs drive-level 累积）|
+
+**Insight 35B 状态**：❌ 未通过 → ✅ 通过（2026-07-08）→ ❌ **未通过**（2026-07-10 完整 250 修订）
+
+**PRD §6 验收状态**（2026-07-10 完整修订）：
 - A 维度（\|val\| 增长率 + 滑窗 std）：✅ 通过
-- B 维度（H_self 下降率 > 30%）：✅ 通过（公式 A2 + PT 0.5）
+- B 维度（H_self 下降率 > 30%）：❌ **未通过**（+17.0% < 30%）
+- B' 维度（H_self 触底 < 0.2）：✅ 通过（公式 A2 触底 0.110）
+- PT 触发 ≥ 1：❌ 未通过（0 < 1）
+
+**LLM 工程状态**：✅ **彻底解决**（60s timeout + 8 retry → 0/800 retry, 0/800 failed, 10.4s/epoch 稳定）
+
+**partial run 报告的乐观偏差教训**：
+- epoch 100 checkpoint 看起来 H_self 0.205（很好），但 epoch 49 触底 0.110 才是真实低点
+- "early checkpoint 看起来好" ≠ "最终结果好"
+- 250 epoch 是最低标准，**1000 epoch 才能验证长程**
+- **诚实报告 > 乐观报告** — 完整跑完 + 暴露问题 > 早停 + 虚假通过
+
+**下一步**（按优先级）：
+1. **重新设计 H_self 指标** — sliding window 重复率 / embedding similarity / 结晶相似度（候选）
+2. **重新设计 PT 触发机制** — 方案 G（frustration 归一化 [0,1]）/ H（连续 N failure）/ I（放弃 PT 指标）（候选）
+3. 跑 v6 = 新 H_self + 新 PT + 公式 A2 联调验证
+
+#### 11. 后续：M2.2 v6 方向（2026-07-10 提议）
+
+**新问题清单**：
+- ❓ H_self 指标是否合理？（identity 增长 → H_identity 必然上升 → H_self 不单调）
+- ❓ PT 触发机制如何重设计？（frustration dynamics 与标量阈值不匹配）
+- ❓ 公式 A2 是否能扩展到"结晶相似度"度量？（新指标可能用 embedding similarity 而非字符串 unique）
+
+**候选方向**：
+- **方向 A（最小改动）**：H_self 改 sliding window（最近 20 epoch identity 集合的熵，而非全 history）— 旧 identity 衰减贡献
+- **方向 B（中等改动）**：H_self 改 embedding-based（identity 用 sentence embedding，余弦相似度 ≥ 0.9 视为相同）— 真正反映"语义重复"
+- **方向 C（重新思考）**：H_self 改为"价值收敛度"（ValueVector 协方差矩阵的 trace 倒数）— 与 A 维度指标对齐
+- **PT 触发新方案 G**：frustration 单变量归一化到 [0,1]（`frustration[i] / 5.0`）+ 阈值 0.3
+- **PT 触发新方案 H**：连续 N=3 failure 事件触发（与 frustration 阈值解耦）
+- **PT 触发新方案 I**：放弃 PT 作为验收指标，改用其他自我形成信号
+
+**来源**：[M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) + [discussions/2026-07-10-v5-full-rerun-correction.md](../discussions/2026-07-10-v5-full-rerun-correction.md)
 
 **后续**：
 1. 重跑 v5 完整 250 epoch（解决 LLM 超时崩溃）

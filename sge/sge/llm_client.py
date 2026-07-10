@@ -155,7 +155,7 @@ class SGELLMClient:
         temperature: Optional[float] = None,
         max_tokens: int = 1024,
         response_format: Optional[dict] = None,
-        timeout: float = 30.0,  # M2.2 修复 E4 hang：explicit socket timeout (default 30s)
+        timeout: float = 60.0,  # M2.2 v5 重跑：从 30 提至 60（partial run 因连续 4 次 30s 超时崩 @ epoch ~170）
     ) -> str:
         """调用 LLM 并返回 response 内容
 
@@ -207,7 +207,7 @@ class SGELLMClient:
             litellm.APIError,  # M2.2 修复：catch-all 包括 httpx-level errors
         )
 
-        max_retries = 5  # M2.2 提升：server 持续不稳定时 3 次不够（pilot v2 crashed）
+        max_retries = 8  # M2.2 v5 重跑：5 → 8（server 持续不稳定时 5 次不够，partial v5 崩 @ epoch 170）
         base_delay = 3.0  # M2.2 mitigation 1：1.5→3.0，给 server 更长恢复时间 → 3/6/12/24s
         last_error: Optional[Exception] = None
 
