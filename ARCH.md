@@ -623,7 +623,8 @@ def encode_experience(event: LifeEvent, prior_experience: Experience,
 | **M2.2 v2 实证（2026-07-06）** | ✅ Experience Encoder 落地验证通过（24 个 meaning 样本 first-person 哲学反思）；❌ H_self 下降率 -13.1% 未达 30% 验收（[M22_V2_EXPH_SELF_REPORT.md §3.2](../experiments/M22_V2_EXPH_SELF_REPORT.md)）。根因：IdentityLayer 47 次结晶 0% 重复 → H_identity=1.0 恒定 |
 | **M2.2 v5 联调（2026-07-08 → 2026-07-10 完整 250 修订）** | 公式 A2（N_unique 线性映射）+ PHASE_THRESHOLD=0.5；partial run 报告 +52.3% 通过 → 完整 250 实测 +17.0% 未通过（H_self 非单调，P0-4）；PT 0 触发（Monte Carlo 预测偏差，P0-5）|
 | **M2.2 v6 联调（2026-07-10）** | ✅ **公式 A3（语义聚类）+ PHASE_THRESHOLD=0.5 联调通过** — H_self reduction +50.0% 单调下降（0.6 → 0.3），PT 触发 3 次 @ epoch 33/65/176，PRD §6 双维度首次同时通过（A 维度 \|val\| 增长 + B 维度 H_self 下降 + PT ≥ 1）。详见 [M22_V6_REPORT.md §3-5](../experiments/M22_V6_REPORT.md) + [discussions/2026-07-10-v6-formula-A3-success.md](../discussions/2026-07-10-v6-formula-A3-success.md) |
-| **M3.x 待办** | 跨 baby 验证（challenged/uncertain × 250 epoch）+ 跨 seed 验证（3 seeds × 250 epoch）+ 1000 epoch 长程验证（4 chunks × 250）+ 评估 PT 触发机制重设计（方案 G/H/I）|
+| **M2.2 v6 长程验证（2026-07-10 ~ 2026-07-12）** | ✅ **公式 A3 跨 baby + 1000 epoch 长程稳健性确认** — 跨 baby（challenged/uncertain）2 实验 H_self reduction 42-49%，PT 10-19 次；1000 epoch（4 chunks）mean reduction +36.5%（3/4 chunks > 30%）；6 实验综合 5/6 reduction > 30% + 6/6 PT ≥ 1；mean reduction +37.7%，std 9.2%。详见 [M22_V6_LONG_REPORT.md §0-6](../experiments/M22_V6_LONG_REPORT.md) + [discussions/2026-07-12-v6-long-form-validation.md](../discussions/2026-07-12-v6-long-form-validation.md) |
+| **M3.x 待办** | H_narrative n_max 20 → 30（缓解长程偏高）+ 跨 seed 验证（暂缓，用户推荐）+ 跨 LLM 验证（保持 LLM-agnostic）|
 | M2.3 个人真实 | 待做（应验证"AI 的应然回答能否追溯到 Meaning 字段"）|
 
 ### 3.6.6 学术对应

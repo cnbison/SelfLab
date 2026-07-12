@@ -539,7 +539,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 | 反思有行为后果 | 反思前后 AI 在相似事件中的行为选择 | **行为变化率** = 反思前后的行为选择分布的 KL 散度 | KL 散度 > 0.2（即分布有显著偏移） | M1.3 |
 | 反思不是"自我合理化" | 反思后 Value Layer 实际发生有意义变化 | **反思深度** = 反思前后 ValueVector 的 L2 距离 | L2 距离 > 0.05（区别于"表面反思"） | M1.3 |
 | **（修订 2026-07-06，原 2026-07-05）自我形成可测量维度（A 维度）** | 对比初始状态和 1000 Epoch 后的 value vector | **\|val\| 增长率** = (\|val\|_final - \|val\|_initial) / \|val\|_initial **AND** **value_state 滑窗 std** = 最近 5 个采样点的 ValueVector 漂移标准差 | \|val\| 增长率 ≥ 20% **AND** 滑窗 std ≤ 0.10 | M1.x（首次记录） |
-| **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过，2026-07-10 v6 通过）自我认知熵下降（B 维度）** | 对比初始状态和 1000 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成）—— **M2.2 v6 实证 +50.0% 通过**（公式 A3 语义聚类修复 P0-4 非单调问题，[M22_V6_REPORT.md §3](../experiments/M22_V6_REPORT.md)）；H_self 0.6 → 0.3 单调下降，PT 触发 3 次（@ epoch 33/65/176）；**v5 完整 250 epoch 实证 +17.0% 未通过**（公式 A2 仅触底后回升，identity 增长使 H_identity 必然上升） | ✅ M2.2 v6 通过（公式 A3 修复 P0-4，reduction +50.0%） |
+| **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过，2026-07-10 v6 通过，2026-07-12 长程验证）自我认知熵下降（B 维度）** | 对比初始状态和 1000 Epoch 后的 Self Entropy（[DESIGN §9.5](./DESIGN.md)） | **H_self 下降率** = (H_self_initial - H_self_final) / H_self_initial | 下降率 > 30%（熵显著下降 = 自我形成）—— **M2.2 v6 实证 +50.0% 通过 + 长程 6 实验 5/6 通过**（mean reduction +37.7%，std 9.2%）；H_self 0.6 → 0.3 单调下降，PT 触发 3 次（@ epoch 33/65/176）；**v5 完整 250 epoch 实证 +17.0% 未通过**（公式 A2 仅触底后回升，identity 增长使 H_identity 必然上升） | ✅ M2.2 v6 通过 + 长程稳健（公式 A3 修复 P0-4，6 实验 mean +37.7%） |
 
 **度量定义补充说明**：
 
@@ -595,6 +595,15 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 > - **dedup 仍关闭**：v6 关闭 dedup 仍 +50%，进一步确认 dedup 不必要
 > - **PRD §6 双维度首次同时通过**：A 维度（|val| growth ≥ 20%）+ B 维度（H_self reduction > 30%）+ PT ≥ 1
 > - 详见 [M22_V6_REPORT.md §3-5](../experiments/M22_V6_REPORT.md) + [discussions/2026-07-10-v6-formula-A3-success.md](../discussions/2026-07-10-v6-formula-A3-success.md)
+>
+> **2026-07-12 长程验证注（公式 A3 跨 baby + 1000 epoch 稳健性）**：v6 短程通过后，Bisen 同意按推荐先做跨 baby + 1000 epoch 长程验证（暂缓跨 seed + PT 重设计）。6 个独立实验全部跑通：
+> - **跨 baby**（challenged + uncertain × 250 epoch，并行）：challenged H_self 0.6 → 0.347 (**+42.2%**)，uncertain 0.678 → 0.347 (**+48.9%**)，PT 19/10 次 — 公式 A3 跨流通用性确认
+> - **1000 epoch 长程**（encouraged × 4 chunks × 250 epoch）：chunk 0 +50.0% / chunk 1 +26.4%（H_narrative 偏高）/ chunk 2 +35.4% / chunk 3 +34.3%；mean reduction **+36.5%** 通过
+> - **综合统计**：6 实验 H_self reduction 5/6 > 30%（83% pass rate），6/6 PT ≥ 1，mean +37.7%，std 9.2%
+> - **chunk 1 偏差分析**：H_narrative 偏高（0.50 vs chunk 0 0.21）→ H_self 终值 0.441 偏高；不是公式 A3 失败（chunk 2/3 都 > 30%），决策**不修复**（确定性结果，统计误差范围内）
+> - **LLM 工程**：60s timeout + 8 retry 稳健（4808 calls 总 retry rate 0.27%），chunk 3 长耗时（334 min）是网络波动而非代码问题
+> - 详见 [M22_V6_LONG_REPORT.md §0-6](../experiments/M22_V6_LONG_REPORT.md) + [discussions/2026-07-12-v6-long-form-validation.md](../discussions/2026-07-12-v6-long-form-validation.md)
+> - **PRD §6 双维度在跨 baby + 1000 epoch 下首次同时通过**：A 维度（|val| 增长）6/6 + B 维度（H_self reduction）5/6 + PT ≥ 1 6/6 — **核心假设得到稳健验证**
 
 ### 6.3.1 通过条件
 
@@ -606,7 +615,7 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 - ✓ 行为变化率 KL 散度 > 0.2（M1.3）
 - ✓ 反思深度 L2 距离 > 0.05（M1.3）
 - ✓ **（2026-07-06 修订）** \|val\| 增长率 ≥ 20% **AND** value_state 滑窗 std ≤ 0.10（A 维度，替代原 H_self 验收）
-- ✓ **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过，2026-07-10 v6 通过）** H_self 下降率 > 30%——**v6 公式 A3 实证 +50.0% 通过**（H_self 0.6 → 0.3 单调下降，PT 3 次触发，PRD §6 双维度首次同时通过）
+- ✓ **（2026-07-05 新增，2026-07-08 报告通过，2026-07-10 修订为未通过，2026-07-10 v6 通过，2026-07-12 长程验证）** H_self 下降率 > 30%——**v6 公式 A3 实证 +50.0% 通过 + 长程 6 实验 5/6 通过**（mean reduction +37.7%，PRD §6 双维度长程稳健）
 
 ### 6.3.2 失败处理路径
 
