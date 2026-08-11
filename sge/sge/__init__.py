@@ -20,6 +20,8 @@ Phase 3+ 正式 Python 包化（M2.x 一直是 scripts/ 下的临时实现）。
         IdentityLayer, NarrativeBuilder,
         # Orchestrator
         SGEOrchestrator, OrchestratorStep,
+        # Persistence（Phase 3.1 · 动作 1）
+        TwinStateDB,
     )
 
 历史：
@@ -33,6 +35,7 @@ Phase 3+ 正式 Python 包化（M2.x 一直是 scripts/ 下的临时实现）。
     - [SGE-Memory-Layer-Design.md](../../research/sge-core/SGE-Memory-Layer-Design.md)
     - [DESIGN.md](../../DESIGN.md)
     - [M22_TRIPLETS_REPORT.md](../../experiments/M22_TRIPLETS_REPORT.md)
+    - [research/phase3/10-engineering/01-persistence.md](../../research/phase3/10-engineering/01-persistence.md)
 """
 
 __version__ = "0.1.0"
@@ -75,6 +78,14 @@ from .narrative import NarrativeBuilder, real_build_narrative, real_check_narrat
 # Orchestrator
 from .orchestrator import SGEOrchestrator, OrchestratorStep
 
+# Persistence（Phase 3.1 · 动作 1）
+from .persistence import (
+    TwinStateDB,
+    SUPPORTED_SCHEMA_VERSIONS,
+    PersistenceError, StudentNotFoundError, StudentExistsError,
+    StudentDeletedError, SchemaVersionError, MigrationError,
+)
+
 
 __all__ = [
     # Core
@@ -105,4 +116,8 @@ __all__ = [
     'real_check_narrative_consistency', 'stub_build_narrative',
     # Orchestrator
     'SGEOrchestrator', 'OrchestratorStep',
+    # Persistence
+    'TwinStateDB', 'SUPPORTED_SCHEMA_VERSIONS',
+    'PersistenceError', 'StudentNotFoundError', 'StudentExistsError',
+    'StudentDeletedError', 'SchemaVersionError', 'MigrationError',
 ]

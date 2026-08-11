@@ -37,6 +37,10 @@ from sge import (
     IdentityLayer, NarrativeBuilder,
     # Orchestrator
     SGEOrchestrator, OrchestratorStep,
+    # Persistence（Phase 3.1 · 动作 1）
+    TwinStateDB, SUPPORTED_SCHEMA_VERSIONS,
+    PersistenceError, StudentNotFoundError, StudentExistsError,
+    StudentDeletedError, SchemaVersionError, MigrationError,
 )
 ```
 
@@ -85,6 +89,113 @@ orchestrator = SGEOrchestrator(
 # 跑 N epoch
 traces = orchestrator.run(n_epochs=1000)
 ```
+
+## 持久化（Phase 3.1 · 动作 1）
+
+`TwinStateDB` 是 SGE 的 SQLite + JSON 持久化层。它把 `SGEOrchestrator.snapshot_all()` 输出的
+完整 state（含 7 个子模块 + EventGenerator history）写入数据库，支持：
+
+- **多用户隔离**（每 student 独立 schema + app state + checkpoints）
+- **GDPR 合规**（软删除 + 硬删除脱敏 + retention_policy）
+- **跨连接持久化**（关闭 → 重开 → load 恢复 state）
+- **自动 checkpoint**（集成 SGEOrchestrator 后每 N epoch 自动 save）
+- **schema 迁移**（v1.0 → v1.1 真实执行 DDL）
+
+### 基础用法
+
+```python
+from sge import TwinStateDB
+
+# 1. 创建 DB + 注册学生
+with TwinStateDB('twins.db') as db:
+    db.create_student('stu_001', name='Alice', app_state={'grade': 7})
+
+# 2. 后续连接 load + 写入
+with TwinStateDB('twins.db') as db:
+    sge_state = {'value_state': {...}, 'identity': [...]}
+    app_state = {'grade': 7, 'subject': 'math'}
+    db.save_full_state(
+        student_id='stu_001',
+        sge_state=sge_state,
+        app_state=app_state,
+        epoch=100,
+        trigger='manual',
+    )
+
+# 3. 再连接 load（跨进程恢复）
+with TwinStateDB('twins.db') as db:
+    sge_state, app_state, epoch = db.load_full_state('stu_001')
+    history = db.get_checkpoint_history('stu_001', limit=10)
+```
+
+### 与 SGEOrchestrator 集成（自动 checkpoint）
+
+```python
+from sge import TwinStateDB, SGEOrchestrator, ...
+
+with TwinStateDB('twins.db') as db:
+    db.create_student('stu_001')
+
+    orchestrator = SGEOrchestrator(
+        agent=agent, value_layer=vl, ...,
+        db=db,                          # ← 持久化集成
+        student_id='stu_001',           # ← 必填
+        checkpoint_every=100,           # ← 每 100 epoch 自动 save
+        app_state={'grade': 7},         # ← 初始 app_state（可外部修改）
+    )
+
+    orchestrator.run(n_epochs=500)
+    # → 自动产生 5 次 auto_100/200/300/400/500 checkpoint
+    # → Phase Transition / Identity Crystallize / Narrative Build 也自动触发额外 checkpoint
+    # → 每次 save 都伴随 access_log 审计记录
+
+    orchestrator.session_end()  # ← 手动触发 session_end checkpoint（应用退出场景）
+```
+
+### GDPR 操作
+
+```python
+# 软删除（status='deleted'，后续读写拒绝，但审计保留）
+db.delete_student('stu_001', hard=False, accessor_id='teacher_jane')
+
+# 硬删除（9 业务表事务原子删，access_log 脱敏 student_id → 'deleted:<sha256>'）
+db.delete_student('stu_001', hard=True, accessor_id='admin')
+
+# 设置保留策略（90 天后自动 purge）
+import datetime
+db.set_retention_policy(
+    student_id='stu_002',
+    graduation_date=datetime.date(2026, 6, 15),
+    deletion_date=datetime.date(2026, 9, 15),
+    status='pending_deletion',
+)
+n_purged = db.purge_expired_students()  # 清理过期学生
+```
+
+### Schema 迁移
+
+```python
+# 当 DB 是 v1.0 而客户端是 v1.1 时：
+# 第一阶段：用 v1.0 打开 → 迁移 → 关闭
+with TwinStateDB('twins.db', schema_version='1.0') as db:
+    db.migrate_schema('1.1')  # 执行 v1.0 → v1.1 DDL（students.email 字段 + 索引）
+
+# 第二阶段：以 v1.1 打开正常使用
+with TwinStateDB('twins.db', schema_version='1.1') as db:
+    ...
+```
+
+### 应用层集成模式
+
+- **多 user**：每个 user 一个 `student_id`（UUID / 业务 ID），完全隔离（R10 风险已测试覆盖）
+- **多 session**：用 `session_end()` 显式标记会话边界，区分长程/短程
+- **A/B 测试**：同一 user 多个 `student_id` 跑不同 drives 配置，比较 personality 分化
+- **生产部署**：建议用文件 DB + WAL + 定期备份；`:memory:` 仅用于单进程实验
+
+### 完整 Demo
+
+参见 [`examples/persistence_demo.py`](./examples/persistence_demo.py)（端到端 demo：自动
+checkpoint + GDPR delete + retention policy + session_end）。
 
 ## 架构
 
