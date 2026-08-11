@@ -16,13 +16,13 @@
 SGE 的研究与开发分为四个阶段，从理论验证到工程实现逐步推进。
 
 ```
-Phase 0: 理论奠基（已完成）
+Phase 0: 理论奠基（已完成）✅
     ↓
-Phase 1: 最小验证（当前）
+Phase 1: 最小验证（已完成）✅
     ↓
-Phase 2: 完整实验
+Phase 2: 完整实验（已完成）✅
     ↓
-Phase 3: 系统完善
+Phase 3: 系统完善（当前 — M2.x 全完成 + 规划完成 + 实施中）
 ```
 
 ---
@@ -316,6 +316,16 @@ Phase 3: 系统完善
 
 **成本估算**：$150-500
 
+**状态**：✅ **已完成（2026-07-12，[CHANGELOG 1.31.0]）**
+- M2.2 v6 长程验证：6 个独立实验，H_self reduction mean +37.7%（5/6 > 30% 阈值），PT 触发 6/6 ≥ 1
+- **PRD §6 双维度首次同时通过**：A 维度（|val| 增长 ≥ 20%）+ B 维度（H_self reduction > 30%）+ PT ≥ 1
+- 跨流通用性确认（challenged / uncertain / encouraged），跨长程确认（4 chunks × 250 epoch，mean +36.5%）
+- 核心假设（"AI 能否形成自己的价值判断能力"）得到**稳健验证**
+- 报告：[experiments/M22_V6_REPORT.md](./experiments/M22_V6_REPORT.md) + [experiments/M22_V6_LONG_REPORT.md](./experiments/M22_V6_LONG_REPORT.md)
+- **关键发现** → [洞察 35B / 36](./SGE-Key-Insights.md)：公式 A3 修复 P0-4 H_self 非单调；H_self 0.6 → 0.3 单调下降
+
+---
+
 ### M2.3：个人真实测试
 
 **涉及 FR**：FR-5（Identity）、FR-6（Narrative）
@@ -328,6 +338,11 @@ Phase 3: 系统完善
 - AI 对"你最看重什么"的回答与 Value Layer 权重一致
 - AI 对"你后悔过什么"的回答可从负 reward 事件中追溯
 
+**状态**：✅ **已完成（2026-06-21，[CHANGELOG 1.21.0]）**
+- challenged baby 一致性 6.00（满分 7），L4 identity 9.0/10
+- 报告：[experiments/M23_PERSONAL_REALITY_REPORT.md](./experiments/M23_PERSONAL_REALITY_REPORT.md)
+- M2.3 fix：Hawking unit mismatch bug → 4/4 unit tests PASS
+
 ---
 
 # Phase 3：系统完善
@@ -336,24 +351,26 @@ Phase 3: 系统完善
 
 **目标**：完善 SGE 系统，为下游应用做准备
 
-**当前状态（2026-06-22）**：**规划完成，实施中** —— M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch + M2.3 个人真实测试）。Phase 3 规划已完成（18 个文件，详见 `research/phase3/`），sge/ Python 包已建立，实施分 3 个子阶段：
-- **Phase 3.1**：Persistence + Session + Context-Injection（3 P0 工程模块 + LLM Cache）
-- **Phase 3.2**：单元测试覆盖（≥80%）+ AI 输出过滤
-- **Phase 3.3**：Emotion/Energy Layer + Multi-AI PoC
+**当前状态（2026-08-11）**：**规划完成，Phase 3.1 实施中** —— M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch v6 长程验证 + M2.3 个人真实测试）。Phase 3 规划已完成（18 个文件，详见 `research/phase3/`），sge/ Python 包已建立，CHANGELOG 1.25-1.31 架构修订已落地（Self Evolution Runtime / Experience Encoder / H_self 公式 A3）。
 
-**Phase 3 SSOT**：[research/phase3/](./research/phase3/)（战略层、工程层、领域知识层、跨项目层、应用 PoC 层）
+**Phase 3 SSOT**：[research/phase3/](./research/phase3/)（战略层、工程层、领域知识层、跨项目层、应用 PoC 层）。**Phase 3 子任务划分的权威源**：[research/phase3/00-overview/03-roadmap.md](./research/phase3/00-overview/03-roadmap.md)（Phase 3.1/3.2/3.3 + 6 个 M1-M6 里程碑）。本节为顶层摘要，详细时间线与依赖图以 SSOT 为准。
 
 ## 里程碑
 
+> **子阶段划分（与 SSOT 对齐）**：
+> - **Phase 3.1**（P0 应用基础）: persistence + session + context-injection（W1-W3）
+> - **Phase 3.2**（P1 性能 + 测试）: llm_cache + 单元测试覆盖 ≥80% + prompt 版本管理（W4-W6）
+> - **Phase 3.3**（P2 PoC 验证）: student-digital-twin + teaching-ai-coach 两个 PoC（W7-W12）
+> - **M4+ 延后范围**（不在 Phase 3 时间线内）: Emotion & Energy Layer / Meta-Cognition Layer / Multi-AI Interaction（参见 §M3.1-M3.3 历史定义）
+
 ### Phase 3.1：工程基础设施（P0）
 
-**涉及模块**：persistence.py + session.py + context_injection.py + llm_cache
+**涉及模块**：persistence.py + session.py + context_injection.py
 
 **内容**：
 - **Persistence Layer**（TwinStateDB）：save/load full state、跨 chunk 状态连续性、GDPR delete
 - **Session Layer**（TwinSession）：完整生命周期管理、state restoration
 - **Context Injection**（TwinContextBuilder）：App 层学生信息注入 Critic/Actor prompt
-- **LLM Cache**：相同 prompt 缓存（减少 30% API 调用）
 
 **验收标准**：
 - save → close → reload 后状态完全一致
@@ -362,57 +379,72 @@ Phase 3: 系统完善
 
 | 子任务 | 工作量 |
 |--------|--------|
-| persistence.py | 2 天 |
+| persistence.py | 1.5 天 |
 | session.py | 1.5 天 |
-| context_injection.py | 3 天 |
-| LLM cache | 1 天 |
-| **Phase 3.1 合计** | **7.5 天** |
+| context_injection.py | 2.5 天 |
+| **Phase 3.1 合计** | **5.5 天** |
 
-### Phase 3.2：质量保障
+### Phase 3.2：性能 + 测试（P1）
 
-**涉及模块**：单元测试 + AI 输出过滤
+**涉及模块**：llm_cache + 单元测试 + prompt 管理 + （可选）async
 
 **内容**：
-- 核心模块单元测试覆盖率 ≥ 80%（persistence/session/baseline/event/critic/actor/identity/narrative/orchestrator）
-- AI 教练"建设性表达"过滤（不说"你差"，说"这块有挑战"）
-- Teacher review hook（AI 输出先到教师，教师决定是否给学生看）
+- **LLM Cache**（SGELLMCache）：hash 策略 + 失效检测，节省 API 成本
+- **单元测试覆盖**：核心模块（persistence/session/baseline/event/critic/actor/identity/narrative/orchestrator）覆盖率 ≥ 80%
+- **Prompt 版本管理**：`sge/prompts/` 目录 + version 管理
+- **（可选）async/streaming**：如果学生 chat 应用需要
 
 | 子任务 | 工作量 |
 |--------|--------|
-| 单元测试（conftest + 9 模块） | 5.5 天 |
-| AI 输出过滤 | 1 天 |
-| Teacher review hook | 1 天 |
-| **Phase 3.2 合计** | **7.5 天** |
+| llm_cache.py | 0.5 天 |
+| 单元测试（conftest + 9 模块） | 3.5 天 |
+| prompt 版本管理 | 1 天 |
+| async/streaming（可选）| 1 天 |
+| **Phase 3.2 合计** | **5-6 天** |
 
-### M3.1：Emotion & Energy Layer（情感与能量层）
+### Phase 3.3：PoC 验证（P2）
+
+**涉及 PoC**：student-digital-twin + teaching-ai-coach
+
+**内容**：
+- **学生数字孪生 PoC**（[research/phase3/90-applications/student-digital-twin.md](./research/phase3/90-applications/student-digital-twin.md)）：学生事件 schema + SGE adapter + UI 原型
+- **教学 AI 教练 PoC**（[research/phase3/90-applications/teaching-ai-coach.md](./research/phase3/90-applications/teaching-ai-coach.md)）：长期会话 + frustration 累积 + （含 A→B 整合探索）
+- **PoC 评估 + Phase 3 总结报告**
+
+| 子任务 | 工作量 |
+|--------|--------|
+| student-digital-twin PoC | 2 周 |
+| teaching-ai-coach PoC | 2 周 |
+| 评估 + 总结 | 2 周 |
+| **Phase 3.3 合计** | **6 周** |
+
+### M4+ 延后范围（不在 Phase 3 时间线内）
+
+> 以下 3 个 M 在原 ROADMAP 是 Phase 3 的核心里程碑，但按 [research/phase3/03-roadmap.md §1](./research/phase3/00-overview/03-roadmap.md) 的重新定位，**M3.1/M3.2/M3.3 编号**（情绪层/元认知层/多 AI 互动）**不在 Phase 3.1-3.3 实施范围内**，而是 M4+ 的延后方向。本节保留作为历史定义，便于未来重启时参照。
+
+#### M3.1（历史定义）：Emotion & Energy Layer（情感与能量层）
 
 **涉及 FR**：FR-6 增强（情绪对叙事影响）、FR-8 扩展（能量代谢）
-
-**前置条件**：Phase 3.1 完成
 
 **内容**：
 - 引入基于体内平衡的物理能源限制
 - 情绪动态演进系统
 - 模拟疲惫、焦虑带来的认知偏差
 
-### M3.2：Meta-Cognition Layer（元认知层）
+#### M3.2（历史定义）：Meta-Cognition Layer（元认知层）
 
 **涉及 FR**：FR-3 增强（反思的反思）、FR-4 增强（价值观的元调整）
-
-**前置条件**：Phase 3.1 完成
 
 **内容**：
 - AI 开始意识到"自己在反思"
 - 能自主调整自身的"解释机制"
 - 元认知能力的涌现
 
-### M3.3：Multi-AI Interaction（多 AI 互动）
+#### M3.3（历史定义）：Multi-AI Interaction（多 AI 互动）
 
 **前置约定**：1 个 AI 婴儿 = 1 个 Self（参见 [ARCH §1.4](./ARCH.md)）。本里程碑中的"多 Self"指**多个 AI 婴儿（即多个独立 Self）**之间的互动，而非"一个 AI 婴儿容纳多个 Self"。
 
 **涉及 FR**：FR-1~10 集成（多 AI 互动场景下的完整运行）
-
-**前置条件**：Phase 3.2 完成
 
 **内容**：
 - 多个 AI 婴儿（即多个独立 Self）之间的对话、协作、冲突
@@ -439,11 +471,18 @@ Phase 0（理论奠基）──已完成──→ Phase 1（最小验证）
                                     └── M2.3 个人真实测试（依赖 M2.2）
                                             │
                                             ↓
-                                    Phase 3（系统完善）
+                                    Phase 3（系统完善，权威 SSOT = research/phase3/）
                                     │
-                                    ├── M3.1 情绪层
-                                    ├── M3.2 元认知层
-                                    └── M3.3 多自我互动
+                                    ├── Phase 3.1 工程基础设施（persistence + session + context-injection）
+                                    │       ↓
+                                    ├── Phase 3.2 性能 + 测试（llm_cache + 单测 + prompt 管理）
+                                    │       ↓
+                                    └── Phase 3.3 PoC 验证（student-digital-twin + teaching-ai-coach）
+                                            │
+                                            ↓（M4+ 延后）
+                                    M4.x Emotion & Energy Layer
+                                    M4.x Meta-Cognition Layer
+                                    M4.x Multi-AI Interaction
 ```
 
 ---

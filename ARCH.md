@@ -1,11 +1,11 @@
 # SGE（Self Genesis Engine）架构文档
 
-文档版本：v0.1
-项目版本：[0.3.0]（权威版本见 [CHANGELOG.md](./CHANGELOG.md)）
+文档版本：v0.2
+项目版本：[1.31.0]（权威版本见 [CHANGELOG.md](./CHANGELOG.md)）
 
-日期：2026-06-15
+日期：2026-06-15（最近修订 2026-08-11）
 
-状态：草案
+状态：已对齐 CHANGELOG 1.25-1.31 架构修订（§1.5-1.8 Self Evolution Runtime / Transformation 协议族 / Experience Encoding / H_self 公式 A3）
 
 > **版本约定**：项目级文档的"项目版本"以 [CHANGELOG.md](./CHANGELOG.md) 为权威源；"文档版本"为该文档自身的迭代号，两者独立管理。
 >

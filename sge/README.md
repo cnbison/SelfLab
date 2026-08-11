@@ -113,10 +113,12 @@ sge/
 
 ## Phase 3 路线图
 
-- **3.1 Reflection Layer** — 让 SGE 能回答"后悔/感谢"类反思问题（M2.3 验证需要）
-- **3.2 Multi-AI 互动** — 多 baby 之间对话、互相影响
-- **3.3 长期人格稳定性测试** — 10000+ epoch 验证人格不"漂移过度"
-- **3.4 应用原型** — Multi-AI 在真实场景的应用（如：个人助手、协作 agent）
+> **权威 SSOT**：[research/phase3/00-overview/03-roadmap.md](../research/phase3/00-overview/03-roadmap.md)。本节为顶层摘要。
+
+- **Phase 3.1**（P0 应用基础）— persistence.py + session.py + context_injection.py（W1-W3）
+- **Phase 3.2**（P1 性能 + 测试）— llm_cache + 单元测试覆盖 ≥80% + prompt 版本管理（W4-W6）
+- **Phase 3.3**（P2 PoC 验证）— student-digital-twin + teaching-ai-coach 两个 PoC（W7-W12）
+- **M4+ 延后**（不在 Phase 3 时间线内）— Emotion / Meta-Cognition / Multi-AI Interaction（参见 [ROADMAP §Phase 3](../ROADMAP.md) 历史定义）
 
 ## 关联文档
 

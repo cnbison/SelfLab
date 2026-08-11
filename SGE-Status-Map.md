@@ -1,235 +1,169 @@
 # SGE 现状地图（Status Map）
 
-> **项目战略仪表盘**——1-2 页总结 SGE 当前状态、关键不确定性、下一步动作。
+> **项目战略仪表盘** — 1-2 页总结 SGE 当前状态、关键不确定性、下一步动作。
 >
 > **使用场景**：当你（或未来协作者）想快速了解"SGE 到底在哪个位置"时，先读这份文档。
 >
 > **更新机制**：每次大版本变更后更新（如 CHANGELOG 新增 minor version）。
 >
-> **最后更新**：2026-06-15（CHANGELOG [1.2.2]）
+> **最后更新**：2026-08-11（CHANGELOG [1.31.0]）
 
 ---
 
 ## 0. 一句话总结
 
-SGE 哲学基础已**基于权威资料**（金观涛）达到高可信度（[P7-2 重大修订](../CHANGELOG.md)）。架构、实验设计、元价值都已**结构完整**。**下一步**是决定是**深化哲学**（核查其他 6 大哲学资源）还是**推进实验**（M1.1 准备）。
+M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**下一步** = Phase 3.1 实施（persistence + session + context-injection）。
 
 ---
 
 ## 1. 项目当前阶段
 
-| 维度 | 状态 |
-|------|------|
-| **理论奠基** | ✅ **Phase 0 完成**（已多批次迭代） |
-| **哲学基础** | ✅ 金观涛部分**高可信度**；其他 6 大资源**中等可信度** |
-| **架构设计** | ✅ ARCH 4 层 + 三视图 + 跨层数据流 |
-| **实验设计** | ✅ M1.1 详细设计已就绪（[SGE-M11-Experiment-Design.md](./research/sge-feasibility/SGE-M11-Experiment-Design.md)） |
-| **实验运行** | ⏳ **未开始**（Phase 0 状态，无实验代码）|
-| **伦理边界** | ✅ PRD §5.4 详细（含创作者分身特殊约束）|
-| **术语统一** | ✅ Glossary 60+ 术语 + 使用规范 |
+| 阶段 | 状态 | 关键节点 |
+|------|------|---------|
+| **Phase 0** 理论奠基 | ✅ 完成 | 36 条洞察 + 17 篇研究文档 + 7 篇 ECA 调研 |
+| **Phase 1** 最小验证 | ✅ 完成 | M1.1/M1.2/M1.3/M1.4 + 跨 LLM 验证 ([CHANGELOG 1.5-1.8](./CHANGELOG.md)) |
+| **Phase 2** 完整实验 | ✅ 完成 | M2.1 阶段 A-D + M2.2 v6 长程 + M2.3 个人真实测试 ([CHANGELOG 1.20-1.31](./CHANGELOG.md)) |
+| **Phase 3** 系统完善 | 🚧 **实施中** | 规划完成（[research/phase3/](./research/phase3/) 18 文件）+ sge/ 包就绪 + Phase 3.1 启动 |
+| **M4+ 延后** | ⏸ 暂缓 | Emotion / Meta-Cognition / Multi-AI（按 [research/phase3/03-roadmap.md §1](./research/phase3/00-overview/03-roadmap.md) 重新定位） |
 
-**当前 CHANGELOG 版本**：[1.2.2]
-**累计 commit**：31+
-**关键洞察**：25 条
-**研究文档**：22 份（sge-core 9 / sge-feasibility 6 / sge-learning 3 / cognitive-architecture 4 / references 3 + 2 份新参考 + Glossary）
+**关键验证**（CHANGELOG 1.30-1.31）：
+
+- **PRD §6 双维度首次同时通过** — A 维度（|val| 增长 ≥ 20%）6/6 + B 维度（H_self reduction > 30%）5/6 + PT ≥ 1 6/6
+- 跨流通用性（challenged / uncertain / encouraged 各自 ≥ 42% reduction）
+- 跨长程确认（4 chunks × 250 epoch，mean +36.5%）
+- **核心假设**（"AI 能否形成自己的价值判断能力"）得到**稳健验证**
 
 ---
 
 ## 2. 已稳固的基础（✓ 不需要返工）
 
-| 领域 | 内容 | 文件 |
-|------|------|------|
-| **产品需求** | 10 个 FR + 验收标准 | [PRD.md](./PRD.md) |
-| **架构** | 4 层 + 三视图 + 跨层数据流 | [ARCH.md](./ARCH.md) + [prototypes/sge-architecture-overview.md](./prototypes/sge-architecture-overview.md) |
-| **详细设计** | Value Layer / Hebbian / 反思等算法 | [DESIGN.md](./DESIGN.md) |
-| **开发规范** | 技术栈 SSOT + 实验代码约定 | [DEVELOP.md](./DEVELOP.md) |
-| **路线图** | 4 Phase + M1.1~M3.3 里程碑 | [ROADMAP.md](./ROADMAP.md) |
-| **金观涛哲学** | R(X,M,Y) + 三座拱桥 + AI 批判 | [SGE-Jin-Guantao-System-Philosophy.md](./research/sge-core/SGE-Jin-Guantao-System-Philosophy.md) |
-| **记忆层设计** | 升格为正式设计文档 | [SGE-Memory-Layer-Design.md](./research/sge-feasibility/SGE-Memory-Layer-Design.md) |
-| **实验协议** | 通用实验运行手册 | [SGE-Experiment-Protocol.md](./research/sge-feasibility/SGE-Experiment-Protocol.md) |
-| **真我判定** | 5 维评分卡 | [SGE-Authenticity-vs-Simulation-Operationalization.md](./research/sge-core/SGE-Authenticity-vs-Simulation-Operationalization.md) |
-| **术语体系** | 60+ 术语 + 使用规范 | [references/Glossary.md](./references/Glossary.md) |
-| **失败模式** | 15 种失败 + 5 层应对 | [SGE-Failure-Mode-Deep-Analysis.md](./research/sge-feasibility/SGE-Failure-Mode-Deep-Analysis.md) |
-| **替代架构** | 5 种备选（神经场/PP/能量/贝叶斯/元学习）| [SGE-Alternative-Architectures.md](./research/sge-feasibility/SGE-Alternative-Architectures.md) |
+### 2.1 哲学立场（已稳定）
+
+- **立场**：涌现主义/功能主义 + 拒绝金观涛"AI 不可能" + 接受其工具（[洞察 25](./SGE-Key-Insights.md)）
+- **核心赌注**：成功 → 部分证伪金观涛；失败 → 部分支持；无论结果都是有价值的科学贡献
+- **诚实地**：SGE 验证的是"功能性自我"——不声称解决意识硬问题
+
+### 2.2 架构设计（CHANGELOG 1.25-1.26 落地）
+
+- **Self Evolution Runtime 定位**（[洞察 33](./SGE-Key-Insights.md)）— LLM 是认知引擎，SGE 是 Self Runtime
+- **5 层架构 + 6 条 Transformation 协议**（ARCH §1.5-1.8）— Event → Experience → Memory → Reflection → Value → Identity → Narrative
+- **19 步认知循环**（vs 原 17 步）— 新增 Step 2.5 Experience Encoding + Step 16 Compute Self Entropy
+- **H_self 统一目标函数**（[洞察 35](./SGE-Key-Insights.md)）— `H_self = w_v·H_value + w_i·H_identity + w_n·H_narrative`，公式 A3 修复 P0-4 非单调
+
+### 2.3 工程实现（CHANGELOG 1.26 落地）
+
+- **sge/ Python 包** 10 个模块 + Runtime 审计 + 公开 API（pip install sge）
+- **2 个加法模块**（[sge/RUNTIME_AUDIT.md](./sge/RUNTIME_AUDIT.md)）：Experience Encoder + H_self 度量
+- **H_self 公式 A3** 单元测试 11 项全绿
+- **真实 LLM 工程**稳健（60s timeout + 8 retry，v6 4808 calls retry rate 0.27%）
+
+### 2.4 实验验证（不可回退）
+
+- **M1.x**：value vector 涌现（涌现幅度 0.642-0.848，方向一致性 0.954-0.969）
+- **M2.1**：完整 12 步编排器 + D6 真实 LLM 验证 5/5 PASS
+- **M2.2 v6**：6 个独立实验 mean +37.7%（5/6 > 30%），跨流通用
+- **M2.3**：challenged baby 一致性 6.00/7，L4 identity 9.0/10
+- **M1.3 跨 LLM**（Moonshot kimi-k2.6）：5/6 维度方向一致，LLM-agnostic
+
+### 2.5 项目治理（已建立）
+
+- 5 个核心文档版本号体系（PRD/ARCH/DESIGN/ROADMAP/DEVELOP）已对齐 [1.31.0]
+- 36 条洞察的编号连续（1-36），主题可追溯到来源讨论
+- CHANGELOG 单调递增的版本号（1.5 → 1.31）+ commit hash 引用
+- CLAUDE.md 工作流闭环（讨论 → 洞察 → 修正 → 同步）
 
 ---
 
 ## 3. 关键不确定性（△/? 需要决策或核查）
 
-### 3.1 ⚠ 金观涛的"硬挑战"
+### 3.1 △ Phase 3.1 实施细节
 
-金观涛在 [SGE-Jin-Guantao-System-Philosophy.md §八](./research/sge-core/SGE-Jin-Guantao-System-Philosophy.md) 提出的 4 层级意识模型，SGE 当前覆盖：
+- **TwinStateDB schema**：[research/phase3/10-engineering/01-persistence.md](./research/phase3/10-engineering/01-persistence.md) 是 v1.5 设计，**实施时可能需要细化**（特别是 value_state/identity_state 的序列化策略）
+- **GDPR delete**：设计存在但**未验证**（v6 长程实验中未触发）
+- **M2.2 跨 chunk 状态连续性**（12 chunks × 250 epoch）— Phase 3.1 实施时需重跑验证
 
-| 层级 | 描述 | SGE 状态 |
-|------|------|---------|
-| L1 | 符号指代 | ✓ 已实现（Event Generator + Critic）|
-| L2 | 社会意识 | ✗ **未设计**（M3.3 多 AI 互动才有）|
-| L3 | 应然世界 | △ **部分**（Value Layer 尝试实现，但金观涛会认为不足）|
-| L4 | 自由递归 | ✗ **完全无设计**（SGE 没有元认知）|
+### 3.2 △ Runtime 状态托管缺口
 
-**核心问题**：金观涛的论证是**SGE 最强的反对意见**——如果 SGE 无法回应 L3/L4，"功能性自我"会停留在"科学真实域"，无法达到"主观真实域"。
+[sge/RUNTIME_AUDIT.md §2](./sge/RUNTIME_AUDIT.md) 指出：State 分散在 `agent` / `value_layer` / `hawking` / `identity_layer` / `narrative_builder`，**无统一 `snapshot()`**。Phase 3.1 persistence 落地时**需要先统一**。
 
-### 3.2 △ 其他哲学资源的知识幻觉风险
+### 3.3 △ H_narrative 长程偏高
 
-| 资源 | 状态 | 风险 |
-|------|------|------|
-| **怀特海** | 基于我的二手叙述 | 中（未独立验证"动在/合生/主观目的"等表述）|
-| **现象学** | 基于我的二手叙述 | 中（胡塞尔/海德格尔/梅洛-庞蒂/萨特的具体表述）|
-| **多文化** | 基于我的二手叙述 | 中（印度/日本/伊斯兰/非洲传统）|
-| **意识理论** | 基于我的二手叙述 | 中（IIT/GWT/HOT/PP 的具体论证）|
+[M22_V6_LONG_REPORT.md §3.4](./experiments/M22_V6_LONG_REPORT.md)：1000 epoch 长程中 chunk 1 H_narrative 0.50（vs chunk 0 0.21）→ H_self 终值 0.441 偏高。**已知偏差，决策不修复**（统计误差范围内），但**未来可考虑** `n_max` 20 → 30 缓解。
 
-**建议**：与 P7 同样的方法——找权威参考文档（Gemini/GPT/学术来源）核查。
+### 3.4 △ SGE vs ECOS 边界
 
-### 3.3 △ M1.1 实验的"硬限制"
+[洞察 31](./SGE-Key-Insights.md) 已明确：SGE 适合"AI 自身需要状态"，不适合"建模他人认知"（ECOS 战场）。**兄弟项目 ECOS**（`/Users/loubicheng/project/ecos/`）已独立。SGE Phase 3 应用方向应**严格守住**"AI 是'我'"的边界（数字孪生/AI 陪伴/Personal AI/创作者分身/历史人物）。
 
-[SGE-M11-Experiment-Design.md §4 决策原则](./research/sge-feasibility/SGE-M11-Experiment-Design.md) 中提到 M1.1 失败后的哲学选择：
-- A. 重新审视 SGE 架构（推荐）
-- B. 接受金观涛立场
+### 3.5 △ M4+ 何时重启
 
-**M1.1 的核心赌注**：
-- 价值向量能否**涌现**（不是随机漂移）
-- 价值向量的变化**有方向性**（与事件流相关）
-- 3 组 AI 婴儿有**显著差异**（鼓励/失败/不确定）
-
-**最大风险**：M1.1 通过了，但金观涛会认为 SGE 只是"在科学真实域模拟价值"——**没有真正的主体性**。
-
-### 3.4 △ SGE 与 A→B 子项目的关系
-
-- A→B 调研已完成（[research/cognitive-architecture/](./research/cognitive-architecture/)）
-- A→B 与 SGE 的关系已在 [CLAUDE.md §子项目](./CLAUDE.md) 明确
-- **但**：A→B 本身没有进一步推进计划——是被 SGE"牵引"还是独立项目？
+Emotion Layer / Meta-Cognition / Multi-AI Interaction 已重新定位为 M4+ 延后。**触发重启条件**未明确：是否需要 (a) Phase 3 全部完成，(b) 至少 1 个 PoC 跑通并验证，(c) 兄弟项目 ECOS 有新需求？
 
 ---
 
-## 4. SGE 哲学基础：可信度图谱
+## 4. 下一步 3-5 个具体动作
 
-| 资源 | 验证度 | 关键概念 | 风险 |
-|------|------|------|------|
-| **金观涛** | ✓ **高**（基于权威参考）| R(X,M,Y) + 三座拱桥 + 主体悬置 | 低 |
-| **怀特海** | △ 中 | 动在/合生/主观目的 | 中（待核查）|
-| **涌现主义** | ✓ 高 | 功能性自我 | 低（工程化立场）|
-| **现象学** | △ 中 | 意向性/本真性/反自欺 | 中（待核查）|
-| **多文化** | △ 中 | 佛教无我/间 Ma/Ubuntu | 中（待核查）|
-| **意识理论** | △ 中 | IIT/GWT/HOT/PP | 中（待核查）|
+> **按推荐顺序排列**。每项标明：工作量、依赖、风险、退出标准。
 
-**结论**：金观涛的精确化是**关键突破**——但其他资源的"中等可信度"是 SGE 哲学基础的**系统性风险**。
+### 动作 1：Phase 3.1 启动（persistence.py）— **最优先**
 
----
+- **工作量**：1.5 天（参考 [research/phase3/03-roadmap.md §2](./research/phase3/00-overview/03-roadmap.md)）
+- **依赖**：Runtime 状态托管（§3.2）需要先做统一 snapshot
+- **风险**：低（SQLite + JSON 是成熟技术）
+- **退出标准**：`sge/persistence.py` 落地 + save/load 4 层（value/identity/narrative/agent）单测全绿
 
-## 5. 下一步 3-5 个具体动作
+### 动作 2：Runtime 状态托管统一 — **动作 1 的前置**
 
-> **按价值优先级排序**——根据你的兴趣和时间选择
+- **工作量**：0.5 天（在 persistence 落地前补做）
+- **依赖**：无
+- **风险**：低（接口定义清楚）
+- **退出标准**：`snapshot()/restore()` 统一接口覆盖 5 个分散 state
 
-### 动作 1：核查其他哲学资源（P8 哲学核查）
+### 动作 3：Phase 3.2 单元测试覆盖（≥80%）— **Phase 3.1 完成后**
 
-**做什么**：用 P7-2 同样的方法——找权威参考文档（Gemini/GPT/学术来源）——核查怀特海、现象学、多文化、意识理论 4 个文档。
+- **工作量**：3.5 天
+- **依赖**：Phase 3.1 持久化层
+- **风险**：中（已有单测基线，但缺持久化/session 覆盖）
+- **退出标准**：9 个核心模块覆盖率 ≥ 80%
 
-**预计工作量**：3-5 次深度对话（每次 30-60 分钟）
+### 动作 4：A→B / ECOS 边界维护 — **持续（轻量）**
 
-**价值**：把所有哲学基础做到**与金观涛同等的高可信度**
+- **工作量**：每月 0.5 天（同步 ECOS 进展，识别 SGE 可借鉴的工程经验）
+- **依赖**：无
+- **退出标准**：兄弟项目有边界冲突时主动同步
 
-**适合时机**：如果你认为哲学基础是 SGE 的核心，**先做这个**
+### 动作 5：M2.2 跨 LLM 验证（暂缓）— **非阻塞**
 
-### 动作 2：撰写外部协作者入门指南
-
-**做什么**：写一份 `SGE-Onboarding-Guide.md`——如果未来有人加入 SGE，他们应该：
-- 按什么顺序读什么文档
-- 关键概念在哪里
-- 怎么贡献
-
-**预计工作量**：1-2 小时
-
-**价值**：降低未来协作者进入门槛；如果只有你自己用，可以延后
-
-**适合时机**：如果你计划招募协作者，或者项目规模扩大
-
-### 动作 3：M1.1 事件模板库准备
-
-**做什么**：根据 [SGE-M11-Experiment-Design.md §三](./research/sge-feasibility/SGE-M11-Experiment-Design.md) 的设计，准备：
-- 50+ 事件模板（按 6 大事件类型分类）
-- 16+ 价值困境事件
-- 配置 YAML 模板
-
-**预计工作量**：半天到一天
-
-**价值**：M1.1 真正开始时不用从零准备
-
-**适合时机**：如果你想随时可以启动 M1.1
-
-### 动作 4：回应金观涛的 L3/L4 挑战
-
-**做什么**：在 [SGE-Jin-Guantao-System-Philosophy.md §十二 12.3](./research/sge-core/SGE-Jin-Guantao-System-Philosophy.md) 已有思路——明确 M3.x 阶段如何处理 L3（应然世界）和 L4（自由递归）。
-
-**预计工作量**：2-3 小时
-
-**价值**：正面回应 SGE 最强的反对意见——这是 SGE 哲学的"硬骨头"
-
-**适合时机**：如果你想**深化哲学**而非扩展哲学
-
-### 动作 5：暂停 SGE 推进，反思研究目标
-
-**做什么**：写一份 1 页 "SGE 研究目标反思"：
-- 25 条洞察 + 哲学综合后，**SGE 真正想证明什么**？
-- 1000 Epoch 仍是合理目标吗？
-- SGE 是"哲学实验"还是"工程实现"？
-
-**预计工作量**：1-2 小时（讨论）
-
-**价值**：避免"我们忘了为什么做这个"——**重要的元反思**
-
-**适合时机**：如果你感觉"项目有点失去焦点"或"哲学做完了但没想清楚下一步"
+- **状态**：CHANGELOG 1.30.0 标记"非阻塞后续工作"，未在 Phase 3 时间线内
+- **退出标准**：当 Phase 3 完成后或 SGE 应用层需求出现时再启动
 
 ---
 
-## 6. 长期路径（12-24 个月）
+## 5. 长期路径（12-24 个月）
 
 ```
-2026-06 (当前) ──────────────────────────────────────────────────►
-  Phase 0 ✅         Phase 1 准备          Phase 1 运行        Phase 2-3
-  理论奠基           事件模板/M1.1 启动       50-100 Epoch         1000 Epoch
-  哲学/架构稳固      (2-4 周)              (4-8 周)             (8-16 周)
-
-  ▲ 你在这里        ▲ 动作 1-5 的任一个
-  [1.2.2]完成
-  哲学已深化
+2026 Q3 (现在)         Q4                     2027 Q1               Q2
+─────────             ──────                 ──────               ──────
+Phase 3.1 (W1-W3)  →  Phase 3.2 (W4-W6)  →  Phase 3.3 PoCs   →  M4+ 评估
+persistence         →  llm_cache + 单测   →  2 个 PoC 跑通    →  Emotion?
+session             →  prompt 管理        →  评估报告         →  Meta-Cog?
+context_injection   →  (可选) async       →  Phase 3 总结     →  Multi-AI?
 ```
 
-**关键里程碑**：
-- **M1.1 通过** → SGE 核心假设（价值涌现）得到初步支持
-- **M1.1 失败** → 触发 [SGE-Failure-Mode-Deep-Analysis.md](../research/sge-feasibility/SGE-Failure-Mode-Deep-Analysis.md) 的应对路径
-- **M2.2 通过** → 身份结晶和叙事连贯得到验证
-- **1000 Epoch 完成** → SGE 核心实验告一段落
+**Phase 3 总结报告**（W12 末）会决定 M4+ 重启条件。**PoC 验证**决定 SGE 应用的"产品化"路径（学生数字孪生 vs Personal AI vs 创作者分身）。
 
 ---
 
-## 7. 一句话决策框架
+## 6. 相关文档索引
 
-> **你接下来想做的，是"**深化**"（A/B），"**推进**"（C），还是"**反思**"（D）？**
-
-| 方向 | 含义 | 对应动作 |
-|------|------|---------|
-| **深化** | 把 SGE 哲学基础做到所有资源同等高可信度 | 动作 1 + 4 |
-| **推进** | 把 SGE 从"研究"带到"实验" | 动作 3 |
-| **反思** | 重新审视 SGE 真正想做什么 | 动作 5 |
-| **基础** | 改善协作者体验（如有需要）| 动作 2 |
+- [ROADMAP.md §Phase 3](./ROADMAP.md) — 顶层里程碑
+- [research/phase3/](./research/phase3/) — Phase 3 规划 SSOT
+- [sge/RUNTIME_AUDIT.md](./sge/RUNTIME_AUDIT.md) — Runtime 定位审计
+- [SGE-Key-Insights.md](./SGE-Key-Insights.md) — 36 条核心洞察
+- [CHANGELOG.md](./CHANGELOG.md) — 完整版本历史（权威源）
+- [CLAUDE.md](./CLAUDE.md) — 项目工作流与协作规范
 
 ---
 
-## 8. 相关文档索引
-
-| 类别 | 文档 |
-|------|------|
-| **项目级** | [PRD](./PRD.md), [ROADMAP](./ROADMAP.md), [ARCH](./ARCH.md), [DESIGN](./DESIGN.md), [DEVELOP](./DEVELOP.md), [CHANGELOG](./CHANGELOG.md) |
-| **哲学综合** | [SGE-Jin-Guantao-System-Philosophy.md](./research/sge-core/SGE-Jin-Guantao-System-Philosophy.md) + [SGE-Whitehead-Process-Philosophy.md](./research/sge-core/SGE-Whitehead-Process-Philosophy.md) + 其他 |
-| **认知科学** | [SGE-Cognitive-Tools-Application.md](./research/cognitive-architecture/SGE-Cognitive-Tools-Application.md) |
-| **工程实施** | [SGE-M11-Experiment-Design.md](./research/sge-feasibility/SGE-M11-Experiment-Design.md) + [SGE-Experiment-Protocol.md](./research/sge-feasibility/SGE-Experiment-Protocol.md) |
-| **风险与备选** | [SGE-Failure-Mode-Deep-Analysis.md](./research/sge-feasibility/SGE-Failure-Mode-Deep-Analysis.md) + [SGE-Alternative-Architectures.md](./research/sge-feasibility/SGE-Alternative-Architectures.md) |
-| **关键洞察** | [SGE-Key-Insights.md](./SGE-Key-Insights.md)（25 条）|
-| **术语** | [references/Glossary.md](./references/Glossary.md) |
-| **架构原型** | [prototypes/](./prototypes/) |
-
----
-
+**维护者**：Bisen & Claude
 **创建日期**：2026-06-15
-**对应 CHANGELOG**：[1.2.2]
-**下次更新时机**：完成"动作 1-5"任一个后，或下次哲学重大修订后
+**最后重写**：2026-08-11（基于 CHANGELOG 1.31.0）
