@@ -46,9 +46,10 @@ import copy
 import json
 import math
 import random
+import sys
 from dataclasses import dataclass, field, asdict
 from datetime import datetime
-from typing import Optional, Callable, Any
+from typing import Optional, Callable, Any, TYPE_CHECKING
 
 from . import __version__ as SGE_VERSION
 from .baseline import (
@@ -64,6 +65,10 @@ from .metrics import compute_self_entropy
 from .identity import IdentityLayer
 from .narrative import NarrativeBuilder
 from .llm_client import SGELLMClient, make_llm_client
+
+if TYPE_CHECKING:
+    # 避免 runtime 循环依赖（persistence 引用 baseline 等）
+    from .persistence import TwinStateDB
 
 
 # ══════════════════════════════════════════════
@@ -150,7 +155,24 @@ class SGEOrchestrator:
         llm: Optional[SGELLMClient] = None,
         llm_provider: str = 'minimax',
         verbose: bool = False,
+        # ── 持久化集成（Phase 3.1 · 动作 1 集成）──
+        db: Optional['TwinStateDB'] = None,
+        student_id: Optional[str] = None,
+        checkpoint_every: int = 100,
+        student_name: Optional[str] = None,
+        app_state: Optional[dict] = None,
     ):
+        # 持久化配置校验（fail-fast，避免半配置）
+        if (db is None) != (student_id is None):
+            raise ValueError(
+                "SGEOrchestrator: db 和 student_id 必须同时提供或同时为 None "
+                f"（得到 db={db!r}, student_id={student_id!r}）"
+            )
+        if checkpoint_every <= 0:
+            raise ValueError(
+                f"SGEOrchestrator: checkpoint_every 必须 > 0，得到: {checkpoint_every}"
+            )
+
         self.agent = agent
         self.value_layer = value_layer
         self.drive_metabolism = drive_metabolism
@@ -165,6 +187,14 @@ class SGEOrchestrator:
         self.verbose = verbose
         self._n_epochs_hint = 0  # 由 run() 在循环前设置；step() 单调用时为 0
         self.current_epoch = 0  # 步进计数（snapshot_all 读取），每次 step() 末尾 +1
+
+        # 持久化集成 state（Phase 3.1 · 动作 1 集成）
+        self.db = db
+        self.student_id = student_id
+        self.checkpoint_every = checkpoint_every
+        self.student_name = student_name
+        self.app_state: dict = app_state if app_state is not None else {}
+        self._student_initialized: bool = False  # lazy create_student 标志
 
         # 自动加载 LLM 客户端（如果 use_real_llm=True 且未提供）
         if use_real_llm:
@@ -427,6 +457,15 @@ class SGEOrchestrator:
         # 步进计数（snapshot_all 读取此字段判断 epoch）
         self.current_epoch = epoch + 1
 
+        # ── Checkpoint 钩子（Phase 3.1 · 动作 1 集成 · 洞察 37）──
+        # 多触发点：auto_100 / phase_xition / identity_crystallize / narrative_build
+        self._maybe_checkpoint(
+            epoch=epoch,
+            phase_xition=phase_xition,
+            identity_crystallized=identity is not None,
+            narrative_built=narrative is not None,
+        )
+
         return OrchestratorStep(
             epoch=epoch,
             event=event.to_dict(),
@@ -499,8 +538,8 @@ class SGEOrchestrator:
             'value_layer': self.value_layer.snapshot(),
             'drive_metabolism': self.drive_metabolism.snapshot(),
             'event_generator': self.event_generator.snapshot(),
-            'hawking': self.hawking.snapshot() if self.hawking else None,
-            'crystallizer': self.crystallizer.snapshot() if self.crystallizer else None,
+            'hawking': self.hawking.snapshot() if self.hawking is not None else None,
+            'crystallizer': self.crystallizer.snapshot() if self.crystallizer is not None else None,
             'identity_layer': self.identity_layer.snapshot(),
             'narrative_builder': self.narrative_builder.snapshot(),
         }
@@ -569,6 +608,116 @@ class SGEOrchestrator:
         # 恢复 current_epoch（从 metadata）
         if 'metadata' in snap and 'epoch' in snap['metadata']:
             self.current_epoch = int(snap['metadata']['epoch'])
+
+    # ── Persistence Hooks（Phase 3.1 · 动作 1 集成）──
+
+    def _ensure_student(self) -> None:
+        """Lazy create_student（首次 checkpoint 前注册到 DB）。
+
+        避免 __init__ 静默 INSERT 违反 R10（多用户隔离）。
+        复用 list_students 检查存在性；StudentExistsError 静默（并发场景）。
+        """
+        if self._student_initialized or self.db is None or self.student_id is None:
+            return
+        try:
+            existing = self.db.list_students(include_deleted=False)
+            existing_ids = {s['student_id'] for s in existing}
+        except Exception as e:
+            sys.stderr.write(
+                f"[orchestrator] list_students failed: {type(e).__name__}: {e}\n"
+            )
+            return
+        if self.student_id not in existing_ids:
+            try:
+                self.db.create_student(self.student_id, name=self.student_name)
+            except Exception as e:
+                # StudentExistsError（并发）或 PersistenceError → 静默 + 标记已初始化
+                sys.stderr.write(
+                    f"[orchestrator] create_student({self.student_id!r}) "
+                    f"hint: {type(e).__name__}: {e}\n"
+                )
+                # 仍标记为已初始化，避免每次 checkpoint 都重试 create
+        self._student_initialized = True
+
+    def _save_checkpoint(self, trigger: str, epoch: int) -> bool:
+        """保存一次 checkpoint（含 access_log）。
+
+        失败不抛异常：记录 stderr 后返回 False（持久化失败不应中断 epoch 循环）。
+        Returns:
+            bool: True = 成功；False = 未配置 db / 失败
+        """
+        if self.db is None or self.student_id is None:
+            return False
+        try:
+            self._ensure_student()
+            sge_state = self.snapshot_all()
+            self.db.save_full_state(
+                student_id=self.student_id,
+                sge_state=sge_state,
+                app_state=self.app_state,
+                epoch=epoch,
+                trigger=trigger,
+            )
+            self.db.log_access(
+                student_id=self.student_id,
+                accessor_id='orchestrator',
+                operation=f'checkpoint_{trigger}',
+                ip_address=None,
+            )
+            return True
+        except Exception as e:
+            sys.stderr.write(
+                f"[orchestrator] checkpoint '{trigger}' failed "
+                f"@ epoch {epoch}: {type(e).__name__}: {e}\n"
+            )
+            return False
+
+    def _maybe_checkpoint(
+        self,
+        epoch: int,
+        phase_xition: bool = False,
+        identity_crystallized: bool = False,
+        narrative_built: bool = False,
+    ) -> None:
+        """step() 末尾的 checkpoint 钩子（多触发点，Bisen 决策 #3）。
+
+        触发条件：
+        - 自动：(epoch + 1) % checkpoint_every == 0 → trigger='auto_N'
+        - 强制：phase_xition → trigger='phase_xition'
+        - 强制：identity crystallize → trigger='identity_crystallize'
+        - 强制：narrative build → trigger='narrative_build'
+
+        多个触发同时满足 → 多次 save（每次独立事务，保证 checkpoint history 完整）。
+        """
+        if self.db is None:
+            return
+        next_epoch = epoch + 1
+        triggers: list[str] = []
+        if next_epoch % self.checkpoint_every == 0:
+            triggers.append(f'auto_{next_epoch}')
+        if phase_xition:
+            triggers.append('phase_xition')
+        if identity_crystallized:
+            triggers.append('identity_crystallize')
+        if narrative_built:
+            triggers.append('narrative_build')
+        for trigger in triggers:
+            self._save_checkpoint(trigger, epoch=next_epoch)
+
+    def session_end(self) -> bool:
+        """显式标记 session end（手动触发最后一次 checkpoint）。
+
+        应用场景：
+        - Web 应用：用户退出 / 关闭浏览器
+        - CLI：脚本结束（finally 块）
+        - 批量处理：每个 batch 完成
+
+        Returns:
+            bool: True = 成功；False = 未配置 db / 失败
+        """
+        if self.db is None:
+            return False
+        return self._save_checkpoint('session_end', epoch=self.current_epoch)
 
 
 # ══════════════════════════════════════════════
@@ -808,7 +957,216 @@ def _run_unit_tests() -> bool:
     return True
 
 
+# ══════════════════════════════════════════════
+# 单元测试：Orchestrator × TwinStateDB 集成（Phase 3.1 · 动作 1 集成）
+# ══════════════════════════════════════════════
+
+
+def _make_minimal_orchestrator_components():
+    """构造一个最小的 SGEOrchestrator 组件集合（stub LLM）。
+
+    Returns:
+        (agent, value_layer, drive_metabolism, event_generator,
+         identity_layer, narrative_builder, hawking, crystallizer)
+    """
+    from .baseline import SGE_DEFAULT_DRIVES, SGE_DEFAULT_VALUES
+    drives = list(SGE_DEFAULT_DRIVES)
+    value_layer = ValueLayer(values=list(SGE_DEFAULT_VALUES))
+    hawking = HawkingDecay(gamma=0.01, clock=0.0)
+    crystallizer = MemoryCrystallizer(n_dims=11)
+    agent = Agent(
+        seed=42,
+        drives=drives,
+        value_layer=value_layer,
+        hawking=hawking,
+        crystallizer=crystallizer,
+        crystallize_every=10,
+    )
+    drive_metabolism = DriveMetabolism(drives=drives)
+    event_generator = EventGenerator(baby_id='test_baby', seed=42)
+    identity_layer = IdentityLayer(crystallize_every_n_epochs=20)
+    narrative_builder = NarrativeBuilder(build_every_n_epochs=50)
+    return agent, value_layer, drive_metabolism, event_generator, identity_layer, narrative_builder, hawking, crystallizer
+
+
+def _run_orchestrator_persistence_integration_tests() -> bool:
+    """Orchestrator × TwinStateDB 集成测试（Phase 3.1 · 动作 1 集成）。
+
+    6 个测试：
+    1. checkpoint_every 自动触发（200 epoch → 2 次 auto checkpoint）
+    2. phase_xition 触发额外 checkpoint
+    3. identity/narrative 触发额外 checkpoint
+    4. Round-trip（save → 新 orchestrator → restore → state 一致）
+    5. db/student_id 互斥校验
+    6. StudentDeletedError 抛出不中断（log stderr + continue）
+    """
+    from .persistence import (
+        TwinStateDB, StudentExistsError, StudentDeletedError, StudentNotFoundError,
+    )
+
+    print("=" * 70)
+    print("Orchestrator × TwinStateDB 集成测试（Phase 3.1 · 动作 1 集成）")
+    print("=" * 70)
+
+    # ── 测试 1: checkpoint_every 自动触发 ──
+    print("\n[测试 1] checkpoint_every 自动触发（200 epoch × checkpoint_every=100）")
+    with TwinStateDB(':memory:') as db:
+        agent, vl, dm, eg, il, nb, hw, cr = _make_minimal_orchestrator_components()
+        orch = SGEOrchestrator(
+            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
+            identity_layer=il, narrative_builder=nb,
+            hawking=hw, crystallizer=cr,
+            db=db, student_id='stu_001', checkpoint_every=100,
+            student_name='Test Baby 1',
+        )
+        orch.run(n_epochs=200)
+
+        history = db.get_checkpoint_history('stu_001', limit=10)
+        # checkpoint history 默认 ORDER BY epoch DESC, saved_at DESC
+        auto_triggers_desc = [h['trigger'] for h in history if h['trigger'].startswith('auto_')]
+        assert len(auto_triggers_desc) == 2, (
+            f"Expected 2 auto checkpoints (epoch 100 + 200), got {len(auto_triggers_desc)}: {auto_triggers_desc}"
+        )
+        auto_triggers = sorted(auto_triggers_desc)
+        assert auto_triggers == ['auto_100', 'auto_200'], (
+            f"Expected ['auto_100', 'auto_200'], got {auto_triggers}"
+        )
+        print(f"  ✓ 200 epoch 触发 2 次 auto checkpoint: {auto_triggers}（DESC: {auto_triggers_desc}）")
+
+    # ── 测试 2: phase_xition 触发额外 checkpoint ──
+    print("\n[测试 2] phase_xition 触发额外 checkpoint（mock 标志）")
+    with TwinStateDB(':memory:') as db:
+        agent, vl, dm, eg, il, nb, hw, cr = _make_minimal_orchestrator_components()
+        orch = SGEOrchestrator(
+            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
+            identity_layer=il, narrative_builder=nb,
+            hawking=hw, crystallizer=cr,
+            db=db, student_id='stu_002', checkpoint_every=1000,  # 不自动触发
+        )
+        # 直接调 _save_checkpoint 模拟 phase_xition 触发（避免依赖 agent._last_phase_transition）
+        ok = orch._save_checkpoint('phase_xition', epoch=orch.current_epoch + 1)
+        assert ok, "phase_xition checkpoint 失败"
+
+        history = db.get_checkpoint_history('stu_002', limit=10)
+        triggers = [h['trigger'] for h in history]
+        assert 'phase_xition' in triggers, f"phase_xition 触发缺失: {triggers}"
+        print(f"  ✓ phase_xition 触发 1 次额外 checkpoint: {triggers}")
+
+    # ── 测试 3: identity/narrative 触发额外 checkpoint ──
+    print("\n[测试 3] identity_crystallize + narrative_build 触发额外 checkpoint")
+    with TwinStateDB(':memory:') as db:
+        agent, vl, dm, eg, il, nb, hw, cr = _make_minimal_orchestrator_components()
+        orch = SGEOrchestrator(
+            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
+            identity_layer=il, narrative_builder=nb,
+            hawking=hw, crystallizer=cr,
+            db=db, student_id='stu_003', checkpoint_every=1000,
+        )
+        orch._save_checkpoint('identity_crystallize', epoch=1)
+        orch._save_checkpoint('narrative_build', epoch=2)
+
+        history = db.get_checkpoint_history('stu_003', limit=10)
+        triggers = sorted({h['trigger'] for h in history})
+        assert 'identity_crystallize' in triggers, f"identity_crystallize 触发缺失: {triggers}"
+        assert 'narrative_build' in triggers, f"narrative_build 触发缺失: {triggers}"
+        print(f"  ✓ identity/narrative 触发: {triggers}")
+
+    # ── 测试 4: Round-trip（save → 新 orchestrator → restore → state 一致）──
+    print("\n[测试 4] Round-trip（save_full_state → 新 orchestrator → restore_all）")
+    with TwinStateDB(':memory:') as db:
+        # 第一个 orchestrator：跑 10 epoch + save
+        agent1, vl1, dm1, eg1, il1, nb1, hw1, cr1 = _make_minimal_orchestrator_components()
+        orch1 = SGEOrchestrator(
+            agent=agent1, value_layer=vl1, drive_metabolism=dm1, event_generator=eg1,
+            identity_layer=il1, narrative_builder=nb1,
+            hawking=hw1, crystallizer=cr1,
+            db=db, student_id='stu_004', checkpoint_every=10,
+            app_state={'subject': 'math', 'grade': 7},
+        )
+        orch1.run(n_epochs=10)
+        # epoch 10 应触发 auto_10 checkpoint
+
+        # 从 DB load snapshot
+        sge_state, app_state, epoch = db.load_full_state('stu_004')
+        assert epoch == 10, f"Expected epoch=10, got {epoch}"
+        assert app_state == {'subject': 'math', 'grade': 7}, (
+            f"app_state round-trip 失败: {app_state}"
+        )
+        assert sge_state['_schema_version'] == '1.0', "snapshot schema_version 不对"
+
+        # 第二个 orchestrator：restore snapshot
+        agent2, vl2, dm2, eg2, il2, nb2, hw2, cr2 = _make_minimal_orchestrator_components()
+        orch2 = SGEOrchestrator(
+            agent=agent2, value_layer=vl2, drive_metabolism=dm2, event_generator=eg2,
+            identity_layer=il2, narrative_builder=nb2,
+            hawking=hw2, crystallizer=cr2,
+        )
+        orch2.restore_all(sge_state)
+
+        assert orch2.current_epoch == 10, f"restore 后 epoch 不对: {orch2.current_epoch}"
+        assert orch2.value_layer.value_state == orch1.value_layer.value_state, (
+            "restore 后 value_state 不一致"
+        )
+        print(f"  ✓ Round-trip 一致：epoch={epoch}, "
+              f"value_state keys={len(orch2.value_layer.value_state)}")
+
+    # ── 测试 5: db/student_id 互斥校验 ──
+    print("\n[测试 5] db/student_id 互斥校验（fail-fast）")
+    try:
+        SGEOrchestrator(
+            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
+            identity_layer=il, narrative_builder=nb,
+            db=None, student_id='stu_005',  # 半配置
+        )
+        raise AssertionError("期望抛 ValueError，未抛")
+    except ValueError as e:
+        assert '同时提供或同时为 None' in str(e), f"错误信息不对: {e}"
+        print(f"  ✓ db=None + student_id=... 抛 ValueError: {e}")
+
+    try:
+        SGEOrchestrator(
+            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
+            identity_layer=il, narrative_builder=nb,
+            db=TwinStateDB(':memory:'), student_id=None,  # 半配置
+        )
+        raise AssertionError("期望抛 ValueError，未抛")
+    except ValueError as e:
+        assert '同时提供或同时为 None' in str(e), f"错误信息不对: {e}"
+        print(f"  ✓ db=... + student_id=None 抛 ValueError: {e}")
+
+    # ── 测试 6: StudentDeletedError 抛出不中断 ──
+    print("\n[测试 6] 软删除后 checkpoint 失败但 step 继续")
+    with TwinStateDB(':memory:') as db:
+        agent, vl, dm, eg, il, nb, hw, cr = _make_minimal_orchestrator_components()
+        orch = SGEOrchestrator(
+            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
+            identity_layer=il, narrative_builder=nb,
+            hawking=hw, crystallizer=cr,
+            db=db, student_id='stu_006', checkpoint_every=5,
+        )
+        # 跑 5 epoch（应触发 auto_5）
+        orch.run(n_epochs=5)
+        # 软删除 student
+        db.delete_student('stu_006', hard=False, accessor_id='test')
+
+        # 跑剩余 5 epoch（应触发 auto_10，但 save 应失败）
+        # _save_checkpoint 内部 try/except 捕获 StudentDeletedError
+        # 不抛异常，但返回 False
+        ok = orch._save_checkpoint('auto_10', epoch=10)
+        assert not ok, "StudentDeletedError 情况下 _save_checkpoint 应返回 False"
+
+        # 验证 step() 仍可继续（不中断 epoch 循环）
+        orch.run(n_epochs=5)  # 应继续完成 5 个 epoch，无异常
+        print(f"  ✓ StudentDeletedError 不中断 step() 循环（auto_10 返回 False）")
+
+    print("\n" + "=" * 70)
+    print("✅ Orchestrator × TwinStateDB 集成测试全部通过（6/6）")
+    print("=" * 70)
+    return True
+
+
 if __name__ == "__main__":
     import sys
-    ok = _run_unit_tests()
-    sys.exit(0 if ok else 1)
+    ok1 = _run_unit_tests()
+    ok2 = _run_orchestrator_persistence_integration_tests()
+    sys.exit(0 if (ok1 and ok2) else 1)
