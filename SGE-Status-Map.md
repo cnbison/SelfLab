@@ -6,13 +6,13 @@
 >
 > **更新机制**：每次大版本变更后更新（如 CHANGELOG 新增 minor version）。
 >
-> **最后更新**：2026-08-11（CHANGELOG [1.31.0]）
+> **最后更新**：2026-08-12（CHANGELOG [1.35.0]）
 
 ---
 
 ## 0. 一句话总结
 
-M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**下一步** = Phase 3.1 实施（persistence + session + context-injection）。
+M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 已完成 persistence.py + session.py**，剩 context_injection.py。
 
 ---
 
@@ -82,9 +82,9 @@ M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度
 - **GDPR delete**：设计存在但**未验证**（v6 长程实验中未触发）
 - **M2.2 跨 chunk 状态连续性**（12 chunks × 250 epoch）— Phase 3.1 实施时需重跑验证
 
-### 3.2 △ Runtime 状态托管缺口
+### 3.2 ✅ Runtime 状态托管缺口（已关闭）
 
-[sge/RUNTIME_AUDIT.md §2](./sge/RUNTIME_AUDIT.md) 指出：State 分散在 `agent` / `value_layer` / `hawking` / `identity_layer` / `narrative_builder`，**无统一 `snapshot()`**。Phase 3.1 persistence 落地时**需要先统一**。
+[sge/RUNTIME_AUDIT.md §2](./sge/RUNTIME_AUDIT.md) 曾指出：State 分散在 `agent` / `value_layer` / `hawking` / `identity_layer` / `narrative_builder`，**无统一 `snapshot()`**。已于 CHANGELOG 1.32.0 落地统一 `snapshot()/restore()` 接口 + `SGEOrchestrator.snapshot_all()/restore_all()` 聚合层，persistence.py 与 session.py 均已在其上构建。
 
 ### 3.3 △ H_narrative 长程偏高
 
@@ -104,25 +104,25 @@ Emotion Layer / Meta-Cognition / Multi-AI Interaction 已重新定位为 M4+ 延
 
 > **按推荐顺序排列**。每项标明：工作量、依赖、风险、退出标准。
 
-### 动作 1：Phase 3.1 启动（persistence.py）— **最优先**
+### 动作 1：Phase 3.1 context_injection.py — **最优先**
 
-- **工作量**：1.5 天（参考 [research/phase3/03-roadmap.md §2](./research/phase3/00-overview/03-roadmap.md)）
-- **依赖**：Runtime 状态托管（§3.2）需要先做统一 snapshot
-- **风险**：低（SQLite + JSON 是成熟技术）
-- **退出标准**：`sge/persistence.py` 落地 + save/load 4 层（value/identity/narrative/agent）单测全绿
+- **工作量**：1.5 天（参考 [research/phase3/10-engineering/03-context-injection.md](./research/phase3/10-engineering/03-context-injection.md)）
+- **依赖**：persistence.py（1.33.0/1.34.0 已完成）+ session.py（1.35.0 已完成）
+- **风险**：中（prompt 组装策略 + token 预算需实测）
+- **退出标准**：history / identity / narrative / hawking 检索结果可注入 Actor prompt + 单测全绿
 
-### 动作 2：Runtime 状态托管统一 — **动作 1 的前置**
+### 动作 2：Phase 3.1 已完成部分 — **✅ 收口**
 
-- **工作量**：0.5 天（在 persistence 落地前补做）
-- **依赖**：无
-- **风险**：低（接口定义清楚）
-- **退出标准**：`snapshot()/restore()` 统一接口覆盖 5 个分散 state
+- ✅ **snapshot/restore 统一接口**（1.32.0）— 5 个分散 state + 编排器聚合层
+- ✅ **persistence.py / TwinStateDB**（1.33.0 + 1.34.0）— 20 测试，含 GDPR + schema 迁移 + 编排器自动 checkpoint
+- ✅ **session.py / TwinSession**（1.35.0）— 8 测试，构造即恢复 + 进程内 SessionLock
+- **遗留**：跨进程 SessionLock（DB 级 `session_locks` 表）未做，当前仅依赖 SQLite WAL 串行化
 
 ### 动作 3：Phase 3.2 单元测试覆盖（≥80%）— **Phase 3.1 完成后**
 
 - **工作量**：3.5 天
-- **依赖**：Phase 3.1 持久化层
-- **风险**：中（已有单测基线，但缺持久化/session 覆盖）
+- **依赖**：Phase 3.1 持久化层（已就绪）
+- **风险**：中（各模块目前用 `python -m sge.X` 自测，需迁移到 pytest 框架并统计覆盖率）
 - **退出标准**：9 个核心模块覆盖率 ≥ 80%
 
 ### 动作 4：A→B / ECOS 边界维护 — **持续（轻量）**
@@ -166,4 +166,4 @@ context_injection   →  (可选) async       →  Phase 3 总结     →  Multi
 
 **维护者**：Bisen & Claude
 **创建日期**：2026-06-15
-**最后重写**：2026-08-11（基于 CHANGELOG 1.31.0）
+**最后重写**：2026-08-12（基于 CHANGELOG 1.35.0）
