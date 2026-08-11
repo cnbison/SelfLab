@@ -36,11 +36,25 @@ SGE 基线核心实现（M2.1 阶段 A）
 
 from __future__ import annotations
 
+import copy
 import math
 import os
 import random
 import time
 from typing import Optional
+
+
+# �═════════════════════════════════════════════
+# Snapshot 协议（Phase 3.1 动作 2）
+# ══════════════════════════════════════════════
+
+
+class SnapshotError(Exception):
+    """snapshot/restore 协议错误（schema 不兼容 / 缺字段 / 类型不符）。
+
+    严格语义：restore() 收到缺关键字段或类型不符的 snapshot 时抛出，
+    不静默回退到默认值——避免"看起来恢复成功但 state 偏移"的隐性 bug。
+    """
 
 
 # ══════════════════════════════════════════════
@@ -303,6 +317,39 @@ class DriveMetabolism:
             noise = random.gauss(0.0, temp)
             noisy[key] = max(0.0, min(1.0, val + noise))
         return noisy
+
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = (
+        'drives', 'frustration', 'hunger_rates', 'decay_rate',
+        '_last_tick', 'decay_lambda', 'temp_coeff', 'temp_floor',
+    )
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict（不含 LLM）。"""
+        return {
+            'drives': list(self.drives),
+            'frustration': dict(self.frustration),
+            'hunger_rates': dict(self.hunger_rates),
+            'decay_rate': self.decay_rate,
+            '_last_tick': self._last_tick,
+            'decay_lambda': self.decay_lambda,
+            'temp_coeff': self.temp_coeff,
+            'temp_floor': self.temp_floor,
+        }
+
+    def restore(self, snap: dict) -> None:
+        """strict: 缺关键字段 → SnapshotError。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"DriveMetabolism.restore: 缺关键字段 '{key}'")
+        self.drives = list(snap['drives'])
+        self.frustration = {k: float(v) for k, v in snap['frustration'].items()}
+        self.hunger_rates = {k: float(v) for k, v in snap['hunger_rates'].items()}
+        self.decay_rate = float(snap['decay_rate'])
+        self._last_tick = float(snap['_last_tick'])
+        self.decay_lambda = float(snap['decay_lambda'])
+        self.temp_coeff = float(snap['temp_coeff'])
+        self.temp_floor = float(snap['temp_floor'])
 
 
 # ══════════════════════════════════════════════
@@ -583,6 +630,84 @@ class Agent:
 
         return signals
 
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = (
+        'seed', 'hebbian_lr', 'phase_threshold', 'drives',
+        'crystallize_every',
+        'drive_baseline', 'drive_accumulation_rate', 'drive_decay_rate',
+        'drive_state',
+        'W1', 'b1', 'W2', 'b2',
+        'recurrent_state',
+        'interaction_count', 'total_reward', '_frustration',
+        'signal_history', 'input_size',
+    )
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict。排除 value_layer / hawking / crystallizer（外部持有）。
+
+        省略 _last_hidden / _last_input / _last_phase_transition / _last_crystallize_result /
+        _last_crystallize_step / _last_hawking_removed——这些是 step() 缓存，下一次 compute_signals
+        会被覆盖，持久化反而引入"看起来 restore 成功但 state 偏移"的隐性 bug。
+        """
+        return {
+            'seed': self.seed,
+            'hebbian_lr': self.hebbian_lr,
+            'phase_threshold': self.phase_threshold,
+            'drives': list(self.drives),
+            'crystallize_every': self.crystallize_every,
+            'drive_baseline': dict(self.drive_baseline),
+            'drive_accumulation_rate': dict(self.drive_accumulation_rate),
+            'drive_decay_rate': dict(self.drive_decay_rate),
+            'drive_state': dict(self.drive_state),
+            'W1': [list(row) for row in self.W1],
+            'b1': list(self.b1),
+            'W2': [list(row) for row in self.W2],
+            'b2': list(self.b2),
+            'recurrent_state': list(self.recurrent_state),
+            'interaction_count': self.interaction_count,
+            'total_reward': self.total_reward,
+            '_frustration': self._frustration,
+            'signal_history': [dict(s) for s in self.signal_history],
+            'input_size': self.INPUT_SIZE,
+        }
+
+    def restore(self, snap: dict) -> None:
+        """strict: 缺关键字段 → SnapshotError；input_size 不匹配 → SnapshotError。
+
+        value_layer / hawking / crystallizer 由 SGEOrchestrator.restore_all 重新注入。
+        """
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"Agent.restore: 缺关键字段 '{key}'")
+        if int(snap['input_size']) != self.INPUT_SIZE:
+            raise SnapshotError(
+                f"Agent.restore: input_size 不兼容 "
+                f"(snap={snap['input_size']} vs self={self.INPUT_SIZE})"
+            )
+        self.seed = int(snap['seed'])
+        self.hebbian_lr = float(snap['hebbian_lr'])
+        self.phase_threshold = float(snap['phase_threshold'])
+        self.drives = list(snap['drives'])
+        self.crystallize_every = int(snap['crystallize_every'])
+        self.drive_baseline = {k: float(v) for k, v in snap['drive_baseline'].items()}
+        self.drive_accumulation_rate = {k: float(v) for k, v in snap['drive_accumulation_rate'].items()}
+        self.drive_decay_rate = {k: float(v) for k, v in snap['drive_decay_rate'].items()}
+        self.drive_state = {k: float(v) for k, v in snap['drive_state'].items()}
+        self.W1 = [[float(x) for x in row] for row in snap['W1']]
+        self.b1 = [float(x) for x in snap['b1']]
+        self.W2 = [[float(x) for x in row] for row in snap['W2']]
+        self.b2 = [float(x) for x in snap['b2']]
+        self.recurrent_state = [float(x) for x in snap['recurrent_state']]
+        self.interaction_count = int(snap['interaction_count'])
+        self.total_reward = float(snap['total_reward'])
+        self._frustration = float(snap['_frustration'])
+        self.signal_history = [dict(s) for s in snap['signal_history']]
+        # 清空缓存字段（避免 restore 后读到旧值）
+        self._last_hidden = None
+        self._last_input = None
+        self._last_phase_transition = False
+        self._last_crystallize_result = None
+
 
 # ══════════════════════════════════════════════
 # 模块级便捷函数（与 AiBeing 模块级函数对应）
@@ -704,6 +829,26 @@ class ValueLayer:
         """value 向量 L2 范数（用于人格分化度量）"""
         return math.sqrt(sum(v ** 2 for v in self.value_state.values()))
 
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = ('values', 'alpha', 'value_state')
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict（不含 LLM 等不可序列化引用）。"""
+        return {
+            'values': list(self.values),
+            'alpha': self.alpha,
+            'value_state': dict(self.value_state),
+        }
+
+    def restore(self, snap: dict) -> None:
+        """strict: 缺关键字段 → SnapshotError。restore in-place。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"ValueLayer.restore: 缺关键字段 '{key}'")
+        self.values = list(snap['values'])
+        self.alpha = float(snap['alpha'])
+        self.value_state = {k: float(v) for k, v in snap['value_state'].items()}
+
 
 # ══════════════════════════════════════════════
 # HawkingDecay 类 — §2.7 Hawking 辐射机制（阶段 B 引入）
@@ -801,6 +946,42 @@ class HawkingDecay:
         """
         return sorted(self.memory, key=lambda m: m['weight'], reverse=True)[:k]
 
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = ('gamma', 'remove_threshold', 'memory', '_last_tick')
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict。memory 是 list[{timestamp,weight,content}]; content 通常是 dict。"""
+        return {
+            'gamma': self.gamma,
+            'remove_threshold': self.remove_threshold,
+            'memory': [
+                {
+                    'timestamp': mem['timestamp'],
+                    'weight': mem['weight'],
+                    'content': copy.deepcopy(mem['content']),
+                }
+                for mem in self.memory
+            ],
+            '_last_tick': self._last_tick,
+        }
+
+    def restore(self, snap: dict) -> None:
+        """strict: 缺关键字段 → SnapshotError。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"HawkingDecay.restore: 缺关键字段 '{key}'")
+        self.gamma = float(snap['gamma'])
+        self.remove_threshold = float(snap['remove_threshold'])
+        self.memory = [
+            {
+                'timestamp': float(m['timestamp']),
+                'weight': float(m['weight']),
+                'content': copy.deepcopy(m['content']),
+            }
+            for m in snap['memory']
+        ]
+        self._last_tick = float(snap['_last_tick'])
+
     def __len__(self) -> int:
         return len(self.memory)
 
@@ -869,5 +1050,222 @@ class MemoryCrystallizer:
         })
         return 'created'
 
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = ('n_dims', 'threshold', 'memories')
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict。"""
+        return {
+            'n_dims': self.n_dims,
+            'threshold': self.threshold,
+            'memories': [
+                {
+                    'vec': list(mem['vec']),
+                    'weight': mem['weight'],
+                    'count': mem['count'],
+                }
+                for mem in self.memories
+            ],
+        }
+
+    def restore(self, snap: dict) -> None:
+        """strict: 缺关键字段 → SnapshotError；n_dims 不匹配 → SnapshotError。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"MemoryCrystallizer.restore: 缺关键字段 '{key}'")
+        if int(snap['n_dims']) != self.n_dims:
+            raise SnapshotError(
+                f"MemoryCrystallizer.restore: n_dims 不兼容 "
+                f"(snap={snap['n_dims']} vs self={self.n_dims})"
+            )
+        self.threshold = float(snap['threshold'])
+        self.memories = [
+            {
+                'vec': [float(x) for x in mem['vec']],
+                'weight': float(mem['weight']),
+                'count': int(mem['count']),
+            }
+            for mem in snap['memories']
+        ]
+
     def __len__(self) -> int:
         return len(self.memories)
+
+
+# ══════════════════════════════════════════════
+# Snapshot 协议单元测试（Phase 3.1 动作 2）
+# ══════════════════════════════════════════════
+
+
+def _run_snapshot_unit_tests() -> bool:
+    """验证 5 个 state 类的 snapshot/restore round-trip + strict 校验。
+
+    覆盖:
+      1. agent_round_trip     - snapshot → 新 Agent.restore → compute_signals 一致
+      2. agent_nn_weights     - W1/W2/b1/b2 逐元素 assert
+      3. agent_recurrent_state - 独立（修改原 Agent 不影响 restore 后）
+      4. value_layer_round_trip - alpha + value_state 6D 全等
+      5. drive_metabolism_round_trip - frustration + hunger_rates + _last_tick
+      6. hawking_round_trip    - memory 列表逐项（含 content dict）
+      7. crystallizer_round_trip - memories 列表
+      8. restore_strict_missing - 缺字段 → SnapshotError
+      9. snapshot_no_llm_leak  - snapshot dict 不含不可序列化引用
+    """
+    import json
+    print(f"\n{'─' * 60}")
+    print(f"  baseline.snapshot/restore 单元测试（Phase 3.1 动作 2）")
+    print(f"{'─' * 60}\n")
+
+    # ── 公共组件构造 ──
+    drives = ['exploration', 'safety', 'creativity', 'connection', 'autonomy']
+    values = ['safety', 'creativity', 'connection', 'autonomy', 'justice', 'compassion']
+
+    # ── 测试 4: ValueLayer round-trip ──
+    vl1 = ValueLayer(values=values, alpha=0.3)
+    vl1.value_state['safety'] = 0.42
+    vl1.value_state['creativity'] = -0.31
+    snap_vl = vl1.snapshot()
+    vl2 = ValueLayer(values=values, alpha=0.5)  # 不同初始 alpha
+    vl2.restore(snap_vl)
+    assert vl2.alpha == 0.3, f"alpha not restored: {vl2.alpha}"
+    assert abs(vl2.value_state['safety'] - 0.42) < 1e-9
+    assert abs(vl2.value_state['creativity'] - (-0.31)) < 1e-9
+    assert vl2.values == values
+    print(f"  ✓ [测试 4: ValueLayer round-trip] 6D 全等, alpha={vl2.alpha}")
+
+    # ── 测试 5: DriveMetabolism round-trip ──
+    dm1 = DriveMetabolism(drives=drives, clock=3.5)
+    dm1.frustration['connection'] = 1.5
+    dm1.time_metabolism(now=5.0)  # 推进 _last_tick + 冷却饥饿
+    snap_dm = dm1.snapshot()
+    dm2 = DriveMetabolism(drives=drives, clock=0.0)
+    dm2.restore(snap_dm)
+    assert dm2.drives == drives
+    assert abs(dm2._last_tick - 5.0) < 1e-9, f"_last_tick not restored: {dm2._last_tick}"
+    # time_metabolism 跑过冷却 + 饥饿，所以 frustration 应有变化
+    assert dm2.frustration['connection'] > 0.0
+    assert 'connection' in dm2.hunger_rates
+    print(f"  ✓ [测试 5: DriveMetabolism round-trip] frustration + _last_tick 一致")
+
+    # ── 测试 6: HawkingDecay round-trip（含 content dict 嵌套）──
+    hk1 = HawkingDecay(gamma=0.01)
+    hk1.insert(content={'epoch': 1, 'critic_context': {'safety': 0.5}}, weight=1.0, now=1.0)
+    hk1.insert(content={'epoch': 2, 'critic_context': {'safety': 0.7}}, weight=0.8, now=2.0)
+    snap_hk = hk1.snapshot()
+    hk2 = HawkingDecay(gamma=0.05)
+    hk2.restore(snap_hk)
+    assert abs(hk2.gamma - 0.01) < 1e-9
+    assert len(hk2.memory) == 2
+    assert hk2.memory[0]['content']['critic_context']['safety'] == 0.5
+    assert abs(hk2.memory[1]['weight'] - 0.8) < 1e-9
+    # 独立性：修改 hk1 不影响 hk2
+    hk1.insert(content={'epoch': 99}, weight=1.0, now=99.0)
+    assert len(hk2.memory) == 2, f"hk2 受 hk1 影响: {len(hk2.memory)}"
+    print(f"  ✓ [测试 6: HawkingDecay round-trip] 2 memories + 嵌套 dict 全等 + 独立")
+
+    # ── 测试 7: MemoryCrystallizer round-trip ──
+    cr1 = MemoryCrystallizer(n_dims=11)
+    cr1.insert_or_merge(vec=[0.1] * 11, weight=1.0)
+    cr1.insert_or_merge(vec=[0.2] * 11, weight=1.0)
+    snap_cr = cr1.snapshot()
+    cr2 = MemoryCrystallizer(n_dims=11)
+    cr2.restore(snap_cr)
+    assert cr2.n_dims == 11
+    assert len(cr2.memories) == 2
+    assert len(cr2.memories[0]['vec']) == 11
+    assert abs(cr2.memories[0]['vec'][0] - 0.1) < 1e-9
+    print(f"  ✓ [测试 7: MemoryCrystallizer round-trip] 2 memories, vec 全等")
+
+    # ── 测试 1: Agent round-trip ──
+    vl_for_agent = ValueLayer(values=values, alpha=0.3)
+    agent1 = Agent(seed=42, drives=drives, value_layer=vl_for_agent,
+                   crystallize_every=10)
+    # 跑几步让 state 有变化
+    for i in range(5):
+        ctx = {'user_emotion': 0.5, 'topic_intimacy': 0.3}
+        for f in CONTEXT_FEATURES:
+            ctx.setdefault(f, 0.0)
+        agent1.compute_signals(ctx)
+        agent1.learn({s: 0.5 for s in SIGNALS}, reward=-0.1)
+        agent1.tick_drives()
+    snap_agent = agent1.snapshot()
+
+    # JSON 序列化烟囱测试（snapshot 必须 JSON-friendly）
+    json.dumps(snap_agent)
+    json_restored = json.loads(json.dumps(snap_agent))
+
+    # 构造新 Agent（不同 seed 验证 restore 覆盖），restore 后必须 state 一致
+    vl_for_agent2 = ValueLayer(values=values, alpha=0.3)
+    agent2 = Agent(seed=999, drives=drives, value_layer=vl_for_agent2,
+                   crystallize_every=10)
+    agent2.restore(json_restored)
+    # 也让 agent1 restore 回 snap 起点（保持两个 agent 起点一致）
+    agent1.restore(json_restored)
+
+    # compute_signals 必须产生相同结果
+    # 注意：compute_signals 内部用 module-level random 加感知噪声（baseline.py:403），
+    # 需重置 random seed 以保证两边随机序列一致
+    ctx = {'user_emotion': 0.5, 'topic_intimacy': 0.3}
+    for f in CONTEXT_FEATURES:
+        ctx.setdefault(f, 0.0)
+    random.seed(42)
+    s1 = agent1.compute_signals(ctx)
+    random.seed(42)
+    s2 = agent2.compute_signals(ctx)
+    for k in SIGNALS:
+        assert abs(s1[k] - s2[k]) < 1e-9, f"signal {k} drift: {s1[k]} vs {s2[k]}"
+    print(f"  ✓ [测试 1: Agent round-trip] compute_signals 一致（≤1e-9）")
+
+    # ── 测试 2: Agent NN weights 逐元素 ──
+    assert len(agent2.W1) == len(agent1.W1) == HIDDEN_SIZE
+    assert len(agent2.W2) == len(agent1.W2) == N_SIGNALS
+    for i in range(HIDDEN_SIZE):
+        for j in range(agent1.INPUT_SIZE):
+            assert abs(agent2.W1[i][j] - agent1.W1[i][j]) < 1e-9
+    for i in range(N_SIGNALS):
+        assert abs(agent2.b2[i] - agent1.b2[i]) < 1e-9
+    print(f"  ✓ [测试 2: Agent NN weights] W1/W2/b1/b2 逐元素一致")
+
+    # ── 测试 3: Agent recurrent_state 独立 ──
+    # 修改 agent1 的 recurrent_state 不应影响 agent2
+    agent1.recurrent_state[0] = 999.0
+    assert agent2.recurrent_state[0] != 999.0
+    print(f"  ✓ [测试 3: Agent recurrent_state 独立]")
+
+    # ── 测试 8: restore strict 缺字段 → SnapshotError ──
+    snap_bad = dict(snap_agent)
+    del snap_bad['recurrent_state']
+    try:
+        agent_bad = Agent(seed=1, drives=drives, crystallize_every=10)
+        agent_bad.restore(snap_bad)
+        assert False, "应该抛出 SnapshotError"
+    except SnapshotError as e:
+        assert 'recurrent_state' in str(e)
+    print(f"  ✓ [测试 8: strict 校验] 缺字段抛 SnapshotError")
+
+    # ── 测试 9: snapshot 不泄露不可序列化引用 ──
+    snap_vl_keys = set(snap_vl.keys())
+    snap_dm_keys = set(snap_dm.keys())
+    snap_hk_keys = set(snap_hk.keys())
+    snap_cr_keys = set(snap_cr.keys())
+    snap_agent_keys = set(snap_agent.keys())
+    # 没有任何 snapshot 应包含 'llm' 字段
+    for name, keys in [
+        ('ValueLayer', snap_vl_keys), ('DriveMetabolism', snap_dm_keys),
+        ('HawkingDecay', snap_hk_keys), ('MemoryCrystallizer', snap_cr_keys),
+        ('Agent', snap_agent_keys),
+    ]:
+        assert 'llm' not in keys, f"{name} snapshot 泄露 llm 字段"
+    assert 'value_layer' not in snap_agent_keys, "Agent snapshot 含 value_layer ref"
+    assert 'hawking' not in snap_agent_keys, "Agent snapshot 含 hawking ref"
+    assert 'crystallizer' not in snap_agent_keys, "Agent snapshot 含 crystallizer ref"
+    print(f"  ✓ [测试 9: 无 LLM 泄露] 5 类 snapshot 均不含 llm / 外部 ref")
+
+    print(f"\n  状态: ✅ PASS — 9/9 测试通过")
+    return True
+
+
+if __name__ == "__main__":
+    import sys
+    ok = _run_snapshot_unit_tests()
+    sys.exit(0 if ok else 1)
