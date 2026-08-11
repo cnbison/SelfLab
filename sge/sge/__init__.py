@@ -22,6 +22,8 @@ Phase 3+ 正式 Python 包化（M2.x 一直是 scripts/ 下的临时实现）。
         SGEOrchestrator, OrchestratorStep,
         # Persistence（Phase 3.1 · 动作 1）
         TwinStateDB,
+        # Session（Phase 3.1 · 动作 2）
+        TwinSession,
     )
 
 历史：
@@ -86,6 +88,12 @@ from .persistence import (
     StudentDeletedError, SchemaVersionError, MigrationError,
 )
 
+# Session（Phase 3.1 · 动作 2）
+from .session import (
+    TwinSession,
+    SessionError, SessionLockedError, SessionNotFoundError,
+)
+
 
 __all__ = [
     # Core
@@ -120,4 +128,7 @@ __all__ = [
     'TwinStateDB', 'SUPPORTED_SCHEMA_VERSIONS',
     'PersistenceError', 'StudentNotFoundError', 'StudentExistsError',
     'StudentDeletedError', 'SchemaVersionError', 'MigrationError',
+    # Session
+    'TwinSession',
+    'SessionError', 'SessionLockedError', 'SessionNotFoundError',
 ]

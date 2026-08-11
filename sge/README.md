@@ -41,6 +41,9 @@ from sge import (
     TwinStateDB, SUPPORTED_SCHEMA_VERSIONS,
     PersistenceError, StudentNotFoundError, StudentExistsError,
     StudentDeletedError, SchemaVersionError, MigrationError,
+    # Session（Phase 3.1 · 动作 2）
+    TwinSession,
+    SessionError, SessionLockedError, SessionNotFoundError,
 )
 ```
 
@@ -196,6 +199,85 @@ with TwinStateDB('twins.db', schema_version='1.1') as db:
 
 参见 [`examples/persistence_demo.py`](./examples/persistence_demo.py)（端到端 demo：自动
 checkpoint + GDPR delete + retention policy + session_end）。
+
+## 会话管理（Phase 3.1 · 动作 2）
+
+`TwinSession` 是 `TwinStateDB` 之上的会话层。`TwinStateDB` 回答"state 存哪里"，
+`TwinSession` 回答"一次交互从哪开始、到哪结束"——它把「从 DB 加载 state → 重建
+SGEOrchestrator → 逐 event 推进 → 保存」这条链路收敛成 3 个调用。
+
+与直接用 `SGEOrchestrator(db=..., student_id=...)` 的区别：
+
+| | SGEOrchestrator + db | TwinSession |
+|---|---|---|
+| 组件构造 | 调用方手工组装 8 个组件 | 从 DB state 自动重建 |
+| 跨进程续跑 | 需手工 `load_full_state` + `restore_all` | 构造即恢复（`current_epoch` 自动续上） |
+| 防并发 | 无 | 进程内 SessionLock（同 student 重复打开报错） |
+| 适用 | 批量跑 N epoch 的实验 | 应用层交互式会话 |
+
+### 基础用法
+
+```python
+from sge import TwinStateDB, TwinSession
+
+with TwinStateDB('twins.db') as db:
+    with TwinSession('stu_001', twin_db=db, auto_save_every=10) as session:
+        for student_event in incoming_events:
+            trace = session.process_event()      # 跑 1 个 epoch，epoch 自动递增
+            session.add_conversation({           # App 层历史（存 app_state）
+                'epoch': trace.epoch,
+                'behavior': trace.actor_output.behavior_label,
+            })
+    # with 退出 → 自动 close(save=True) → on_close checkpoint
+```
+
+再次打开时 state 自动续上：
+
+```python
+with TwinStateDB('twins.db') as db:
+    session = TwinSession('stu_001', twin_db=db)
+    print(session.current_epoch)   # ← 上次 close 时的 epoch
+    print(session.app_state)       # ← 上次的 conversations / grade 等
+    session.close()
+```
+
+### 生命周期
+
+```
+TwinSession(student_id, db)
+  ├─ load_full_state()            从 DB 取 sge_state / app_state / epoch
+  ├─ _build_orchestrator_from_state()  逐组件 restore（Agent / ValueLayer / …）
+  └─ 注册 SessionLock
+
+process_event(epoch=None)          epoch 默认取 self.current_epoch
+  ├─ orchestrator.step()
+  ├─ current_epoch += 1
+  └─ 每 auto_save_every 个 epoch → save_full_state(trigger='auto_N')
+
+close(save=True)
+  ├─ snapshot_all() → save_full_state(trigger='on_close')
+  ├─ log_access(operation='on_close')
+  └─ 释放 SessionLock
+```
+
+### 并发约束
+
+- **同一 student 不能并发**：`_session_registry` 是进程内 dict，重复打开抛 `SessionLockedError`。
+  `close()` 后可重新打开。
+- **不同 student 可以并发**：DB 层已隔离（R10），互不影响。
+- **跨进程未加锁**：当前只有进程内锁；多进程写同一 student 依赖 SQLite WAL 串行化，
+  不构成严格互斥。DB 级 `session_locks` 表留给后续迭代。
+
+### 参数说明
+
+| 参数 | 默认 | 说明 |
+|------|------|------|
+| `student_id` | 必填 | 必须已 `create_student`，否则抛 `StudentNotFoundError` |
+| `twin_db` | 必填 | `TwinStateDB` 实例（生命周期由调用方管理） |
+| `use_real_llm` / `llm` | `False` / `None` | 透传给重建出的 orchestrator |
+| `auto_save_every` | `10` | 每 N epoch 全量保存；`0` = 只在 `close()` 时保存 |
+
+> **注意**：`close(save=False)` 会丢弃本次 session 的所有推进（用于只读/探查场景）。
 
 ## 架构
 
