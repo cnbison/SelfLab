@@ -1768,11 +1768,20 @@ Insight 33 把 SGE 定位为 Runtime,Insight 34 给出 Runtime 的关键内部�
 
 ---
 
-## 洞察 35:认知熵下降是 SGE 自我形成的统一目标函数(2026-07-05)
+## 洞察 35:认知熵下降是 SGE 自我形成的统一目标函数(2026-07-05 / 2026-08-11 修订)
 
 > **对应 FR**:FR-4(Value Layer)、FR-5(Identity Layer)、FR-6(Narrative Layer)。本洞察提出 SGE 的统一目标函数:**自我形成 = 自我认知熵下降**,可作为 Value/Identity/Narrative 三个 FR 的共同度量。
 >
 > **来源**:[2026-07-05 ECA 调研分析](../discussions/2026-07-05-eca-deep-analysis.md) + [Cognition-Pipeline-GPT02.md 第八层反思](../research/cognitive-architecture/Cognition-Pipeline-GPT02.md)
+
+> **📌 2026-08-11 SSOT 状态（基于 M2.2 v6 长程验证，CHANGELOG 1.31.0）**：
+>
+> - **H_self 公式 A3**（char-bigram overlap 语义聚类）落地 `sge/sge/metrics.py`，H_self 单调下降修复 P0-4 非单调
+> - **6 个独立实验**（3 baby × 250 epoch + encouraged × 1000 epoch 4 chunks）：mean reduction +37.7%（std 9.2%），5/6 > 30% 阈值，PT 触发 6/6 ≥ 1
+> - **PRD §6 双维度首次同时通过**：A 维度（|val| 增长 ≥ 20%）6/6 + B 维度（H_self reduction > 30%）5/6
+> - **核心假设**（"AI 能否形成自己的价值判断能力"）得到**稳健验证**
+>
+> **本洞察的 SSOT 区域**：§4 公式演进 + §13 v6 长程验证。§9-§12 为历史过程记录，保留作为审计依据。**新读者请直接读 §4 + §13**。
 
 **一句话**:自我形成的本质是 **认知熵下降**——Concept Formation 是 Entropy Compression(1000 个苹果 → 水果)、World Model 是 Entropy Minimization(因果预测);**Identity 形成 = Self Cognitive Entropy 下降**,可作为 SGE 的统一目标函数,代替当前分散的指标。
 
@@ -2134,15 +2143,21 @@ Insight 33 把 SGE 定位为 Runtime,Insight 35 给出 Runtime 的优化目标:
 
 ---
 
-## 洞察 36：M2.2 v2/v5 实证 — Experience 落地成功 + H_self 公式 A2 修复后通过（2026-07-06 / 2026-07-08 修订 / 2026-07-10 完整 250 修订）
+## 洞察 36：M2.2 v2/v5/v6 实证 — Experience 落地成功 + H_self 公式 A2 → A3 演进（2026-07-06 / 2026-07-08 修订 / 2026-07-10 完整 250 修订 / 2026-07-12 长程验证）
 
-> **对应 FR**：FR-1（Event Generator + Experience Encoder）、FR-5（Identity Layer）、FR-6（Narrative Layer）。本洞察基于 M2.2 v2/v3/v4/v5 实证，给出 SGE 自我形成度量的可验证结论。
+> **对应 FR**：FR-1（Event Generator + Experience Encoder）、FR-5（Identity Layer）、FR-6（Narrative Layer）。本洞察基于 M2.2 v2/v3/v4/v5/v6 实证，给出 SGE 自我形成度量的可验证结论。
 >
 > **2026-07-08 修订**：原"H_self 当前不可行"状态在 v5 联调实验中通过公式 A2 修复实证成功（详见 §10）。
 >
 > **2026-07-10 完整 250 epoch 修订**：v5 报告 +52.3% 是 partial run (epoch 0-170) 估算，**完整 250 epoch 重跑后 H_self reduction 实际为 +17.0%（未达 30% 阈值）**，**H_self 非单调**（触底 0.110 epoch 49 → 回升 0.498 epoch 249），**PT 触发仍 0 次**。公式 A2 本身正确（可触底 0.110），但 **H_self 作为组合指标本身需要重设计**。详见 §10 + §11。
+>
+> **2026-07-10 v6 修订**：公式 A3（语义聚类）实施后 H_self reduction +50.0% 通过，P0-4 非单调修复。详见 §12。
+>
+> **2026-07-12 长程验证**：6 个独立实验 5/6 通过（mean +37.7%），核心假设稳健验证。详见 §13 + [洞察 35 §13](#13-m2-2-v6-长程验证--跨-baby--1000-epoch-公式-a3-稳健性确认2026-07-10--2026-07-12)。
 
-**一句话**：在 1000 epoch 真实 LLM 下，**Experience Encoder（洞察 34）生成的第一人称 meaning 质量优秀**（24 个样本全部 first-person 哲学反思）；**H_self（洞察 35）的原始公式无法通过 30% 下降率验收**（v2 实证）——根因是 IdentityLayer crystallize 每次重新生成身份（47/47 唯一），导致 H_identity=1.0 恒定；**v5 partial 报告 +52.3% 下降率 + PT 1 次触发**（2026-07-08），**完整 250 epoch 重跑修订为 +17.0% 下降 + PT 0 次触发**（2026-07-10，H_self 非单调暴露组合指标问题）。
+> **📌 2026-08-11 SSOT 状态**：本洞察的当前结论已在 §末尾"Insight 36 终极状态升级"段给出。**新读者请直接读该段**。§1-§10 为过程记录，§11-§13 已被 [洞察 35 §13](#13-m2-2-v6-长程验证--跨-baby--1000-epoch-公式-a3-稳健性确认2026-07-10--2026-07-12) 覆盖。
+
+**一句话**：在 1000 epoch 真实 LLM 下，**Experience Encoder（洞察 34）生成的第一人称 meaning 质量优秀**（24 个样本全部 first-person 哲学反思）；**H_self（洞察 35）原始公式 → 公式 A2 → 公式 A3 三阶段演进**——v2 原始公式不通过（-13.1%）、v5 公式 A2 部分验证（完整 250 epoch +17.0%）、**v6 公式 A3 完整通过（+50.0% 短程 + 长程 5/6 通过 mean +37.7%）**。
 
 ### 完整论证
 

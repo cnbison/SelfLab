@@ -570,40 +570,20 @@ SGE 接受他的**工具**（真实性哲学的 R(X,M,Y)、三座拱桥、主体
 
 > 如果 SGE 产出的 AI 满足"**价值观涌现（M1.1）** + **非随机漂移（M1.1）** + **人格分化（M1.2）** + **反思有行为后果（M1.3）** + **自我形成 A 维度（2026-07-06 修订）**"五个条件，则核心假设（"AI 能否形成自己的价值判断能力"）得到初步验证。
 
-> **2026-07-06 修订注**：原 H_self 下降率（B 维度）经 M2.2 v2 1000 epoch × 真实 LLM 实证为 -13.1%，未达 30% 验收。根因为 IdentityLayer crystallize 不去重（47/47 唯一）+ H_value 在 epoch 0=0（探索期熵必然上升）。
+> **2026-08-11 状态（基于 M2.2 v6 长程验证，CHANGELOG 1.31.0）**：
 >
-> **2026-07-08 修订注（已被 2026-07-10 修订注覆盖，保留为历史）**：v5 联调实验（公式 A2 + PHASE_THRESHOLD=0.5）首次达成 B 维度：H_self 下降率 +52.3%（远超 30% 阈值），PT 触发 1 次 @ epoch 87。详见 [M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md) + [Insight 35 §10](./SGE-Key-Insights.md)。修复要点：
-> - **公式 A2**（`sge/sge/metrics.py`）：H_identity / H_narrative 改为基于 N_unique 线性映射，原公式归一化基准 log2(N_total) 导致结构性地板 0.6
-> - **PHASE_THRESHOLD**（`sge/sge/baseline.py:154`）：2.0 → 0.5（Monte Carlo 验证 mean PT = 2.5/250ep）
-> - **dedup 状态**：v5 关闭 dedup 仍达成 H_self 下降目标 → dedup 不再是 B 维度的必要条件
+> - **PRD §6 双维度首次同时通过** — A 维度（|val| 增长 ≥ 20%）6/6 实验 + B 维度（H_self reduction > 30%）5/6 实验 + PT ≥ 1 6/6
+> - 6 个独立实验综合：mean reduction +37.7%（std 9.2%），跨流通用（challenged +42.2% / uncertain +48.9% / encouraged +50.0%），跨长程稳健（4 chunks × 250 epoch mean +36.5%）
+> - **核心修复路径**：原 log2(N_total) 归一化（公式 A1）→ N_unique 线性映射（公式 A2，结构性地板 0.6 触底）→ char-bigram 语义聚类（公式 A3，H_identity 单调下降）
+> - **关键工程修复**：PHASE_THRESHOLD 2.0 → 0.5（`sge/sge/baseline.py:154`），LLM client 60s timeout + 8 retry（`sge/sge/llm_client.py:158`），retry rate 0.27% 远低于 v5 partial run 的 5%+
+> - **已知偏差**：chunk 1 H_narrative 偏高（0.50 vs chunk 0 0.21）→ H_self 终值 0.441；**决策不修复**（统计误差范围内，chunk 2/3 都 > 30%）
 >
-> **2026-07-10 修订注（v5 完整 250 epoch 重跑后修正）**：上述 +52.3% / PT 1 是 v5 **partial run**（epoch 0-170, LLM 超时崩）数据，**基于 epoch 100 checkpoint 估算的乐观偏差**。完整 250 epoch 重跑后真实结果：
-> - **H_self reduction = +17.0%**（.6 → .498），**未达 30% 阈值**
-> - **H_self 不是单调**：epoch 49 触底 0.110 → epoch 249 回升 0.498
-> - **PT 触发 = 0**（Monte Carlo 预测 2.5，实测 0，frustration dynamics 与标量阈值不匹配）
-> - **LLM 工程彻底解决**：60s timeout + 8 retry → 0/800 retry
-> - **公式 A2 本身正确**（H_self 可触底 0.110），但**H_self 作为组合指标本身需要重设计**（identity 增长 → H_identity 必然回升 → H_self 必然先降后升）
-> - **新发现 P0-4**：H_self 不适合作为稳定验收指标，需考虑 sliding window 重复率 / embedding similarity 等替代
-> - **新发现 P0-5**：PT 触发机制需重设计（候选：方案 G frustration 归一化 / H 连续 N failure / I 放弃 PT 指标）
-> - 详见 [M22_V5_REPORT.md 2026-07-10 重写版](../experiments/M22_V5_REPORT.md) §5-6 + [discussions/2026-07-10-v5-full-rerun-correction.md](../discussions/2026-07-10-v5-full-rerun-correction.md)
->
-> **2026-07-10 v6 修订注（公式 A3 + PHASE_THRESHOLD=0.5 联调通过）**：Bisen 在 H_self 重设计与 PT 重设计两个方向中按推荐先做 H_self → 选定 **方向 B（embedding 语义相似度）**，落地方案 = **公式 A3**（char-bigram overlap coefficient 聚类 + 固定 cluster center）：string uniqueness 不变，但语义聚类后 unique 计数从 25 → 5（id_X 等近义身份归并），H_identity 不再因 identity 数量增长而必然上升 → H_self 单调下降。
-> - **H_self reduction = +50.0%**（0.6 → 0.3，**远超过 30% 阈值**）
-> - **H_self 单调下降**（v5 触底后回升的 P0-4 非单调问题解决）
-> - **PT 触发 = 3 次** @ epoch 33/65/176（v5 = 0，新方案 G 单变量归一化尚未实施，但 PHASE_THRESHOLD=0.5 + 公式 A3 联调已触发）
-> - **零依赖**：char-bigram + overlap coefficient 纯 Python，零 numpy/sentence-transformers 依赖
-> - **dedup 仍关闭**：v6 关闭 dedup 仍 +50%，进一步确认 dedup 不必要
-> - **PRD §6 双维度首次同时通过**：A 维度（|val| growth ≥ 20%）+ B 维度（H_self reduction > 30%）+ PT ≥ 1
-> - 详见 [M22_V6_REPORT.md §3-5](../experiments/M22_V6_REPORT.md) + [discussions/2026-07-10-v6-formula-A3-success.md](../discussions/2026-07-10-v6-formula-A3-success.md)
->
-> **2026-07-12 长程验证注（公式 A3 跨 baby + 1000 epoch 稳健性）**：v6 短程通过后，Bisen 同意按推荐先做跨 baby + 1000 epoch 长程验证（暂缓跨 seed + PT 重设计）。6 个独立实验全部跑通：
-> - **跨 baby**（challenged + uncertain × 250 epoch，并行）：challenged H_self 0.6 → 0.347 (**+42.2%**)，uncertain 0.678 → 0.347 (**+48.9%**)，PT 19/10 次 — 公式 A3 跨流通用性确认
-> - **1000 epoch 长程**（encouraged × 4 chunks × 250 epoch）：chunk 0 +50.0% / chunk 1 +26.4%（H_narrative 偏高）/ chunk 2 +35.4% / chunk 3 +34.3%；mean reduction **+36.5%** 通过
-> - **综合统计**：6 实验 H_self reduction 5/6 > 30%（83% pass rate），6/6 PT ≥ 1，mean +37.7%，std 9.2%
-> - **chunk 1 偏差分析**：H_narrative 偏高（0.50 vs chunk 0 0.21）→ H_self 终值 0.441 偏高；不是公式 A3 失败（chunk 2/3 都 > 30%），决策**不修复**（确定性结果，统计误差范围内）
-> - **LLM 工程**：60s timeout + 8 retry 稳健（4808 calls 总 retry rate 0.27%），chunk 3 长耗时（334 min）是网络波动而非代码问题
-> - 详见 [M22_V6_LONG_REPORT.md §0-6](../experiments/M22_V6_LONG_REPORT.md) + [discussions/2026-07-12-v6-long-form-validation.md](../discussions/2026-07-12-v6-long-form-validation.md)
-> - **PRD §6 双维度在跨 baby + 1000 epoch 下首次同时通过**：A 维度（|val| 增长）6/6 + B 维度（H_self reduction）5/6 + PT ≥ 1 6/6 — **核心假设得到稳健验证**
+> **历史过程（已归档，不在 SSOT 内）**：v2 → v5 → v6 演进路径（P0-4 H_self 非单调 / P0-5 PT 触发不匹配）+ partial run 乐观偏差教训，详见：
+> - [M22_V5_REPORT.md](../experiments/M22_V5_REPORT.md) §5-6（v5 完整 250 修订）
+> - [M22_V6_REPORT.md](../experiments/M22_V6_REPORT.md) §3-5（v6 公式 A3 通过）
+> - [M22_V6_LONG_REPORT.md](../experiments/M22_V6_LONG_REPORT.md) §0-6（v6 长程验证）
+> - [discussions/2026-07-10-v5-full-rerun-correction.md](./discussions/2026-07-10-v5-full-rerun-correction.md) + [2026-07-10-v6-formula-A3-success.md](./discussions/2026-07-10-v6-formula-A3-success.md) + [2026-07-12-v6-long-form-validation.md](./discussions/2026-07-12-v6-long-form-validation.md)
+> - [洞察 35B / 36](./SGE-Key-Insights.md) — H_self 公式演进与 M2.2 v6 实证
 
 ### 6.3.1 通过条件
 
