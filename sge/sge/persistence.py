@@ -25,7 +25,7 @@ import json
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Tuple, List, Dict, Any
+from typing import Optional, Tuple, List, Dict, Any, Callable
 
 
 # ══════════════════════════════════════════════
@@ -53,6 +53,10 @@ class SchemaVersionError(PersistenceError):
     """schema_version 不兼容。"""
 
 
+class MigrationError(PersistenceError):
+    """schema 迁移失败（跳过版本 / 降级 / DDL 错误）。"""
+
+
 class InvalidLayerError(ValueError):
     """layer 不在 4 层白名单（commit 2 实施）。"""
 
@@ -66,7 +70,44 @@ class InvalidLayerError(ValueError):
 _RETENTION_STATUSES = ('active', 'pending_deletion', 'deleted')
 
 # Schema 当前支持版本（migrate_schema 用）
-SUPPORTED_SCHEMA_VERSIONS = ('1.0',)
+SUPPORTED_SCHEMA_VERSIONS = ('1.0', '1.1')
+
+
+# ══════════════════════════════════════════════
+# Schema Migration 注册表（Phase 3.1 · 动作 1 收尾 task #5）
+# ══════════════════════════════════════════════
+#
+# 注册格式：key = 源版本 → value = 目标版本迁移函数（接收 sqlite3.Connection）
+# 新增迁移时：① 加一个 tuple 元素到 SUPPORTED_SCHEMA_VERSIONS；② 加一个 _migration_X_Y_to_X_Z() 函数；
+# ③ 在 _MIGRATIONS 注册（key=源版本）；④ 在 _migration 函数里实现 DDL（ALTER/CREATE INDEX 等）。
+#
+# 当前路径：v1.0 → v1.1（students.email 字段 + 索引）。
+#
+# 幂等性要求：迁移函数必须自身幂等（PRAGMA table_info 检查列是否已存在），
+# 否则再次调用会因 ALTER 重复而崩溃（SQLite 不支持 IF NOT EXISTS 在 ADD COLUMN）。
+
+
+def _migration_v1_0_to_v1_1(conn: sqlite3.Connection) -> None:
+    """v1.0 → v1.1：students 表新增 email 字段 + 索引。
+
+    场景：K12 学校希望按 email 唯一索引学生（替代 UUID 或学号）。
+    """
+    # 幂等性：检查 email 列是否已存在（避免重复 ALTER 失败）
+    cols = conn.execute("PRAGMA table_info(students)").fetchall()
+    col_names = {row['name'] for row in cols}
+    if 'email' not in col_names:
+        conn.execute("ALTER TABLE students ADD COLUMN email TEXT")
+    # 索引幂等（CREATE INDEX IF NOT EXISTS 安全）
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_students_email ON students(email)"
+    )
+
+
+# 注册：源版本 → 迁移函数
+_MIGRATIONS: dict[str, Callable[[sqlite3.Connection], None]] = {
+    '1.0': _migration_v1_0_to_v1_1,
+    # '1.1': _migration_v1_1_to_v1_2,  # 未来扩展占位
+}
 
 
 class TwinStateDB:
@@ -554,33 +595,95 @@ class TwinStateDB:
             # 审计失败不传播（GDPR 合规优先 — 记录失败应静默 + 后续监控告警）
             pass
 
-    # ── 版本管理: migrate_schema（commit 1 占位，commit 2 真实实现） ──
+    # ── 版本管理: migrate_schema（真实实现） ──
     def migrate_schema(
         self,
         target_version: Optional[str] = None,
     ) -> None:
-        """迁移 schema 到 target_version（commit 1 仅占位，幂等）。
+        """迁移 schema 到 target_version（幂等 + 真实执行 DDL）。
 
         Args:
-            target_version: 目标版本（None = 当前支持的最新版本）
+            target_version: 目标版本（None = 当前 schema_version）
 
-        当前实现（v1.0）：
-          - 仅校验当前版本已支持（已在 __init__ 完成）
-          - 写入 'last_migration_at' 元数据（幂等更新）
+        行为：
+          - current == target → no-op（写 last_migration_at 时间戳）
+          - current > target → MigrationError（不支持版本降级）
+          - current < target → 按 SUPPORTED_SCHEMA_VERSIONS 顺序依次执行迁移
+          - 跳过版本（中间缺迁移）→ MigrationError
+          - 任一步 DDL 失败 → MigrationError，事务回滚到迁移前
 
-        commit 2 实施真实迁移（如 v1.0 → v1.1 rename 字段）。
+        设计：
+          - 每步迁移包在独立事务中（失败只回滚当前步）
+          - 迁移函数自身需幂等（PRAGMA table_info 检查列是否已存在）
+          - 注册表 _MIGRATIONS 在 module-level（key = 源版本）
         """
-        target = target_version or self.schema_version
+        target = target_version if target_version is not None else self.schema_version
+
+        # 1. 校验目标版本支持
         if target not in SUPPORTED_SCHEMA_VERSIONS:
             raise SchemaVersionError(
                 f"migrate_schema: 不支持目标版本 '{target}'；"
                 f"当前支持: {SUPPORTED_SCHEMA_VERSIONS}"
             )
-        with self.conn:
-            self.conn.execute(
-                "INSERT OR REPLACE INTO schema_meta (key, value) VALUES ('last_migration_at', ?)",
-                (datetime.now().isoformat(),),
+
+        # 2. 读当前 schema_meta 版本
+        row = self.conn.execute(
+            "SELECT value FROM schema_meta WHERE key='current_schema_version'"
+        ).fetchone()
+        current = row['value'] if row else self.schema_version
+
+        # 3. 当前 == 目标：no-op
+        if current == target:
+            with self.conn:
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO schema_meta (key, value) "
+                    "VALUES ('last_migration_at', ?)",
+                    (datetime.now().isoformat(),),
+                )
+            return
+
+        # 4. 不支持降级
+        current_idx = SUPPORTED_SCHEMA_VERSIONS.index(current)
+        target_idx = SUPPORTED_SCHEMA_VERSIONS.index(target)
+        if target_idx < current_idx:
+            raise MigrationError(
+                f"migrate_schema: 不支持版本降级（current={current} → target={target}）；"
+                f"如需回滚，请先备份数据库"
             )
+
+        # 5. 跳过版本校验（中间不能有缺漏的迁移）
+        versions_to_run = SUPPORTED_SCHEMA_VERSIONS[current_idx:target_idx + 1]
+        for i in range(len(versions_to_run) - 1):
+            src = versions_to_run[i]
+            if src not in _MIGRATIONS:
+                raise MigrationError(
+                    f"migrate_schema: 缺少中间迁移 '{src}'（注册表未找到）；"
+                    f"请补充 _MIGRATIONS['{src}'] 实现"
+                )
+
+        # 6. 按顺序执行迁移
+        try:
+            for i in range(len(versions_to_run) - 1):
+                src = versions_to_run[i]
+                dst = versions_to_run[i + 1]
+                with self.conn:  # 独立事务
+                    _MIGRATIONS[src](self.conn)
+                    # 更新 schema_meta
+                    self.conn.execute(
+                        "INSERT OR REPLACE INTO schema_meta (key, value) "
+                        "VALUES ('current_schema_version', ?)",
+                        (dst,),
+                    )
+                    self.conn.execute(
+                        "INSERT OR REPLACE INTO schema_meta (key, value) "
+                        "VALUES ('last_migration_at', ?)",
+                        (datetime.now().isoformat(),),
+                    )
+        except sqlite3.Error as e:
+            raise MigrationError(
+                f"migrate_schema: DDL 执行失败（{src} → {dst}）；"
+                f"原因: {type(e).__name__}: {e}"
+            ) from e
 
     # ── Schema 检查辅助（commit 2 用） ──
     def _is_student_deleted(self, student_id: str) -> bool:
@@ -1561,6 +1664,154 @@ def _run_persistence_unit_tests() -> bool:
         os.unlink(db_path)
 
     print(f"\n  状态: ✅ PASS — 15/15 (commit 1 + commit 2 完整) 测试通过")
+
+    # ══════════════════════════════════════════════
+    # Migration 框架单元测试（Phase 3.1 · 动作 1 收尾 task #5）
+    # ══════════════════════════════════════════════
+    print(f"\n{'─'*60}")
+    print(f"  sge.persistence (Migration 框架) 单元测试")
+    print(f"{'─'*60}\n")
+
+    # ── 测试 M1: v1.0 → v1.1 成功迁移 + email 字段可用 ──
+    db_path = tempfile.mktemp(suffix='.db')
+    try:
+        # 第一阶段：用 v1.0 创建 DB + 写入数据
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.create_student('stu_mig_001', name='Migration Test')
+            db.save_full_state(
+                'stu_mig_001',
+                {'val': 'old_data'},
+                {},
+                epoch=10,
+                trigger='manual',
+            )
+
+        # 确认 v1.0 没有 email 列
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            cols = db.conn.execute("PRAGMA table_info(students)").fetchall()
+            col_names = {row['name'] for row in cols}
+            assert 'email' not in col_names, (
+                f"v1.0 不应有 email 列，实际: {col_names}"
+            )
+
+        # 执行迁移 v1.0 → v1.1
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.migrate_schema('1.1')
+            # schema_meta 应更新为 1.1
+            row = db.conn.execute(
+                "SELECT value FROM schema_meta WHERE key='current_schema_version'"
+            ).fetchone()
+            assert row['value'] == '1.1', (
+                f"迁移后 schema_meta 应为 '1.1'，实际: {row['value']}"
+            )
+            # email 列应存在
+            cols = db.conn.execute("PRAGMA table_info(students)").fetchall()
+            col_names = {row['name'] for row in cols}
+            assert 'email' in col_names, (
+                f"v1.1 应有 email 列，实际: {col_names}"
+            )
+            print(f"  ✓ [M1: v1.0 → v1.1 迁移成功] email 列已添加 + schema_meta=1.1")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 M2: 迁移幂等（连续调用 2 次无副作用）──
+    db_path = tempfile.mktemp(suffix='.db')
+    try:
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.create_student('stu_mig_002')
+
+        # 第一次迁移
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.migrate_schema('1.1')
+
+        # 第二次迁移（schema_meta 已升级到 1.1，应以新版本打开）
+        with TwinStateDB(db_path, schema_version='1.1') as db:
+            try:
+                db.migrate_schema('1.1')  # current=1.1, target=1.1 → no-op
+                print(f"  ✓ [M2: 迁移幂等] 连续调用 2 次无副作用")
+            except Exception as e:
+                raise AssertionError(f"幂等迁移失败: {type(e).__name__}: {e}")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 M3: 跳过版本 → MigrationError（mock 缺中间迁移）──
+    db_path = tempfile.mktemp(suffix='.db')
+    try:
+        # 直接构造 schema_meta 为 v1.0 → 尝试迁移到 v1.1，但临时清空 _MIGRATIONS
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.create_student('stu_mig_003')
+
+        # Monkey-patch _MIGRATIONS 模拟"缺中间迁移"
+        orig_migrations = dict(_MIGRATIONS)
+        _MIGRATIONS.pop('1.0', None)
+        try:
+            with TwinStateDB(db_path, schema_version='1.0') as db:
+                try:
+                    db.migrate_schema('1.1')
+                    raise AssertionError("期望 MigrationError，未抛")
+                except MigrationError as e:
+                    assert "缺少中间迁移" in str(e), f"错误信息不对: {e}"
+                    print(f"  ✓ [M3: 跳过版本报错] {e}")
+        finally:
+            _MIGRATIONS.clear()
+            _MIGRATIONS.update(orig_migrations)
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 M4: 版本降级 → MigrationError ──
+    db_path = tempfile.mktemp(suffix='.db')
+    try:
+        # 先升级到 1.1
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.create_student('stu_mig_004')
+            db.migrate_schema('1.1')
+
+        # 尝试降级到 1.0（不支持）
+        with TwinStateDB(db_path, schema_version='1.1') as db:
+            try:
+                db.migrate_schema('1.0')
+                raise AssertionError("期望 MigrationError，未抛")
+            except MigrationError as e:
+                assert "不支持版本降级" in str(e), f"错误信息不对: {e}"
+                print(f"  ✓ [M4: 版本降级报错] {e}")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 M5: 迁移后数据保留（email=NULL，其他字段完整）──
+    db_path = tempfile.mktemp(suffix='.db')
+    try:
+        # v1.0 阶段写入完整数据
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.create_student('stu_mig_005', name='保留测试')
+            db.save_full_state(
+                'stu_mig_005',
+                {'value': 'preserved'},
+                {'grade': 7},
+                epoch=20,
+                trigger='auto_20',
+            )
+
+        # 迁移到 v1.1
+        with TwinStateDB(db_path, schema_version='1.0') as db:
+            db.migrate_schema('1.1')
+
+        # 以 v1.1 打开 + 验证数据完整
+        with TwinStateDB(db_path, schema_version='1.1') as db:
+            sge_state, app_state, epoch = db.load_full_state('stu_mig_005')
+            assert sge_state == {'value': 'preserved'}, f"sge_state 丢失: {sge_state}"
+            assert app_state == {'grade': 7}, f"app_state 丢失: {app_state}"
+            assert epoch == 20, f"epoch 丢失: {epoch}"
+            # email 字段存在但为 NULL（迁移未填充）
+            row = db.conn.execute(
+                "SELECT name, email FROM students WHERE student_id='stu_mig_005'"
+            ).fetchone()
+            assert row['name'] == '保留测试', f"name 丢失: {row['name']}"
+            assert row['email'] is None, f"email 应为 NULL，实际: {row['email']}"
+            print(f"  ✓ [M5: 迁移数据保留] sge_state/app_state/epoch 完整 + email=NULL")
+    finally:
+        os.unlink(db_path)
+
+    print(f"\n  状态: ✅ PASS — 5/5 (Migration 框架) 测试通过")
     return True
 
 
