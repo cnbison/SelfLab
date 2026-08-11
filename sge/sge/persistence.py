@@ -108,9 +108,11 @@ class TwinStateDB:
         self._closed = False
 
         # 连接（check_same_thread=False 支持多线程场景，commit 2 session 用）
+        # 注：禁用 PARSE_DECLTYPES — sqlite3 默认会尝试把 TIMESTAMP 字段解析为 datetime，
+        # 但我们存的是 ISO 字符串（与 SQLite CURRENT_TIMESTAMP 的 "YYYY-MM-DD HH:MM:SS"
+        # 格式不同），会导致 ValueError。所有时间字段返回 raw string，由调用方按需转换。
         self.conn = sqlite3.connect(
             db_path,
-            detect_types=sqlite3.PARSE_DECLTYPES,
             check_same_thread=False,
         )
         # Row factory 让 fetch 返回 dict
@@ -252,8 +254,9 @@ class TwinStateDB:
                     student_id TEXT PRIMARY KEY,
                     graduation_date DATE,
                     deletion_date DATE,
-                    status TEXT NOT NULL CHECK(status IN ('active','pending_deletion','deleted')),
-                    FOREIGN KEY(student_id) REFERENCES students(student_id)
+                    status TEXT NOT NULL CHECK(status IN ('active','pending_deletion','deleted'))
+                    -- 注：不加 FOREIGN KEY(student_id) REFERENCES students(student_id)，
+                    -- 这样硬删除 students 时 retention_policy 可保留为审计孤儿行
                 )
             """)
 
@@ -587,6 +590,490 @@ class TwinStateDB:
 
 
 # ══════════════════════════════════════════════
+# TwinStateDB（commit 2：增量层 + GDPR）
+# ══════════════════════════════════════════════
+
+
+# 增量层白名单
+_INCREMENTAL_LAYERS = ('identity', 'narrative', 'hawking', 'crystallizer')
+
+# 增量层 → (表名, 字段映射, 排序字段)
+_INCREMENTAL_LAYER_CONFIG = {
+    # identity: {epoch, identity} → (epoch, identity_text, length_chars)
+    'identity': {
+        'table': 'identity_history',
+        'insert': """INSERT INTO identity_history
+                     (student_id, epoch, identity_text, length_chars)
+                     VALUES (?, ?, ?, ?)""",
+        'extract': lambda item: (
+            int(item['epoch']),
+            str(item['identity']),
+            len(str(item['identity'])),
+        ),
+        'order_by': 'epoch ASC, crystallized_at ASC',
+    },
+    # narrative: {epoch, narrative} → (epoch, narrative_text, length_chars)
+    'narrative': {
+        'table': 'narrative_history',
+        'insert': """INSERT INTO narrative_history
+                     (student_id, epoch, narrative_text, length_chars)
+                     VALUES (?, ?, ?, ?)""",
+        'extract': lambda item: (
+            int(item['epoch']),
+            str(item['narrative']),
+            len(str(item['narrative'])),
+        ),
+        'order_by': 'epoch ASC, built_at ASC',
+    },
+    # hawking: {timestamp, weight, content} → (inserted_at, weight, content_json)
+    # 注意：inserted_at 存 ISO 字符串（与 SQLite CURRENT_TIMESTAMP 兼容，避免 PARSE_DECLTYPES 解析失败）
+    'hawking': {
+        'table': 'hawking_memory',
+        'insert': """INSERT INTO hawking_memory
+                     (student_id, inserted_at, weight, content_json)
+                     VALUES (?, ?, ?, ?)""",
+        'extract': lambda item: (
+            _float_to_iso(float(item['timestamp'])),
+            float(item['weight']),
+            json.dumps(item['content']),
+        ),
+        'order_by': 'inserted_at ASC',
+    },
+    # crystallizer: {cluster_id, vec, weight, count} → (cluster_id, vec_json, weight, count)
+    'crystallizer': {
+        'table': 'crystallizer_clusters',
+        'insert': """INSERT INTO crystallizer_clusters
+                     (student_id, cluster_id, vec_json, weight, count)
+                     VALUES (?, ?, ?, ?, ?)""",
+        'extract': lambda item: (
+            str(item.get('cluster_id', f"cluster_{int(item.get('weight', 0) * 1000)}")),
+            json.dumps(list(item['vec'])),
+            float(item['weight']),
+            int(item['count']),
+        ),
+        'order_by': 'weight DESC, cluster_id ASC',
+    },
+}
+
+
+# 在 TwinStateDB 类内追加 commit 2 方法（使用 monkey-patch 模式，
+# 避免破坏现有 __init__ 逻辑；保持单文件结构）
+
+
+def _save_incremental(
+    self,
+    student_id: str,
+    layer: str,
+    data: list,
+    epoch: int,
+) -> None:
+    """增量追加单层数据（事件型 INSERT，不覆盖历史）。
+
+    Args:
+        student_id: 学生 ID
+        layer: 'identity' / 'narrative' / 'hawking' / 'crystallizer'
+        data: list of dicts（字段映射见 _INCREMENTAL_LAYER_CONFIG）
+        epoch: 当前 epoch（用于校验学生存在）
+
+    Raises:
+        InvalidLayerError: layer 不在白名单
+        StudentNotFoundError: student 不存在
+    """
+    if layer not in _INCREMENTAL_LAYERS:
+        raise InvalidLayerError(
+            f"save_incremental: layer '{layer}' 不在白名单 {_INCREMENTAL_LAYERS}"
+        )
+    if not data:
+        return  # 空列表无操作
+
+    config = _INCREMENTAL_LAYER_CONFIG[layer]
+
+    with self.conn:
+        # 校验学生存在
+        row = self.conn.execute(
+            "SELECT 1 FROM students WHERE student_id=?",
+            (student_id,),
+        ).fetchone()
+        if row is None:
+            raise StudentNotFoundError(
+                f"save_incremental: student_id '{student_id}' 不存在"
+            )
+
+        # 批量 INSERT
+        for item in data:
+            extracted = config['extract'](item)
+            self.conn.execute(config['insert'], (student_id, *extracted))
+
+
+def _load_layer(
+    self,
+    student_id: str,
+    layer: str,
+) -> list:
+    """加载单层全部数据（按时间顺序）。
+
+    Args:
+        student_id: 学生 ID
+        layer: 'identity' / 'narrative' / 'hawking' / 'crystallizer'
+
+    Returns:
+        list of dicts（按时间排序；空列表若无数据或 student 不存在）
+    """
+    if layer not in _INCREMENTAL_LAYERS:
+        raise InvalidLayerError(
+            f"load_layer: layer '{layer}' 不在白名单 {_INCREMENTAL_LAYERS}"
+        )
+
+    config = _INCREMENTAL_LAYER_CONFIG[layer]
+    table = config['table']
+
+    # 检查学生存在
+    student_row = self.conn.execute(
+        "SELECT 1 FROM students WHERE student_id=?",
+        (student_id,),
+    ).fetchone()
+    if student_row is None:
+        return []
+
+    rows = self.conn.execute(
+        f"SELECT * FROM {table} WHERE student_id=? ORDER BY {config['order_by']}",
+        (student_id,),
+    ).fetchall()
+
+    # 转换为统一格式（保持 snapshot/restore 一致性）
+    result = []
+    for r in rows:
+        if layer == 'identity':
+            result.append({
+                'epoch': int(r['epoch']),
+                'identity': r['identity_text'],
+            })
+        elif layer == 'narrative':
+            result.append({
+                'epoch': int(r['epoch']),
+                'narrative': r['narrative_text'],
+            })
+        elif layer == 'hawking':
+            result.append({
+                'timestamp': _iso_to_float(r['inserted_at']) if isinstance(r['inserted_at'], str) else float(r['inserted_at']),
+                'weight': float(r['weight']),
+                'content': json.loads(r['content_json']),
+            })
+        elif layer == 'crystallizer':
+            result.append({
+                'cluster_id': r['cluster_id'],
+                'vec': json.loads(r['vec_json']),
+                'weight': float(r['weight']),
+                'count': int(r['count']),
+            })
+    return result
+
+
+def _set_retention_policy(
+    self,
+    student_id: str,
+    graduation_date=None,
+    deletion_date=None,
+    status: str = 'active',
+) -> None:
+    """设置/更新学生保留策略（GDPR 核心 API）。
+
+    Args:
+        student_id: 学生 ID
+        graduation_date: 毕业日期（date 对象或 ISO 字符串，可选）
+        deletion_date: 计划物理删除日期（同上）
+        status: 'active' / 'pending_deletion' / 'deleted'
+
+    Raises:
+        StudentNotFoundError: student 不存在
+        ValueError: status 不在白名单
+    """
+    if status not in _RETENTION_STATUSES:
+        raise ValueError(
+            f"set_retention_policy: status '{status}' 不在白名单 {_RETENTION_STATUSES}"
+        )
+
+    # 日期类型兼容（接受 date / datetime / str）
+    grad_str = _normalize_date(graduation_date)
+    del_str = _normalize_date(deletion_date)
+
+    with self.conn:
+        # 校验学生存在（外键约束）
+        row = self.conn.execute(
+            "SELECT 1 FROM students WHERE student_id=?",
+            (student_id,),
+        ).fetchone()
+        if row is None:
+            raise StudentNotFoundError(
+                f"set_retention_policy: student_id '{student_id}' 不存在"
+            )
+
+        # UPSERT（首次创建 retention_policy 行 + 后续更新）
+        self.conn.execute(
+            """INSERT INTO retention_policy (student_id, graduation_date, deletion_date, status)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(student_id) DO UPDATE SET
+                 graduation_date=excluded.graduation_date,
+                 deletion_date=excluded.deletion_date,
+                 status=excluded.status""",
+            (student_id, grad_str, del_str, status),
+        )
+
+
+def _delete_student(
+    self,
+    student_id: str,
+    hard: bool = False,
+    accessor_id: str = 'system',
+) -> None:
+    """删除学生（GDPR right-to-deletion）。
+
+    软删除（hard=False，默认）：
+      - retention_policy.status = 'deleted'
+      - deletion_date = NOW + 90 天（若未设置）
+      - 后续 load/save 操作拒绝（StudentDeletedError）
+      - access_log 记录 delete_soft 事件
+
+    硬删除（hard=True）：
+      - access_log 脱敏（student_id → 'deleted:<sha256>', ip_address=NULL）
+      - 9 个业务表全部 DELETE（事务原子）
+      - retention_policy.status='deleted' 保留为审计线索
+      - access_log 记录 delete_hard 事件
+
+    Args:
+        student_id: 学生 ID
+        hard: True = 物理删除；False = 软删除（默认）
+        accessor_id: 操作者 ID（审计用）
+    """
+    if not isinstance(hard, bool):
+        raise ValueError(f"hard 必须是 bool，得到: {hard!r}")
+
+    with self.conn:
+        # 校验学生存在
+        row = self.conn.execute(
+            "SELECT 1 FROM students WHERE student_id=?",
+            (student_id,),
+        ).fetchone()
+        if row is None:
+            raise StudentNotFoundError(
+                f"delete_student: student_id '{student_id}' 不存在"
+            )
+
+        if hard:
+            # ── 硬删除 ──
+            # 1. access_log 脱敏（保留审计 + 不可逆标识）
+            import hashlib
+            deleted_hash = hashlib.sha256(student_id.encode()).hexdigest()[:16]
+            anonymized_id = f"deleted:{deleted_hash}"
+            self.conn.execute(
+                """UPDATE access_log
+                   SET student_id=?, ip_address=NULL
+                   WHERE student_id=?""",
+                (anonymized_id, student_id),
+            )
+
+            # 2. 按子表到主表顺序删除（外键约束）
+            # 注意：retention_policy 不删（保留为审计线索）
+            for table in [
+                'identity_history', 'narrative_history', 'hawking_memory',
+                'crystallizer_clusters', 'subject_mastery', 'checkpoints',
+                'students',
+            ]:
+                self.conn.execute(
+                    f"DELETE FROM {table} WHERE student_id=?",
+                    (student_id,),
+                )
+
+            # 3. 标记 retention_policy 为 deleted（审计）
+            self.conn.execute(
+                """UPDATE retention_policy
+                   SET status='deleted', deletion_date=CURRENT_TIMESTAMP
+                   WHERE student_id=?""",
+                (student_id,),
+            )
+
+            # 4. 审计：写入脱敏后的 delete_hard 事件
+            self.conn.execute(
+                """INSERT INTO access_log
+                   (student_id, accessor_id, operation, ip_address)
+                   VALUES (?, ?, 'delete_hard', NULL)""",
+                (anonymized_id, accessor_id),
+            )
+        else:
+            # ── 软删除 ──
+            # 1. 标记 retention_policy 为 deleted，设置 deletion_date（NOW+90d）
+            self.conn.execute(
+                """UPDATE retention_policy
+                   SET status='deleted',
+                       deletion_date=COALESCE(deletion_date, date('now', '+90 days'))
+                   WHERE student_id=?""",
+                (student_id,),
+            )
+
+            # 2. 审计：保留原始 student_id 便于查询
+            self.conn.execute(
+                """INSERT INTO access_log
+                   (student_id, accessor_id, operation, ip_address)
+                   VALUES (?, ?, 'delete_soft', NULL)""",
+                (student_id, accessor_id),
+            )
+
+
+def _purge_expired_students(self, now=None) -> int:
+    """物理删除已过期（deletion_date < now）的软删除学生。
+
+    Args:
+        now: datetime 对象（None = datetime.now()）；测试用固定时间
+
+    Returns:
+        实际物理删除的学生数
+    """
+    if now is None:
+        now = datetime.now()
+    now_iso = now.isoformat()
+
+    # 查找过期学生
+    expired_rows = self.conn.execute(
+        """SELECT student_id FROM retention_policy
+           WHERE status='deleted' AND deletion_date IS NOT NULL
+             AND deletion_date <= ?""",
+        (now_iso,),
+    ).fetchall()
+    expired_ids = [r['student_id'] for r in expired_rows]
+
+    # 对每个过期学生执行硬删除
+    for sid in expired_ids:
+        _delete_student(self, sid, hard=True, accessor_id='purge_expired')
+
+    return len(expired_ids)
+
+
+def _list_students(
+    self,
+    include_deleted: bool = False,
+) -> list[dict]:
+    """列出所有学生（含状态信息）。
+
+    Args:
+        include_deleted: False（默认）= 仅 active / pending_deletion；True = 全部含 deleted
+
+    Returns:
+        list of {student_id, name, status, last_active_at, last_epoch}
+    """
+    if include_deleted:
+        query = """
+            SELECT s.student_id, s.name, s.last_active_at, s.last_epoch, r.status
+            FROM students s
+            LEFT JOIN retention_policy r ON s.student_id = r.student_id
+            ORDER BY s.student_id
+        """
+    else:
+        query = """
+            SELECT s.student_id, s.name, s.last_active_at, s.last_epoch, r.status
+            FROM students s
+            LEFT JOIN retention_policy r ON s.student_id = r.student_id
+            WHERE r.status IN ('active', 'pending_deletion') OR r.status IS NULL
+            ORDER BY s.student_id
+        """
+    rows = self.conn.execute(query).fetchall()
+    return [
+        {
+            'student_id': r['student_id'],
+            'name': r['name'],
+            'status': r['status'],
+            'last_active_at': r['last_active_at'],
+            'last_epoch': int(r['last_epoch']) if r['last_epoch'] is not None else 0,
+        }
+        for r in rows
+    ]
+
+
+def _normalize_date(value):
+    """规范化日期输入：date / datetime / ISO 字符串 / None → ISO 字符串 或 None。"""
+    if value is None:
+        return None
+    if hasattr(value, 'isoformat'):
+        return value.isoformat()
+    if isinstance(value, str):
+        return value  # 假设已是合法 ISO 格式
+    raise ValueError(f"日期必须是 date / datetime / ISO 字符串，得到: {value!r}")
+
+
+def _float_to_iso(ts: float) -> str:
+    """float timestamp（epoch-hours 或 unix seconds） → ISO 字符串。
+
+    注：Hawking timestamp 是 epoch-hours（受控时钟），值通常 < 1000。
+    为了让 SQLite PARSE_DECLTYPES 不报错，存 ISO 字符串而非 float。
+    load 时用 _iso_to_float 反向转换。
+    """
+    # epoch-hours → datetime（基准时间设为 2026-01-01，与 SGE 实验惯例一致）
+    from datetime import datetime, timedelta
+    base = datetime(2026, 1, 1)
+    dt = base + timedelta(hours=ts)
+    return dt.isoformat()
+
+
+def _iso_to_float(iso_str: str) -> float:
+    """ISO 字符串 → float timestamp（反向 _float_to_iso）。"""
+    from datetime import datetime
+    base = datetime(2026, 1, 1)
+    dt = datetime.fromisoformat(iso_str)
+    return (dt - base).total_seconds() / 3600.0
+
+
+# Monkey-patch commit 2 方法到 TwinStateDB
+TwinStateDB.save_incremental = _save_incremental
+TwinStateDB.load_layer = _load_layer
+TwinStateDB.set_retention_policy = _set_retention_policy
+TwinStateDB.delete_student = _delete_student
+TwinStateDB.purge_expired_students = _purge_expired_students
+TwinStateDB.list_students = _list_students
+
+
+# 升级 _is_student_deleted 占位为真实实现
+def _check_deleted_real(self, student_id: str) -> bool:
+    """检查学生是否已软删除（commit 2 真实实现）。"""
+    row = self.conn.execute(
+        "SELECT status FROM retention_policy WHERE student_id=?",
+        (student_id,),
+    ).fetchone()
+    if row is None:
+        return False
+    return row['status'] == 'deleted'
+
+
+TwinStateDB._is_student_deleted = _check_deleted_real
+
+# 升级 save_full_state / load_full_state 启用 deleted 校验
+_original_save_full_state = TwinStateDB.save_full_state
+_original_load_full_state = TwinStateDB.load_full_state
+
+
+def _save_full_state_with_deleted_check(
+    self, student_id, sge_state, app_state, epoch, trigger,
+):
+    if self._is_student_deleted(student_id):
+        raise StudentDeletedError(
+            f"save_full_state: student_id '{student_id}' 已软删除；不可再保存"
+        )
+    return _original_save_full_state(
+        self, student_id, sge_state, app_state, epoch, trigger,
+    )
+
+
+def _load_full_state_with_deleted_check(self, student_id):
+    if self._is_student_deleted(student_id):
+        raise StudentDeletedError(
+            f"load_full_state: student_id '{student_id}' 已软删除"
+        )
+    return _original_load_full_state(self, student_id)
+
+
+TwinStateDB.save_full_state = _save_full_state_with_deleted_check
+TwinStateDB.load_full_state = _load_full_state_with_deleted_check
+
+
+# ══════════════════════════════════════════════
 # 单元测试（commit 1：5 个核心 case）
 # ══════════════════════════════════════════════
 
@@ -770,8 +1257,310 @@ def _run_persistence_unit_tests() -> bool:
     finally:
         os.unlink(db_path)
 
-    print(f"\n  状态: ✅ PASS — 7/7 (commit 1 范围) 测试通过")
-    print(f"  注: 测试 4/5/6/7/11/12/13/15 属 commit 2 范围（增量层 + GDPR）")
+    # ── commit 2 范围：8 个追加测试 ──
+
+    # ── 测试 4: 4 层增量 save/load ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_layers')
+
+        # identity: 2 条
+        db.save_incremental('stu_layers', 'identity', [
+            {'epoch': 19, 'identity': '我是探索者'},
+            {'epoch': 39, 'identity': '我重视连接'},
+        ], epoch=39)
+        # narrative: 1 条
+        db.save_incremental('stu_layers', 'narrative', [
+            {'epoch': 49, 'narrative': '我经历了探索与连接...'},
+        ], epoch=49)
+        # hawking: 2 条
+        db.save_incremental('stu_layers', 'hawking', [
+            {'timestamp': 1.0, 'weight': 1.0, 'content': {'epoch': 1, 'ctx': {'safety': 0.5}}},
+            {'timestamp': 2.0, 'weight': 0.9, 'content': {'epoch': 2, 'ctx': {'safety': 0.7}}},
+        ], epoch=2)
+        # crystallizer: 1 条
+        db.save_incremental('stu_layers', 'crystallizer', [
+            {'cluster_id': 'c1', 'vec': [0.1, 0.2, 0.3], 'weight': 1.0, 'count': 5},
+        ], epoch=10)
+
+        # load 验证
+        identity = db.load_layer('stu_layers', 'identity')
+        assert len(identity) == 2
+        assert identity[0]['identity'] == '我是探索者'
+        narrative = db.load_layer('stu_layers', 'narrative')
+        assert len(narrative) == 1 and '探索与连接' in narrative[0]['narrative']
+        hawking = db.load_layer('stu_layers', 'hawking')
+        assert len(hawking) == 2 and hawking[0]['content']['ctx']['safety'] == 0.5
+        crystallizer = db.load_layer('stu_layers', 'crystallizer')
+        assert len(crystallizer) == 1 and crystallizer[0]['vec'] == [0.1, 0.2, 0.3]
+
+        # 未知 layer 抛异常
+        try:
+            db.save_incremental('stu_layers', 'unknown', [], epoch=0)
+            assert False, "应抛 InvalidLayerError"
+        except InvalidLayerError:
+            pass
+
+        db.close()
+        print(f"  ✓ [测试 4: 4 层增量 save/load] identity/narrative/hawking/crystallizer 全过 + 未知 layer 拒绝")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 5: 多用户隔离 ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_A')
+        db.create_student('stu_B')
+
+        db.save_full_state('stu_A', {'val': 1.0}, {}, epoch=10, trigger='manual')
+        db.save_full_state('stu_B', {'val': 2.0}, {}, epoch=20, trigger='manual')
+
+        sge_A, _, epoch_A = db.load_full_state('stu_A')
+        sge_B, _, epoch_B = db.load_full_state('stu_B')
+        assert sge_A == {'val': 1.0} and sge_A != sge_B
+        assert epoch_A == 10 and epoch_B == 20
+
+        # stu_A save_incremental 不应影响 stu_B
+        db.save_incremental('stu_A', 'identity', [{'epoch': 19, 'identity': 'A 身份'}], epoch=19)
+        assert db.load_layer('stu_B', 'identity') == []
+        assert len(db.load_layer('stu_A', 'identity')) == 1
+
+        # 删除 stu_B 不影响 stu_A
+        db.delete_student('stu_B', hard=True)
+        sge_A2, _, epoch_A2 = db.load_full_state('stu_A')
+        assert sge_A2 == {'val': 1.0} and epoch_A2 == 10
+
+        db.close()
+        print(f"  ✓ [测试 5: 多用户隔离] stu_A/B 完全隔离 + 删除 B 不影响 A")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 6: 软删除 ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_soft')
+        db.save_full_state('stu_soft', {'val': 0.5}, {}, epoch=50, trigger='auto_100')
+
+        # 软删除
+        db.delete_student('stu_soft', hard=False, accessor_id='teacher_001')
+
+        # 校验 retention_policy 状态
+        row = db.conn.execute(
+            "SELECT status, deletion_date FROM retention_policy WHERE student_id=?",
+            ('stu_soft',),
+        ).fetchone()
+        assert row['status'] == 'deleted', f"status={row['status']}"
+        assert row['deletion_date'] is not None
+
+        # 后续 load/save 应抛 StudentDeletedError
+        try:
+            db.load_full_state('stu_soft')
+            assert False, "应抛 StudentDeletedError"
+        except StudentDeletedError:
+            pass
+        try:
+            db.save_full_state('stu_soft', {}, {}, epoch=60, trigger='manual')
+            assert False, "应抛 StudentDeletedError"
+        except StudentDeletedError:
+            pass
+
+        # audit 事件存在
+        audit = db.conn.execute(
+            "SELECT operation FROM access_log WHERE student_id='stu_soft' AND operation='delete_soft'"
+        ).fetchall()
+        assert len(audit) == 1
+        assert audit[0]['operation'] == 'delete_soft'
+
+        db.close()
+        print(f"  ✓ [测试 6: 软删除] status=deleted + 后续读写拒绝 + audit 事件")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 7: 硬删除 + 审计脱敏 ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_hard')
+        db.save_full_state('stu_hard', {'val': 0.7}, {}, epoch=70, trigger='manual')
+        db.save_incremental('stu_hard', 'identity', [{'epoch': 19, 'identity': 'hard'}], epoch=19)
+
+        db.delete_student('stu_hard', hard=True, accessor_id='teacher_001')
+
+        # 9 个业务表应无 stu_hard
+        for table in [
+            'identity_history', 'narrative_history', 'hawking_memory',
+            'crystallizer_clusters', 'subject_mastery', 'checkpoints',
+            'students',
+        ]:
+            count = db.conn.execute(
+                f"SELECT COUNT(*) AS cnt FROM {table} WHERE student_id='stu_hard'"
+            ).fetchone()['cnt']
+            assert count == 0, f"{table} 仍有 stu_hard 数据 ({count} 行)"
+
+        # access_log 应有 1 条脱敏记录（'deleted:<hash>' + ip_address=NULL）
+        # delete_hard 事件 + 之前可能有的 load/save 事件都被脱敏
+        anonymized_rows = db.conn.execute(
+            "SELECT student_id, ip_address, operation FROM access_log WHERE student_id LIKE 'deleted:%'"
+        ).fetchall()
+        assert len(anonymized_rows) >= 1
+        for r in anonymized_rows:
+            assert r['student_id'].startswith('deleted:')
+            assert r['ip_address'] is None
+
+        db.close()
+        print(f"  ✓ [测试 7: 硬删除 + 审计脱敏] 9 业务表无数据 + access_log 脱敏为 deleted:<hash>")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 11: 大 state (>1 MB) round-trip ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_large')
+        # 构造 >1 MB JSON
+        big_value = 'x' * (1024 * 1024)  # 1 MB string
+        big_state = {'data': [big_value] * 2}  # ~2 MB total
+        db.save_full_state('stu_large', big_state, {}, epoch=100, trigger='auto_100')
+
+        sge_state, _, _ = db.load_full_state('stu_large')
+        assert sge_state == big_state, "大 state round-trip 失配"
+        db.close()
+        print(f"  ✓ [测试 11: 大 state round-trip] >1 MB JSON 无截断")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 12: 事务回滚保护 ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_tx')
+
+        # 第一次 save 成功
+        db.save_full_state('stu_tx', {'step': 1}, {}, epoch=10, trigger='manual')
+        initial_checkpoints = db.conn.execute(
+            "SELECT COUNT(*) AS cnt FROM checkpoints WHERE student_id='stu_tx'"
+        ).fetchone()['cnt']
+        assert initial_checkpoints == 1
+
+        # 第二次 save 故意触发异常（epoch 非法）— 事务应回滚
+        try:
+            # 直接模拟事务失败：构造非法 JSON 触发 json.dumps 异常
+            # （实际 JSON 不会失败，但用 monkey-patch 模拟）
+            original_dumps = json.dumps
+            def bad_dumps(obj, **kwargs):
+                if obj == {'bad': True}:
+                    raise ValueError("simulated JSON error")
+                return original_dumps(obj, **kwargs)
+            json.dumps = bad_dumps
+            try:
+                db.save_full_state('stu_tx', {'bad': True}, {}, epoch=20, trigger='manual')
+                assert False, "应抛 ValueError"
+            except ValueError:
+                pass
+            json.dumps = original_dumps
+        except Exception:
+            json.dumps = original_dumps
+            raise
+
+        # 校验：checkpoints 数量仍为 1（事务回滚保护）
+        after_checkpoints = db.conn.execute(
+            "SELECT COUNT(*) AS cnt FROM checkpoints WHERE student_id='stu_tx'"
+        ).fetchone()['cnt']
+        assert after_checkpoints == 1, f"事务回滚失败：checkpoints={after_checkpoints}"
+
+        # students 表 epoch 也未更新
+        row = db.conn.execute(
+            "SELECT last_epoch FROM students WHERE student_id='stu_tx'"
+        ).fetchone()
+        assert row['last_epoch'] == 10, f"last_epoch 应为 10（事务回滚），实际 {row['last_epoch']}"
+
+        db.close()
+        print(f"  ✓ [测试 12: 事务回滚保护] 非法 JSON → checkpoints 不变 + last_epoch 不变")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 13: retention_policy + purge_expired ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        db.create_student('stu_ret')
+
+        # 设置 retention policy
+        from datetime import date, timedelta
+        today = date.today()
+        past_date = (today - timedelta(days=1)).isoformat()  # 昨天（已过期）
+        future_date = (today + timedelta(days=30)).isoformat()  # 30 天后
+        db.set_retention_policy(
+            'stu_ret', graduation_date=today, deletion_date=past_date,
+            status='pending_deletion',
+        )
+        db.delete_student('stu_ret', hard=False, accessor_id='teacher_002')
+
+        # 校验
+        row = db.conn.execute(
+            "SELECT status FROM retention_policy WHERE student_id='stu_ret'"
+        ).fetchone()
+        assert row['status'] == 'deleted'
+
+        # purge_expired_students 应物理删除已过期
+        purged_count = db.purge_expired_students(now=datetime.now())
+        assert purged_count == 1, f"purge 数量={purged_count}"
+
+        # students 表无 stu_ret
+        student_exists = db.conn.execute(
+            "SELECT 1 FROM students WHERE student_id='stu_ret'"
+        ).fetchone()
+        assert student_exists is None
+
+        # retention_policy 仍保留（审计）
+        policy_exists = db.conn.execute(
+            "SELECT status FROM retention_policy WHERE student_id='stu_ret'"
+        ).fetchone()
+        assert policy_exists is not None
+        assert policy_exists['status'] == 'deleted'
+
+        # 非法 status 抛 ValueError
+        try:
+            db.set_retention_policy('stu_ret', status='invalid_status')
+            assert False, "应抛 ValueError"
+        except ValueError:
+            pass
+
+        db.close()
+        print(f"  ✓ [测试 13: retention_policy + purge] 设置/过期 purge/非法 status 拒绝")
+    finally:
+        os.unlink(db_path)
+
+    # ── 测试 15: SQL 注入抵抗 ──
+    db_path = make_db_path()
+    try:
+        db = TwinStateDB(db_path)
+        malicious_id = "stu'; DROP TABLE students; --"
+        db.create_student(malicious_id)
+
+        # 应能正常 save/load（参数化查询保护）
+        db.save_full_state(malicious_id, {'val': 1}, {}, epoch=10, trigger='manual')
+        sge_state, _, _ = db.load_full_state(malicious_id)
+        assert sge_state == {'val': 1}
+
+        # students 表仍存在（未被 DROP）
+        tables = db.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='students'"
+        ).fetchall()
+        assert len(tables) == 1, "students 表被恶意 DROP"
+
+        # 清理
+        db.delete_student(malicious_id, hard=True)
+
+        db.close()
+        print(f"  ✓ [测试 15: SQL 注入抵抗] 特殊字符 student_id + 注入字符串不破坏 schema")
+    finally:
+        os.unlink(db_path)
+
+    print(f"\n  状态: ✅ PASS — 15/15 (commit 1 + commit 2 完整) 测试通过")
     return True
 
 
