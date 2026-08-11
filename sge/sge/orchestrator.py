@@ -42,15 +42,19 @@ SGE 12 步双 LLM 编排器（阶段 D 引入）
 
 from __future__ import annotations
 
+import copy
+import json
 import math
 import random
 from dataclasses import dataclass, field, asdict
+from datetime import datetime
 from typing import Optional, Callable, Any
 
+from . import __version__ as SGE_VERSION
 from .baseline import (
     Agent, DriveMetabolism, ValueLayer, HawkingDecay, MemoryCrystallizer,
     SGE_DEFAULT_DRIVES, SGE_DEFAULT_VALUES, SIGNALS, CONTEXT_FEATURES,
-    apply_thermodynamic_noise,
+    apply_thermodynamic_noise, SnapshotError,
 )
 from .critic import critic_sense
 from .actor import actor_express, ActorOutput
@@ -160,6 +164,7 @@ class SGEOrchestrator:
         self.use_real_llm = use_real_llm
         self.verbose = verbose
         self._n_epochs_hint = 0  # 由 run() 在循环前设置；step() 单调用时为 0
+        self.current_epoch = 0  # 步进计数（snapshot_all 读取），每次 step() 末尾 +1
 
         # 自动加载 LLM 客户端（如果 use_real_llm=True 且未提供）
         if use_real_llm:
@@ -419,6 +424,9 @@ class SGEOrchestrator:
                 flush=True,
             )
 
+        # 步进计数（snapshot_all 读取此字段判断 epoch）
+        self.current_epoch = epoch + 1
+
         return OrchestratorStep(
             epoch=epoch,
             event=event.to_dict(),
@@ -459,6 +467,108 @@ class SGEOrchestrator:
             trace = self.step(epoch)
             traces.append(trace)
         return traces
+
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_SCHEMA_VERSION = '1.0'
+
+    def snapshot_all(self) -> dict:
+        """聚合 7 个 state + EventGenerator（含 event_history） → JSON-friendly dict。
+
+        关键设计：
+          - Agent.hawking / Agent.crystallizer 是 alias（指向 self.hawking/crystallizer），
+            只走 self.hawking/crystallizer 单点快照，避免 JSON 重复
+          - identity_layer.llm / narrative_builder.llm 由 snapshot 排除；restore 时由
+            SGEOrchestrator.restore_all(llm=...) 统一注入
+          - 顶层含 _schema_version='1.0'，restore 时校验（缺字段 → SnapshotError）
+          - 仅在 epoch 边界调用以避免 mid-step 暂态 llm（orchestrator.py:347-360）
+
+        返回 dict 可直接 json.dumps()；Phase 3.1 persistence.py 用此接口存储。
+        """
+        return {
+            '_schema_version': self._SNAPSHOT_SCHEMA_VERSION,
+            '_sge_version': SGE_VERSION,
+            '_saved_at': datetime.now().isoformat(),
+            'metadata': {
+                'epoch': self.current_epoch,
+                'baby_id': self.event_generator.baby_id,
+                'hours_per_epoch': self.hours_per_epoch,
+                'use_real_llm': self.use_real_llm,
+                'crystallize_every': self.crystallize_every,
+            },
+            'agent': self.agent.snapshot(),
+            'value_layer': self.value_layer.snapshot(),
+            'drive_metabolism': self.drive_metabolism.snapshot(),
+            'event_generator': self.event_generator.snapshot(),
+            'hawking': self.hawking.snapshot() if self.hawking else None,
+            'crystallizer': self.crystallizer.snapshot() if self.crystallizer else None,
+            'identity_layer': self.identity_layer.snapshot(),
+            'narrative_builder': self.narrative_builder.snapshot(),
+        }
+
+    def restore_all(
+        self,
+        snap: dict,
+        *,
+        llm: Optional[SGELLMClient] = None,
+    ) -> None:
+        """从 snapshot 字典恢复所有 state。
+
+        严格校验：
+          - 缺 _schema_version → SnapshotError
+          - 任何子 state 缺关键字段 → SnapshotError（向上传播）
+
+        llm 通过关键字参数注入到 identity_layer / narrative_builder（保持 snapshot
+        协议 JSON-friendly，不持久化 LLM 句柄）。
+
+        restore 后重新执行 agent 的 memory layer alias 注入（orchestrator.__init__
+        的等价行为），保证 Agent.hawking/crystallizer 与 orchestrator.hawking/crystallizer
+        指向同一对象。
+        """
+        if '_schema_version' not in snap:
+            raise SnapshotError(
+                f"SGEOrchestrator.restore_all: 缺 '_schema_version' 字段 "
+                f"(expected '{self._SNAPSHOT_SCHEMA_VERSION}')"
+            )
+        if snap['_schema_version'] != self._SNAPSHOT_SCHEMA_VERSION:
+            raise SnapshotError(
+                f"SGEOrchestrator.restore_all: schema_version 不兼容 "
+                f"(snap={snap['_schema_version']} vs expected={self._SNAPSHOT_SCHEMA_VERSION})"
+            )
+
+        # 各 state 按 snapshot 顺序反向恢复
+        self.value_layer.restore(snap['value_layer'])
+        self.drive_metabolism.restore(snap['drive_metabolism'])
+        self.event_generator.restore(snap['event_generator'])
+
+        if self.hawking is not None:
+            if snap['hawking'] is None:
+                raise SnapshotError("SGEOrchestrator.restore_all: self.hawking 非 None 但 snap['hawking'] 为 None")
+            self.hawking.restore(snap['hawking'])
+        elif snap['hawking'] is not None:
+            raise SnapshotError("SGEOrchestrator.restore_all: self.hawking 为 None 但 snap['hawking'] 非 None")
+
+        if self.crystallizer is not None:
+            if snap['crystallizer'] is None:
+                raise SnapshotError("SGEOrchestrator.restore_all: self.crystallizer 非 None 但 snap['crystallizer'] 为 None")
+            self.crystallizer.restore(snap['crystallizer'])
+        elif snap['crystallizer'] is not None:
+            raise SnapshotError("SGEOrchestrator.restore_all: self.crystallizer 为 None 但 snap['crystallizer'] 非 None")
+
+        self.identity_layer.restore(snap['identity_layer'], llm=llm)
+        self.narrative_builder.restore(snap['narrative_builder'], llm=llm)
+
+        # Agent 最后恢复（依赖 value_layer + hawking + crystallizer 引用）
+        self.agent.restore(snap['agent'])
+        # 重新注入 memory layer alias（对齐 __init__ 行为）
+        if self.hawking is not None:
+            self.agent.hawking = self.hawking
+        if self.crystallizer is not None:
+            self.agent.crystallizer = self.crystallizer
+            self.agent.crystallize_every = self.crystallize_every
+
+        # 恢复 current_epoch（从 metadata）
+        if 'metadata' in snap and 'epoch' in snap['metadata']:
+            self.current_epoch = int(snap['metadata']['epoch'])
 
 
 # ══════════════════════════════════════════════
@@ -592,7 +702,109 @@ def _run_unit_tests() -> bool:
     print(f"  ✓ [测试 12: H_self 度量] {h_start:.3f} → {h_end:.3f} "
           f"(ε降 {(h_start - h_end):+.3f})")
 
-    print(f"\n  状态: ✅ PASS — 12/12 测试通过")
+    # ── Phase 3.1 动作 2: Snapshot 协议集成测试 ──
+
+    # ── 测试 13: orchestrator snapshot_all → restore_all round-trip ──
+    # 跑完 55 epoch 后 snapshot，新 orchestrator restore 后再跑 epoch 56，
+    # value_state / signals / drive_state 必须与继续跑的 orchestrator 完全一致
+    import copy as _copy
+
+    # 复制原 orchestrator 的状态（基准）
+    snap = orchestrator.snapshot_all()
+    # JSON 序列化烟囱测试
+    json.dumps(snap)
+    snap_restored = json.loads(json.dumps(snap))
+
+    # 构造第二个 orchestrator（用同种子）
+    orchestrator2 = SGEOrchestrator(
+        agent=Agent(seed=42, drives=drives,
+                    value_layer=ValueLayer(values=SGE_DEFAULT_VALUES),
+                    hawking=hawking, crystallizer=crystallizer,
+                    crystallize_every=10),
+        value_layer=ValueLayer(values=SGE_DEFAULT_VALUES),
+        drive_metabolism=DriveMetabolism(drives=drives),
+        event_generator=EventGenerator(baby_id='orch_test', seed=42),
+        identity_layer=IdentityLayer(crystallize_every_n_epochs=20),
+        narrative_builder=NarrativeBuilder(build_every_n_epochs=50),
+        hawking=hawking, crystallizer=crystallizer,
+        crystallize_every=10,
+    )
+    orchestrator2.restore_all(snap_restored)
+
+    # 也让 orchestrator restore 回 snap 状态（保证两边起点一致）
+    orchestrator.restore_all(snap_restored)
+
+    # 重置 random seed 以保证 compute_signals 感知噪声序列一致
+    random.seed(42)
+    t1_56 = orchestrator.step(55)
+    random.seed(42)
+    t2_56 = orchestrator2.step(55)
+
+    for k in ('safety', 'creativity', 'connection'):
+        assert abs(t1_56.value_state_after[k] - t2_56.value_state_after[k]) < 1e-9, \
+            f"value_state.{k} drift: {t1_56.value_state_after[k]} vs {t2_56.value_state_after[k]}"
+    for k in SIGNALS:
+        assert abs(t1_56.signals[k] - t2_56.signals[k]) < 1e-9, \
+            f"signal {k} drift"
+    assert t1_56.identity == t2_56.identity or (
+        t1_56.identity is None and t2_56.identity is None
+    ), f"identity drift: {t1_56.identity!r} vs {t2_56.identity!r}"
+    assert t1_56.narrative == t2_56.narrative or (
+        t1_56.narrative is None and t2_56.narrative is None
+    )
+    print(f"  ✓ [测试 13: orchestrator round-trip] epoch 56 上 "
+          f"value/signal/identity/narrative 全等（≤1e-9）")
+
+    # ── 测试 14: 缺 _schema_version → SnapshotError ──
+    snap_bad = _copy.deepcopy(snap_restored)
+    del snap_bad['_schema_version']
+    orch_bad = SGEOrchestrator(
+        agent=Agent(seed=42, drives=drives,
+                    value_layer=ValueLayer(values=SGE_DEFAULT_VALUES),
+                    hawking=hawking, crystallizer=crystallizer,
+                    crystallize_every=10),
+        value_layer=ValueLayer(values=SGE_DEFAULT_VALUES),
+        drive_metabolism=DriveMetabolism(drives=drives),
+        event_generator=EventGenerator(baby_id='orch_test', seed=42),
+        identity_layer=IdentityLayer(crystallize_every_n_epochs=20),
+        narrative_builder=NarrativeBuilder(build_every_n_epochs=50),
+        hawking=hawking, crystallizer=crystallizer,
+        crystallize_every=10,
+    )
+    try:
+        orch_bad.restore_all(snap_bad)
+        assert False, "应该抛出 SnapshotError"
+    except SnapshotError as e:
+        assert '_schema_version' in str(e)
+    print(f"  ✓ [测试 14: 缺 _schema_version] 抛 SnapshotError")
+
+    # ── 测试 15: identity_layer snapshot 不含 llm ──
+    assert 'llm' not in snap['identity_layer'], "identity_layer snapshot 含 llm"
+    assert 'llm' not in snap['narrative_builder'], "narrative_builder snapshot 含 llm"
+    assert snap['identity_layer']['use_real_llm'] is False, "默认 stub 模式应保留"
+    print(f"  ✓ [测试 15: identity/narrative 不含 llm] use_real_llm={snap['identity_layer']['use_real_llm']}")
+
+    # ── 测试 16: EventGenerator rng_state 保真 ──
+    # snapshot 保存当前 rng state；restore 后从同一 state 开始调用，序列必须一致
+    eg_snapshot = orchestrator.event_generator.snapshot()
+    val1_before = orchestrator.event_generator.rng.random()
+    val2_before = orchestrator.event_generator.rng.random()
+    # 重新构造一个新 EventGenerator（不同 seed），restore snap 后必须产生同一序列
+    eg_test = EventGenerator(baby_id='test', seed=99)
+    eg_test.restore(eg_snapshot)
+    val1_after = eg_test.rng.random()
+    val2_after = eg_test.rng.random()
+    assert abs(val1_before - val1_after) < 1e-9, f"rng state drift: {val1_before} vs {val1_after}"
+    assert abs(val2_before - val2_after) < 1e-9, f"rng state drift: {val2_before} vs {val2_after}"
+    print(f"  ✓ [测试 16: EventGenerator rng_state] random() 序列完全一致")
+
+    # ── 测试 17: snapshot_all 无 LLM 句柄泄露 ──
+    forbidden = {'llm', 'value_layer', 'hawking', 'crystallizer'}
+    assert not (forbidden & set(snap['agent'].keys())), \
+        f"Agent snapshot 泄露外部 ref: {forbidden & set(snap['agent'].keys())}"
+    print(f"  ✓ [测试 17: snapshot_all 无 LLM 泄露]")
+
+    print(f"\n  状态: ✅ PASS — 17/17 测试通过")
     return True
 
 

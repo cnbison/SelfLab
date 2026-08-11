@@ -19,11 +19,14 @@ SGE Identity Layer（C3 实施）
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 import random
 from collections import Counter
 from typing import Optional
+
+from .baseline import SnapshotError
 
 
 # ══════════════════════════════════════════════
@@ -470,3 +473,37 @@ class IdentityLayer:
         total = len(identities)
         entropy = -sum((c / total) * math.log2(c / total) for c in counts.values())
         return 1.0 / (1.0 + entropy)
+
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = (
+        'identity_history', 'crystallize_every_n_epochs',
+        'use_real_llm', 'dedup_threshold', 'dedup_window', 'dedup_method',
+    )
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict。**不含 llm 句柄**（运行时由调用方注入）。
+
+        value_snapshot 字段是 dict 的深拷贝，避免与原 identity_history 共享引用。
+        """
+        return {
+            'identity_history': [copy.deepcopy(h) for h in self.identity_history],
+            'crystallize_every_n_epochs': self.crystallize_every_n_epochs,
+            'use_real_llm': self.use_real_llm,
+            'dedup_threshold': self.dedup_threshold,
+            'dedup_window': self.dedup_window,
+            'dedup_method': self.dedup_method,
+        }
+
+    def restore(self, snap: dict, *, llm=None) -> None:
+        """strict: 缺关键字段 → SnapshotError；llm 由调用方通过关键字参数注入。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"IdentityLayer.restore: 缺关键字段 '{key}'")
+        self.identity_history = [copy.deepcopy(h) for h in snap['identity_history']]
+        self.crystallize_every_n_epochs = int(snap['crystallize_every_n_epochs'])
+        self.use_real_llm = bool(snap['use_real_llm'])
+        self.dedup_threshold = float(snap['dedup_threshold'])
+        self.dedup_window = max(1, int(snap['dedup_window']))
+        self.dedup_method = snap['dedup_method']
+        # llm 句柄不持久化；由 SGEOrchestrator.restore_all 统一注入
+        self.llm = llm

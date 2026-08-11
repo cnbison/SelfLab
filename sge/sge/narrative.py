@@ -20,9 +20,12 @@ SGE Narrative Layer（C4 实施）
 
 from __future__ import annotations
 
+import copy
 import json
 import random
 from typing import Optional
+
+from .baseline import SnapshotError
 
 
 # ══════════════════════════════════════════════
@@ -483,3 +486,39 @@ class NarrativeBuilder:
     def get_current(self) -> Optional[str]:
         """获取当前叙事"""
         return self.current_narrative
+
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = (
+        'current_narrative', 'build_every_n_epochs',
+        'use_real_llm', 'consistency_threshold',
+        'dedup_threshold', 'dedup_window', 'dedup_method',
+        'narrative_history',
+    )
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict。**不含 llm 句柄**（运行时由调用方注入）。"""
+        return {
+            'current_narrative': self.current_narrative,
+            'build_every_n_epochs': self.build_every_n_epochs,
+            'use_real_llm': self.use_real_llm,
+            'consistency_threshold': self.consistency_threshold,
+            'dedup_threshold': self.dedup_threshold,
+            'dedup_window': self.dedup_window,
+            'dedup_method': self.dedup_method,
+            'narrative_history': [copy.deepcopy(h) for h in self.narrative_history],
+        }
+
+    def restore(self, snap: dict, *, llm=None) -> None:
+        """strict: 缺关键字段 → SnapshotError；llm 由调用方通过关键字参数注入。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"NarrativeBuilder.restore: 缺关键字段 '{key}'")
+        self.current_narrative = snap['current_narrative']
+        self.build_every_n_epochs = int(snap['build_every_n_epochs'])
+        self.use_real_llm = bool(snap['use_real_llm'])
+        self.consistency_threshold = float(snap['consistency_threshold'])
+        self.dedup_threshold = float(snap['dedup_threshold'])
+        self.dedup_window = max(1, int(snap['dedup_window']))
+        self.dedup_method = snap['dedup_method']
+        self.narrative_history = [copy.deepcopy(h) for h in snap['narrative_history']]
+        self.llm = llm

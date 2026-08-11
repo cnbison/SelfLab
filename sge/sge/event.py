@@ -421,5 +421,87 @@ class EventGenerator:
         self.event_history = []
         self._clock = 0.0
 
+    @staticmethod
+    def _serialize_rng_state(state) -> list:
+        """把 random.Random.getstate() 的内部结构（tuple 嵌套 CPython array）转 JSON-friendly list。
+
+        random.getstate() 返回 3-tuple (version, internal_array, gauss_next)：
+          - version: int
+          - internal_array: 长度 625 的 list（Python 3.13 可能是 CPython array，非 list）
+          - gauss_next: float
+
+        snapshot 必须 JSON 兼容；restore 时用 _deserialize_rng_state 反向还原。
+        """
+        # Python 3.13 的 gauss_next 可能是 None（未调用过 gauss 时）；兼容 None
+        gauss_next = state[2]
+        if gauss_next is None:
+            gauss_next = 0.0
+        return [int(state[0]), list(state[1]), float(gauss_next)]
+
+    @staticmethod
+    def _deserialize_rng_state(serialized) -> tuple:
+        """反向：把 JSON-friendly list 还原为 random.setstate 接受的 tuple。
+
+        random.setstate() 期望 3-tuple：(version: int, internal: tuple[int], gauss_next: float)。
+        注意 internal 必须是 tuple（Python 3.13 random.setstate 严格要求）。
+        """
+        gauss_next = serialized[2]
+        if gauss_next is None:
+            gauss_next = 0.0
+        return (int(serialized[0]), tuple(int(x) for x in serialized[1]), float(gauss_next))
+
+    # ── Snapshot 协议（Phase 3.1 动作 2）──
+    _SNAPSHOT_FIELDS = (
+        'baby_id', 'value_conflict_prob', 'distribution_by_epoch',
+        'event_history', '_clock', 'rng_state',
+    )
+
+    def snapshot(self) -> dict:
+        """白名单 JSON-friendly dict。
+
+        event_history 是 list[(epoch, LifeEvent)]，展开为
+        [{'epoch': epoch, 'event': event.to_dict()}, ...] 以保证 JSON 兼容。
+
+        rng_state 用 self.rng.getstate() 而非仅存 seed —— 保证跨 chunk 重放时
+        事件序列完全一致（不只是同一 seed 的随机序列起点，而是包括后续所有
+        rng.random() / rng.choice() 调用的精确状态）。
+        """
+        return {
+            'baby_id': self.baby_id,
+            'value_conflict_prob': self.value_conflict_prob,
+            'distribution_by_epoch': (
+                {k: dict(v) for k, v in self.distribution_by_epoch.items()}
+                if self.distribution_by_epoch is not None else None
+            ),
+            'event_history': [
+                {'epoch': epoch, 'event': event.to_dict()}
+                for epoch, event in self.event_history
+            ],
+            '_clock': self._clock,
+            'rng_state': self._serialize_rng_state(self.rng.getstate()),
+        }
+
+    def restore(self, snap: dict) -> None:
+        """strict: 缺关键字段 → SnapshotError。"""
+        for key in self._SNAPSHOT_FIELDS:
+            if key not in snap:
+                raise SnapshotError(f"EventGenerator.restore: 缺关键字段 '{key}'")
+        self.baby_id = snap['baby_id']
+        self.value_conflict_prob = float(snap['value_conflict_prob'])
+        self.distribution_by_epoch = (
+            {int(k): dict(v) for k, v in snap['distribution_by_epoch'].items()}
+            if snap['distribution_by_epoch'] is not None else None
+        )
+        self.event_history = [
+            (item['epoch'], LifeEvent(**item['event']))
+            for item in snap['event_history']
+        ]
+        self._clock = float(snap['_clock'])
+        # 重置 rng 并 setstate（保证跨 chunk 重放可复现）
+        self.rng = random.Random()
+        # JSON 序列化的 list → 还原为 random.setstate 接受的内部结构
+        rng_state = self._deserialize_rng_state(snap['rng_state'])
+        self.rng.setstate(rng_state)
+
     def __len__(self) -> int:
         return len(self.event_history)
