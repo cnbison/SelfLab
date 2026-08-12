@@ -244,207 +244,25 @@ def actor_extra_system_prompt_to_prompt(extra_system_prompt: Optional[str]) -> s
 # ══════════════════════════════════════════════
 # 单元测试
 # ══════════════════════════════════════════════
+# Phase 3.2: 测试已迁移到 sge/tests/unit/test_context_injection.py
+# 此处保留薄 shim 以兼容 `python -m sge.context_injection`
 
 
 def _run_context_injection_unit_tests() -> bool:
-    """TwinContextBuilder + critic/actor plumbing 单元测试。
-
-    9 个测试：
-    1-7: TwinContextBuilder / AppContext / 序列化辅助
-    8-9: 集成路径——extra_* 通过 critic_sense/actor_express/orchestrator.step/TwinSession 端到端透传
-    """
-    print(f"\n{'─'*60}")
-    print(f"  sge.context_injection (TwinContextBuilder) 单元测试")
-    print(f"{'─'*60}\n")
-
-    # ── 测试 1: build_critic_context 默认 8D 完整 ──
-    print("[测试 1] build_critic_context 默认 8D 字段完整")
-    builder = TwinContextBuilder(app_state={'student_name': 'Alice'})
-    ctx = builder.build_critic_context(student_event={'type': 'success'})
-    assert set(ctx.keys()) == set(CRITIC_DEFAULT_8D), (
-        f"缺少默认字段：{set(CRITIC_DEFAULT_8D) - set(ctx.keys())}"
+    """兼容层：转调 pytest（Phase 3.2 起的测试已在 sge/tests/unit/）。"""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_context_injection.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
     )
-    assert ctx['user_emotion'] == 0.0, f"user_emotion 默认 0.0，得到 {ctx['user_emotion']}"
-    for f in CRITIC_DEFAULT_8D:
-        if f != 'user_emotion':
-            assert ctx[f] == 0.5, f"{f} 默认 0.5，得到 {ctx[f]}"
-    print(f"  ✓ 8 个默认字段全部就位 + user_emotion=0.0 其余=0.5")
-
-    # ── 测试 2: extra 完全覆盖默认 ──
-    print("\n[测试 2] extra 字段覆盖默认 8D")
-    extra = {
-        'student_name': 'Alice',
-        'student_grade': 7,
-        'user_emotion': -0.8,
-        'user_vulnerability': 0.9,
-    }
-    ctx = builder.build_critic_context(extra=extra)
-    assert ctx['user_emotion'] == -0.8, "extra 覆盖 user_emotion 失败"
-    assert ctx['user_vulnerability'] == 0.9, "extra 覆盖 user_vulnerability 失败"
-    assert ctx['student_name'] == 'Alice', "extra 保留 App 字段失败"
-    assert ctx['student_grade'] == 7
-    # 未覆盖的字段保持默认
-    assert ctx['novelty_level'] == 0.5
-    print(f"  ✓ extra 覆盖默认 + 保留 App 字段")
-
-    # ── 测试 3: build_actor_prompt_context 三段式 ──
-    print("\n[测试 3] build_actor_prompt_context 三段式（学生信息/事件/要求）")
-    builder = TwinContextBuilder(app_state={
-        'student_name': 'Alice', 'grade': 7,
-        'current_mastery_overview': 'math: 65, english: 82',
-        'recent_struggle': 'math/algebra',
-    })
-    actor_ctx = builder.build_actor_prompt_context(
-        student_event={'type': 'failure', 'description': '测试没及格', 'intensity': 0.7},
-    )
-    assert '[学生信息]' in actor_ctx
-    assert '姓名: Alice' in actor_ctx
-    assert '年级: 7' in actor_ctx
-    assert 'math: 65, english: 82' in actor_ctx
-    assert 'math/algebra' in actor_ctx
-    assert '[本次事件]' in actor_ctx
-    assert '测试没及格' in actor_ctx
-    assert '[回复要求]' in actor_ctx
-    print(f"  ✓ 6 个关键短语命中")
-
-    # ── 测试 4: mastery_state duck typing（Phase 3.3 占位）──
-    print("\n[测试 4] mastery_state duck typing（duck 调用方法）")
-    class FakeMastery:
-        def summary(self): return 'math: 90, english: 88'
-        def most_recent_struggling(self): return 'math/geometry'
-        def learning_velocity(self): return 0.85
-
-    builder2 = TwinContextBuilder(app_state={'student_name': 'Bob', 'grade': 9})
-    ctx = builder2.build_critic_context(mastery_state=FakeMastery())
-    assert ctx['current_mastery_overview'] == 'math: 90, english: 88'
-    assert ctx['recent_struggle'] == 'math/geometry'
-    assert ctx['learning_pace'] == 0.85
-
-    actor_str = builder2.build_actor_prompt_context(mastery_state=FakeMastery())
-    assert 'math: 90, english: 88' in actor_str
-    print(f"  ✓ duck typing 提取 mastery 字段")
-
-    # ── 测试 5: mastery_state 方法抛异常 → 静默回退 ──
-    print("\n[测试 5] mastery_state 异常静默回退（不污染 ctx）")
-    class BrokenMastery:
-        def summary(self): raise RuntimeError("not yet implemented")
-
-    ctx = builder2.build_critic_context(mastery_state=BrokenMastery())
-    assert 'current_mastery_overview' not in ctx, "异常不应写入 ctx"
-    assert ctx['user_emotion'] == 0.0
-    print(f"  ✓ 异常被吞，ctx 保持默认")
-
-    # ── 测试 6: AppContext dataclass 转 dict（None 跳过）──
-    print("\n[测试 6] AppContext.to_dict（None 字段跳过 + extra 合并）")
-    ctx = AppContext(
-        student_name='Alice', student_grade=7,
-        current_mastery_overview='math: 65',
-        extra={'learning_pace': 0.6, 'recent_struggle': 'math/algebra'},
-    )
-    d = ctx.to_dict()
-    assert 'student_name' in d and d['student_name'] == 'Alice'
-    assert 'student_grade' in d and d['student_grade'] == 7
-    assert d.get('learning_pace') == 0.6, "extra 应被平铺合并"
-    assert d.get('recent_struggle') == 'math/algebra'
-    assert 'extra' not in d, "extra 字段应在 to_dict 后被消费掉"
-    # 未填字段（learning_goals / user_name 等）应跳过
-    assert 'learning_goals' not in d
-    assert 'user_name' not in d
-    print(f"  ✓ to_dict 跳过 None + 平铺 extra")
-
-    # ── 测试 7: critic_extra_context_to_prompt 序列化 ──
-    print("\n[测试 7] critic_extra_context_to_prompt 序列化")
-    s = critic_extra_context_to_prompt({'student_name': 'Alice', 'grade': 7})
-    assert '[App Context]' in s
-    assert '"student_name": "Alice"' in s
-    assert critic_extra_context_to_prompt(None) == ''
-    print(f"  ✓ 序列化 + None 透传空串")
-
-    # ── 测试 8: critic_sense extra_context 覆盖默认 8D + 保留 App 字段 ──
-    print("\n[测试 8] critic_sense extra_context 端到端（stub 路径）")
-    from .critic import critic_sense
-    extra = {
-        'user_emotion': -0.7,
-        'user_vulnerability': 0.9,
-        'student_name': 'Alice',
-        'student_grade': 7,
-    }
-    ctx, _ = critic_sense(
-        event={'type': 'failure', 'intensity': 0.8},
-        seed=42,
-        extra_context=extra,
-    )
-    # stub 会给 8D 数值加小幅高斯扰动（设计如此，避免实验注入失真）；
-    # 检查 extra 字段在 ±0.1 扰动范围内近似保留 + App 字符串原样
-    assert abs(ctx['user_emotion'] - (-0.7)) < 0.2, (
-        f"user_emotion 覆盖失败（±0.2 误差）: {ctx['user_emotion']}"
-    )
-    assert abs(ctx['user_vulnerability'] - 0.9) < 0.2, f"vulnerability 覆盖失败: {ctx['user_vulnerability']}"
-    assert ctx['student_name'] == 'Alice', "App 私有字段丢失"
-    assert ctx['student_grade'] == 7
-    # 未覆盖字段保持 0.5
-    assert abs(ctx['novelty_level'] - 0.5) < 0.2, f"未覆盖字段被污染: {ctx['novelty_level']}"
-    print(f"  ✓ extra 覆盖默认 + App 字段透传 + 未覆盖字段保留")
-
-    # ── 测试 9: TwinSession.process_event 接收 context_builder 全链路 ──
-    print("\n[测试 9] TwinSession.process_event 透传 TwinContextBuilder")
-    import tempfile, os
-    from .persistence import TwinStateDB
-    from .session import _make_minimal_components, _session_registry
-    from .session import SGEOrchestrator, TwinSession
-
-    db_path = tempfile.mktemp(suffix='.db')
-    with TwinStateDB(db_path) as db:
-        agent, vl, dm, eg, il, nb, hw, cr = _make_minimal_components()
-        orch0 = SGEOrchestrator(
-            agent=agent, value_layer=vl, drive_metabolism=dm, event_generator=eg,
-            identity_layer=il, narrative_builder=nb, hawking=hw, crystallizer=cr,
-            db=db, student_id='stu_ctx_001', checkpoint_every=100,
-            app_state={'student_name': 'Alice', 'grade': 7,
-                       'current_mastery_overview': 'math: 65, english: 82'},
-        )
-        orch0.session_end()
-
-        # 通过 TwinSession 跑 1 个 epoch，携带 context_builder
-        builder = TwinContextBuilder(app_state={'student_name': 'Alice', 'grade': 7})
-        critic_ctx = builder.build_critic_context(
-            student_event={'type': 'failure'},
-            extra={'student_name': 'Alice', 'student_grade': 7,
-                   'user_vulnerability': 0.95},
-        )
-        actor_prompt = builder.build_actor_prompt_context(
-            student_event={'type': 'failure', 'description': '考试没及格', 'intensity': 0.7},
-        )
-
-        session = TwinSession('stu_ctx_001', twin_db=db, auto_save_every=0)
-        trace = session.process_event(
-            epoch=0,
-            extra_critic_context=critic_ctx,
-            extra_actor_context=actor_prompt,
-        )
-        assert trace.epoch == 0
-        assert trace.actor_output is not None
-        # TwinContextBuilder 字段应到达 actor_output（stub 路径：仅行为正确即可；
-        # real 路径 LLM prompt 会含 App Context，本测试不验证 LLM prompt）
-        session.close()
-
-        # 清理 registry + 文件
-        for sid in list(_session_registry):
-            try:
-                _session_registry[sid].close(save=False)
-            except Exception:
-                pass
-    try:
-        os.unlink(db_path)
-    except OSError:
-        pass
-    print(f"  ✓ TwinSession.process_event 接收 TwinContextBuilder 输出并透传")
-
-    print(f"\n  状态: ✅ PASS — 9/9 (TwinContextBuilder + 端到端 plumbing) 测试通过")
-    return True
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    return result.returncode == 0
 
 
 if __name__ == "__main__":
     import sys
-    ok = _run_context_injection_unit_tests()
-    sys.exit(0 if ok else 1)
+    sys.exit(0 if _run_context_injection_unit_tests() else 1)

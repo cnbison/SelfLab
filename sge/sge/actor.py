@@ -368,59 +368,20 @@ def actor_express(
 
 
 def _run_unit_tests() -> bool:
-    """单元测试 stub_actor_express 的 8 条规则 + 字段结构"""
-    print(f"\n{'─'*60}")
-    print(f"  _sge_actor.py 单元测试")
-    print(f"{'─'*60}\n")
-
-    base_signals = {
-        'directness': 0.5, 'vulnerability': 0.5, 'playfulness': 0.5,
-        'initiative': 0.5, 'depth': 0.5, 'warmth': 0.5,
-        'defiance': 0.5, 'curiosity': 0.5,
-    }
-
-    test_cases = [
-        # (signals, expected_behavior, label)
-        ({**base_signals, 'initiative': 0.7}, '主动引导', 'initiative 高'),
-        ({**base_signals, 'warmth': 0.7}, '关怀回应', 'warmth 高'),
-        ({**base_signals, 'playfulness': 0.7}, '玩闹撒娇', 'playfulness 高'),
-        ({**base_signals, 'curiosity': 0.7, 'depth': 0.6}, '深度提问', 'curiosity + depth 高'),
-        ({**base_signals, 'defiance': 0.7}, '反抗嘴硬', 'defiance 高'),
-        ({**base_signals, 'vulnerability': 0.7}, '袒露脆弱', 'vulnerability 高'),
-        ({**base_signals, 'directness': 0.2}, '委婉暗示', 'directness 低'),
-        ({**base_signals, 'playfulness': 0.2, 'depth': 0.7}, '认真严肃', 'playfulness 低 + depth 高'),
-        ({k: 0.2 for k in base_signals}, '沉默不语', '全部低'),
-        ({**base_signals, 'initiative': 0.5, 'warmth': 0.5}, '敷衍回应', '全部中等'),
-    ]
-
-    all_ok = True
-    for signals, expected, label in test_cases:
-        out = stub_actor_express(signals=signals, value_vector={'safety': 0.5}, seed=42)
-        ok = out.behavior_label == expected
-        status = '✓' if ok else '✗'
-        print(f"  {status} [{label:30s}] behavior={out.behavior_label} (expected={expected})")
-        if not ok:
-            all_ok = False
-
-    # 字段结构验证
-    out = stub_actor_express(signals=base_signals, value_vector={'safety': 0.5}, seed=42)
-    assert out.inner_monologue is not None
-    assert out.behavior_label in BEHAVIOR_LABELS
-    assert out.intention is not None
-    assert 0.0 <= out.confidence <= 1.0
-    print(f"  ✓ [字段结构] monologue/intention/confidence 全部合法")
-
-    # ActorOutput.to_dict
-    d = out.to_dict()
-    assert 'inner_monologue' in d
-    assert 'behavior_label' in d
-    print(f"  ✓ [to_dict 序列化] keys={list(d.keys())}")
-
-    print(f"\n  状态: {'✅ PASS — 11/11 测试通过' if all_ok else '❌ FAIL'}")
-    return all_ok
+    """兼容层：转调 pytest（Phase 3.2 起的测试已在 sge/tests/unit/test_actor.py）。"""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_actor.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
+    )
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    return result.returncode == 0
 
 
 if __name__ == "__main__":
     import sys
-    ok = _run_unit_tests()
-    sys.exit(0 if ok else 1)
+    sys.exit(0 if _run_unit_tests() else 1)
