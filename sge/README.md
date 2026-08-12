@@ -396,11 +396,12 @@ sge/
 - **Phase 3.3**（P2 PoC 验证）— student-digital-twin + teaching-ai-coach 两个 PoC（W7-W12）
 - **M4+ 延后**（不在 Phase 3 时间线内）— Emotion / Meta-Cognition / Multi-AI Interaction（参见 [ROADMAP §Phase 3](../ROADMAP.md) 历史定义）
 
-## 测试（Phase 3.2 · 第一批 5 模块 + 第二批 4 模块）
+## 测试（Phase 3.2 · 14 模块全部 pytest 框架化完成）
 
-> pytest 框架化 + 覆盖率（详见 CHANGELOG 1.37.0 + 1.38.0 +
+> pytest 框架化 + 覆盖率（详见 CHANGELOG 1.37.0 + 1.38.0 + 1.39.0 +
 > discussions/2026-08-12-day5-phase3.2-pytest-foundation +
-> discussions/2026-08-12-day5-phase3.2-second-batch）。
+> discussions/2026-08-12-day5-phase3.2-second-batch +
+> discussions/2026-08-12-day5-phase3.2-third-batch）。
 
 ### 运行测试
 
@@ -411,22 +412,29 @@ PYTHONPATH=. pytest tests/unit/test_persistence.py -v   # 单模块
 PYTHONPATH=. pytest tests/unit/ --cov=sge --cov-report=term  # + 覆盖率
 ```
 
-### 当前覆盖率（已转换 9 模块）
+### 当前覆盖率（14 模块全部）
 
 | 模块 | 覆盖率 | 测试数 | 备注 |
 |------|--------|--------|------|
+| `sge/__init__.py` | 100% | — | 包入口 |
 | `sge/persistence.py` | 89% | 28 | TwinStateDB（含 GDPR / migration）|
-| `sge/context_injection.py` | 86% | 19 | TwinContextBuilder + AppContext + critic extra |
-| `sge/baseline.py` | 79% | 9 | snapshot/restore 9 类 round-trip（其他函数未覆盖）|
-| `sge/orchestrator.py` | 76% | 23 | 12 步编排 + 6 个 TwinStateDB 集成 |
-| `sge/actor.py` | 73% | 16 | stub_actor_express 规则（real_actor 路径未覆盖）|
+| `sge/session.py` | 94% | 29 | TwinSession + SessionLock + 增量 save + 错误处理 |
+| `sge/identity.py` | 91% | 70 | IdentityLayer + stub/real + dedup |
+| `sge/narrative.py` | 91% | 54 | NarrativeBuilder + phase transition |
 | `sge/event.py` | 91% | 42 | EventGenerator 8 类 + value_conflict 5 类 + rng snapshot |
 | `sge/metrics.py` | 90% | 52 | 公式 A2 + A3 + v5 真实 identity 聚类 |
+| `sge/persistence.py` | 89% | 28 | TwinStateDB（含 GDPR / migration）|
 | `sge/experience.py` | 87% | 34 | 7 类型 meaning + emotion + uncertainty + LLM fallback |
+| `sge/context_injection.py` | 86% | 19 | TwinContextBuilder + AppContext + critic extra |
 | `sge/critic.py` | 86% | 28 | 8 event type + value_delta 反推 + LLM path |
+| `sge/llm_client.py` | 86% | 44 | SGELLMClient + retry + warmup + stats |
+| `sge/baseline.py` | 79% | 9 | snapshot/restore 9 类 round-trip（其他函数未覆盖）|
+| `sge/orchestrator.py` | 77% | 23 | 12 步编排 + 6 个 TwinStateDB 集成 |
+| `sge/actor.py` | 73% | 16 | stub_actor_express 规则（real_actor 路径未覆盖）|
 | **第一批 5 平均** | **81%** | **95** | 第一批（达成 ≥ 80%）|
 | **第二批 4 平均** | **88.5%** | **156** | 第二批（再次达成 ≥ 80%）|
-| **累计** | **64%** | **251** | 总覆盖率（含未转换 4 模块 identity 35% / narrative 46% / llm_client 17% / session 10%）|
+| **第三批 4 平均** | **90.5%** | **191** | 第三批（远超 ≥ 80%，4 模块全部 ≥ 86%）|
+| **累计 14 模块** | **86%** | **442** | 总覆盖率（达成 ≥ 80% 目标）|
 
 ### Fixture（`sge/tests/conftest.py`）
 
