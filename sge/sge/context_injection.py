@@ -189,6 +189,7 @@ class TwinContextBuilder:
 
         mastery_overview = self.app_state.get('current_mastery_overview', '无')
         recent_struggle = self.app_state.get('recent_struggle', '无')
+        learning_pace = self.app_state.get('learning_pace', None)
 
         # mastery_state duck typing 同样允许（与 build_critic_context 行为一致）
         if mastery_state is not None:
@@ -196,6 +197,19 @@ class TwinContextBuilder:
             if callable(summary_fn):
                 try:
                     mastery_overview = summary_fn()
+                except Exception:
+                    pass
+            # Phase 3.3 PoC：actor prompt 也 duck type 挣扎主题 + 学习速率
+            struggling_fn = getattr(mastery_state, 'most_recent_struggling', None)
+            if callable(struggling_fn):
+                try:
+                    recent_struggle = struggling_fn()
+                except Exception:
+                    pass
+            velocity_fn = getattr(mastery_state, 'learning_velocity', None)
+            if callable(velocity_fn):
+                try:
+                    learning_pace = velocity_fn()
                 except Exception:
                     pass
 
@@ -211,7 +225,8 @@ class TwinContextBuilder:
             f"姓名: {name}\n"
             f"年级: {grade}\n"
             f"当前优势/挑战学科: {mastery_overview}\n"
-            f"近期挑战: {recent_struggle}\n\n"
+            f"近期挑战: {recent_struggle}\n"
+            f"学习速率: {learning_pace if learning_pace is not None else '无'}\n\n"
             f"[本次事件]\n{event_str}\n\n"
             f"[回复要求]\n"
             f"- 用学生名字称呼（如果已知）\n"

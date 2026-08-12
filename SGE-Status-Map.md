@@ -6,13 +6,13 @@
 >
 > **更新机制**：每次大版本变更后更新（如 CHANGELOG 新增 minor version）。
 >
-> **最后更新**：2026-08-12（CHANGELOG [1.39.0]）
+> **最后更新**：2026-08-12（CHANGELOG [1.40.0]）
 
 ---
 
 ## 0. 一句话总结
 
-M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地）。**Phase 3.2 全部完成**（1.37.0 + 1.38.0 + 1.39.0，14 模块 pytest 框架化，442 tests pass，总覆盖率 **86%**，第三批 4 模块平均 90.5%），下一步 = Phase 3.3 student-digital-twin PoC。
+M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地）。**Phase 3.2 全部完成**（1.37.0 + 1.38.0 + 1.39.0，14 模块 pytest 框架化，442 tests pass，总覆盖率 **86%**）。**Phase 3.3 student-digital-twin PoC 完成**（1.40.0，关键路径端到端：Alice 200 epoch stub LLM 跑通 + SubjectMasteryState 学科×主题二维 schema + 69 tests pass + mastery/events/adapter 三模块 100% 覆盖），下一步 = Phase 3.3 teaching-ai-coach PoC。
 
 ---
 
@@ -23,7 +23,7 @@ M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度
 | **Phase 0** 理论奠基 | ✅ 完成 | 36 条洞察 + 17 篇研究文档 + 7 篇 ECA 调研 |
 | **Phase 1** 最小验证 | ✅ 完成 | M1.1/M1.2/M1.3/M1.4 + 跨 LLM 验证 ([CHANGELOG 1.5-1.8](./CHANGELOG.md)) |
 | **Phase 2** 完整实验 | ✅ 完成 | M2.1 阶段 A-D + M2.2 v6 长程 + M2.3 个人真实测试 ([CHANGELOG 1.20-1.31](./CHANGELOG.md)) |
-| **Phase 3** 系统完善 | 🚧 **实施中** | 规划完成（[research/phase3/](./research/phase3/) 18 文件）+ sge/ 包就绪 + Phase 3.1 启动 |
+| **Phase 3** 系统完善 | 🚧 **PoC 进行中** | 规划完成（[research/phase3/](./research/phase3/) 18 文件）+ sge/ 包就绪 + Phase 3.1 完成 + Phase 3.2 完成 + Phase 3.3 student-digital-twin PoC 完成（1.40.0） |
 | **M4+ 延后** | ⏸ 暂缓 | Emotion / Meta-Cognition / Multi-AI（按 [research/phase3/03-roadmap.md §1](./research/phase3/00-overview/03-roadmap.md) 重新定位） |
 
 **关键验证**（CHANGELOG 1.30-1.31）：
@@ -124,11 +124,24 @@ Emotion Layer / Meta-Cognition / Multi-AI Interaction 已重新定位为 M4+ 延
 - ✅ **context_injection.py / TwinContextBuilder**（1.36.0）— 9 测试，App 层领域上下文可注入 Critic / Actor prompt
 - **遗留**：跨进程 SessionLock（DB 级 `session_locks` 表）未做，当前仅依赖 SQLite WAL 串行化
 
-### 动作 3：Phase 3.3 student-digital-twin PoC — **Phase 3.2 完成后**
+### 动作 3：Phase 3.3 student-digital-twin PoC — **✅ 完成（1.40.0，2026-08-12）**
 
-- **工作量**：2 周
-- **依赖**：Phase 3.1（已就绪，context_injection 的 duck typing 入口可消费 SubjectMasteryState 等具体类型）
+- **工作量**：预估 2 周；实际 ~5 天（关键路径端到端范围）
+- **依赖**：Phase 3.1（✅ 已就绪，context_injection 的 duck typing 入口可消费 SubjectMasteryState）
 - **退出标准**：K12 学生数字孪生端到端 demo（教学 AI 教练场景）
+- **PoC 范围**（与 Bisen 确认）：关键路径端到端（1 学生 Alice 200 epoch stub LLM + 50 epoch real LLM 链路 + CLI + Markdown 报告）
+- **Schema**：学科×主题二维混合（SubjectMasteryState schema_version=1.0，K12 真实模式对齐）
+- **代码位置**：[`student_digital_twin/`](./student_digital_twin/) — 与 `sge/` 并列（兄弟项目 ECOS 模式）
+- **设计 SSOT**：[research/phase3/90-applications/student-digital-twin.md](./research/phase3/90-applications/student-digital-twin.md) — 完整 7 章
+- **测试**：69/69 tests pass，mastery/events/adapter 三个核心模块 100% 覆盖
+- **关键产出**：
+  - 200 epoch stub LLM 0.1s 跑通（Alice math 反复失败 78→35→84 故事弧）
+  - 20 次 Identity 结晶 + 4 个 H_self chunk（chunk 0-40 H_self 0.720 → 0.436 ↓39.5%）
+  - Markdown 报告 5 章节完整（学生档案 / 事件流 / Identity 历次 / Narrative / H_self 轨迹）
+- **风险缓解**：R5 数据误用（SAFETY_DIRECTIVE 硬约束 + 抽样验证）/ R10 多用户隔离（单元测试断言）
+- **关键 Bug 修复**：TwinContextBuilder 扩 duck typing + R5 子字符串假阳性 + fixture 轨迹单调 + e2e subprocess PYTHONPATH
+- **关联讨论**：[discussions/2026-08-12-phase3.3-poc.md](./discussions/2026-08-12-phase3.3-poc.md)
+- **后续**：Phase 3.3 动作 2 = teaching-ai-coach PoC（含 A→B 整合 + ZPD 转移设计）；Phase 3 总结报告（W12 末）
 
 ### 动作 4：A→B / ECOS 边界维护 — **持续（轻量）**
 
@@ -171,4 +184,4 @@ context_injection   →  (可选) async       →  Phase 3 总结     →  Multi
 
 **维护者**：Bisen & Claude
 **创建日期**：2026-06-15
-**最后重写**：2026-08-12（基于 CHANGELOG 1.38.0）
+**最后重写**：2026-08-12（基于 CHANGELOG 1.40.0 — Phase 3.3 PoC 完成）
