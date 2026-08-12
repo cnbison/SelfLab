@@ -88,6 +88,7 @@ def stub_actor_express(
     retrieved_memories: Optional[list] = None,
     current_narrative: Optional[str] = None,
     seed: int = 0,
+    extra_system_prompt: Optional[str] = None,
 ) -> ActorOutput:
     """Stub Actor — 基于 signals 阈值生成行为标签
 
@@ -221,6 +222,7 @@ def real_actor_express(
     current_narrative: Optional[str] = None,
     llm=None,
     seed: int = 0,
+    extra_system_prompt: Optional[str] = None,
 ) -> ActorOutput:
     """真实 LLM Actor — 用 MiniMax-M3 生成（统一 SGELLMClient）
 
@@ -232,6 +234,8 @@ def real_actor_express(
         signals, value_vector, retrieved_memories, current_narrative: 同 stub
         llm: SGELLMClient 实例
         seed: 随机种子
+        extra_system_prompt: App 层注入（SSOT §3.2）。拼到 prompt 末尾，
+                             如 "你是 Alice 的数字孪生..."
 
     Returns:
         ActorOutput
@@ -271,6 +275,9 @@ def real_actor_express(
 输出 JSON 格式：
 {{"inner_monologue": "...", "behavior_label": "...", "intention": "...", "confidence": 0.X}}"""
 
+    if extra_system_prompt:
+        prompt = prompt + '\n\n[App Context]\n' + extra_system_prompt
+
     # 调用 LLM（统一客户端）
     parsed = llm.chat_json(
         messages=[{"role": "user", "content": prompt}],
@@ -287,6 +294,7 @@ def real_actor_express(
             retrieved_memories=retrieved_memories,
             current_narrative=current_narrative,
             seed=seed,
+            extra_system_prompt=extra_system_prompt,
         )
 
     # 字段保护
@@ -317,6 +325,7 @@ def actor_express(
     use_real_llm: bool = False,
     llm=None,
     seed: int = 0,
+    extra_system_prompt: Optional[str] = None,
 ) -> ActorOutput:
     """统一 Actor EXPRESS 入口
 
@@ -328,6 +337,7 @@ def actor_express(
         use_real_llm: True → 调用 MiniMax-M3；False → stub
         llm: LLM 客户端（use_real_llm=True 时必需）
         seed: 随机种子
+        extra_system_prompt: App 层注入（SSOT §3.2）
 
     Returns:
         ActorOutput
@@ -340,6 +350,7 @@ def actor_express(
             current_narrative=current_narrative,
             llm=llm,
             seed=seed,
+            extra_system_prompt=extra_system_prompt,
         )
     return stub_actor_express(
         signals=signals,
@@ -347,6 +358,7 @@ def actor_express(
         retrieved_memories=retrieved_memories,
         current_narrative=current_narrative,
         seed=seed,
+        extra_system_prompt=extra_system_prompt,
     )
 
 

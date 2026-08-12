@@ -154,11 +154,18 @@ class TwinSession:
         _session_registry[student_id] = self
         self._closed = False
 
-    def process_event(self, epoch: Optional[int] = None) -> OrchestratorStep:
+    def process_event(
+        self,
+        epoch: Optional[int] = None,
+        extra_critic_context: Optional[dict] = None,
+        extra_actor_context: Optional[str] = None,
+    ) -> OrchestratorStep:
         """处理一个 epoch（step + 增量持久化）。
 
         Args:
             epoch: 当前 epoch（None = self.current_epoch）
+            extra_critic_context: App 层注入（SSOT §3.1）— 透传给 orchestrator.step
+            extra_actor_context: App 层注入 system prompt（SSOT §3.1）
 
         Returns:
             OrchestratorStep（完整 trace）
@@ -173,7 +180,11 @@ class TwinSession:
             )
 
         ep = epoch if epoch is not None else self.current_epoch
-        trace = self.orchestrator.step(epoch=ep)
+        trace = self.orchestrator.step(
+            epoch=ep,
+            extra_critic_context=extra_critic_context,
+            extra_actor_context=extra_actor_context,
+        )
         self.current_epoch = ep + 1
 
         # 增量持久化：每 N epoch（auto_save_every > 0 且 current_epoch % N == 0）

@@ -59,6 +59,7 @@ def stub_critic_sense(
     drives: Optional[dict] = None,
     values: Optional[dict] = None,
     seed: int = 0,
+    extra_context: Optional[dict] = None,
 ) -> tuple[dict, dict]:
     """Stub Critic SENSE：返回固定 8D context + 6D value_delta（不调用 LLM）
 
@@ -71,6 +72,8 @@ def stub_critic_sense(
         drives: 当前 drives 状态（可选，用于 stub 行为调整）
         values: 当前 values 状态（可选，用于 stub 行为调整）
         seed: 随机种子（用于可重现性）
+        extra_context: App 层注入（SSOT §3.2）。完全覆盖默认 8D 同名字段，
+                       保留 App 层私有字段（如 student_name）
 
     Returns:
         (context_dict, value_delta_dict) 元组
@@ -94,9 +97,14 @@ def stub_critic_sense(
 
     context = {field: 0.5 for field in CRITIC_CONTEXT_FIELDS}
     context.update(base_context)
-    # 加 intensity 缩放 + 随机扰动
+    # extra_context 覆盖默认 8D 同名字段 + 保留 App 私有字段
+    if extra_context:
+        context.update(extra_context)
+    # 加 intensity 缩放 + 随机扰动（仅对 8D 数值字段；App 层私有字段不动）
     # user_emotion 范围 [-1, 1]，其他 [0, 1]
-    for field in context:
+    for field in CRITIC_CONTEXT_FIELDS:
+        if not isinstance(context[field], (int, float)):
+            continue
         context[field] += rng.gauss(0, 0.05) * intensity
         if field == 'user_emotion':
             context[field] = max(-1.0, min(1.0, context[field]))
@@ -178,6 +186,7 @@ def real_critic_sense(
     llm=None,
     temperature: float = 0.2,
     max_tokens: int = 1024,
+    extra_context: Optional[dict] = None,
 ) -> tuple[dict, dict]:
     """调用真实 Critic LLM（SGELLMClient）感知事件
 
@@ -187,6 +196,8 @@ def real_critic_sense(
         llm: SGELLMClient 实例（阶段 D 统一接口）
         temperature: LLM 温度
         max_tokens: 最大输出 token
+        extra_context: App 层注入（SSOT §3.2）。序列化为 prompt 片段，
+                       LLM 据此校准感知（如"这个学生叫 Alice，数学困难"）
 
     Returns:
         (context_dict, value_delta_dict) 元组
@@ -197,6 +208,11 @@ def real_critic_sense(
     # 构造 prompt
     vv_str = ", ".join(f"{k}={v:.3f}" for k, v in (values or {}).items())
     drives_str = ", ".join(f"{k}={v:.3f}" for k, v in (drives or {}).items())
+    extra_ctx_str = ''
+    if extra_context:
+        # 局部导入避免循环依赖（context_injection.py 依赖 critic.py 字段）
+        from .context_injection import critic_extra_context_to_prompt
+        extra_ctx_str = critic_extra_context_to_prompt(extra_context)
     prompt = CRITIC_PROMPT_TEMPLATE.format(
         vv_str=vv_str,
         drives_str=drives_str,
@@ -204,6 +220,8 @@ def real_critic_sense(
         event_description=event.get('description', ''),
         event_intensity=event.get('intensity', 0.5),
     )
+    if extra_ctx_str:
+        prompt = prompt + '\n\n' + extra_ctx_str
 
     # 调用 LLM（统一客户端，自动 JSON 解析）
     parsed = llm.chat_json(
@@ -215,7 +233,7 @@ def real_critic_sense(
 
     if parsed is None:
         # LLM 失败或 JSON 解析失败 → 回退到 stub（避免实验中断）
-        return stub_critic_sense(event, drives, values)
+        return stub_critic_sense(event, drives, values, extra_context=extra_context)
 
     # Schema 校验
     context = parsed.get('context', {})
@@ -249,6 +267,7 @@ def critic_sense(
     use_real_llm: bool = False,
     seed: int = 0,
     llm=None,
+    extra_context: Optional[dict] = None,
     **kwargs,
 ) -> tuple[dict, dict]:
     """统一 Critic SENSE 入口
@@ -258,6 +277,7 @@ def critic_sense(
         use_real_llm: True → 调用 SGELLMClient；False → stub
         seed: stub 随机种子
         llm: SGELLMClient 实例（use_real_llm=True 时必需）
+        extra_context: App 层注入（SSOT §3.2）
         **kwargs: 传给 real_critic_sense 的参数
 
     Returns:
@@ -266,5 +286,7 @@ def critic_sense(
     if use_real_llm:
         if llm is None:
             raise ValueError("critic_sense: use_real_llm=True requires llm (SGELLMClient)")
-        return real_critic_sense(event, drives, values, llm=llm, **kwargs)
-    return stub_critic_sense(event, drives, values, seed)
+        return real_critic_sense(
+            event, drives, values, llm=llm, extra_context=extra_context, **kwargs
+        )
+    return stub_critic_sense(event, drives, values, seed, extra_context=extra_context)

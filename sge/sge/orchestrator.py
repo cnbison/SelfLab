@@ -244,11 +244,20 @@ class SGEOrchestrator:
         """
         return critic_value_delta.get('safety', 0.0) * 0.5
 
-    def step(self, epoch: int) -> OrchestratorStep:
+    def step(
+        self,
+        epoch: int,
+        extra_critic_context: Optional[dict] = None,
+        extra_actor_context: Optional[str] = None,
+    ) -> OrchestratorStep:
         """执行一个 epoch 的完整 12 步编排
 
         Args:
             epoch: 当前 epoch（从 0 开始）
+            extra_critic_context: App 层注入（SSOT §3.1）
+                覆盖 Critic 默认 8D 同名字段
+            extra_actor_context: App 层注入 system prompt（SSOT §3.1）
+                拼到 Actor prompt 末尾
 
         Returns:
             OrchestratorStep（完整 trace）
@@ -291,6 +300,7 @@ class SGEOrchestrator:
             use_real_llm=self.use_real_llm,
             llm=self.llm,
             seed=hash((epoch, 'critic')) % (2**31),
+            extra_context=extra_critic_context,
         )
 
         # ── Step 3.5: Hawking Insert（M2.2 修复 D6 后的设计缺口）──
@@ -364,6 +374,7 @@ class SGEOrchestrator:
             use_real_llm=self.use_real_llm,
             llm=self.llm,
             seed=hash((epoch, 'actor')) % (2**31),
+            extra_system_prompt=extra_actor_context,
         )
 
         # ── Step 12: Hebbian Learn + Phase Transition ──

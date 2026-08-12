@@ -24,6 +24,8 @@ Phase 3+ 正式 Python 包化（M2.x 一直是 scripts/ 下的临时实现）。
         TwinStateDB,
         # Session（Phase 3.1 · 动作 2）
         TwinSession,
+        # Context Injection（Phase 3.1 · 动作 3）
+        TwinContextBuilder, AppContext,
     )
 
 历史：
@@ -94,6 +96,13 @@ from .session import (
     SessionError, SessionLockedError, SessionNotFoundError,
 )
 
+# Context Injection（Phase 3.1 · 动作 3）
+from .context_injection import (
+    TwinContextBuilder, AppContext,
+    CRITIC_DEFAULT_8D,
+    critic_extra_context_to_prompt,
+)
+
 
 __all__ = [
     # Core
@@ -131,4 +140,7 @@ __all__ = [
     # Session
     'TwinSession',
     'SessionError', 'SessionLockedError', 'SessionNotFoundError',
+    # Context Injection
+    'TwinContextBuilder', 'AppContext', 'CRITIC_DEFAULT_8D',
+    'critic_extra_context_to_prompt',
 ]

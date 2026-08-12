@@ -44,6 +44,8 @@ from sge import (
     # Session（Phase 3.1 · 动作 2）
     TwinSession,
     SessionError, SessionLockedError, SessionNotFoundError,
+    # Context Injection（Phase 3.1 · 动作 3）
+    TwinContextBuilder, AppContext,
 )
 ```
 
@@ -278,6 +280,87 @@ close(save=True)
 | `auto_save_every` | `10` | 每 N epoch 全量保存；`0` = 只在 `close()` 时保存 |
 
 > **注意**：`close(save=False)` 会丢弃本次 session 的所有推进（用于只读/探查场景）。
+
+## 上下文注入（Phase 3.1 · 动作 3）
+
+`TwinContextBuilder` 把 App 层「领域上下文」（学生姓名/年级/mastery/关系历史）
+注入到 Critic / Actor 的 LLM prompt，让 SGE 生成"这个应用特定的"输出，
+而 SGE 核心不需要写领域代码。
+
+### 问题
+
+```
+SGE 默认只看到 8D 信号 + 6D value + 5D drive：
+  - event 描述（"考试没及格"）
+  - drives 状态
+  - values 状态
+
+但 SGE 不知道：
+  - 这个学生叫什么名字
+  - 他数学学得怎么样
+  - 他是初几的
+→ 不注入上下文，生成的 Identity / Narrative 是"通用 AI 婴儿"
+```
+
+### 基础用法
+
+```python
+from sge import TwinContextBuilder, SGEOrchestrator, TwinSession
+
+builder = TwinContextBuilder(app_state={
+    'student_name': 'Alice',
+    'grade': 7,
+    'current_mastery_overview': 'math: 65, english: 82',
+    'recent_struggle': 'math/algebra',
+})
+
+# App 层每次交互拼装上下文（实时性高，可挂 mastery_state）
+critic_ctx = builder.build_critic_context(
+    student_event={'type': 'failure', 'description': '...'},
+    extra={'student_name': 'Alice', 'student_grade': 7},
+)
+actor_prompt = builder.build_actor_prompt_context(
+    student_event={'type': 'failure', 'description': '考试没及格', 'intensity': 0.7},
+)
+
+# 透传给 orchestrator（直接用）或 session（推荐）
+trace = orchestrator.step(epoch=0,
+                          extra_critic_context=critic_ctx,
+                          extra_actor_context=actor_prompt)
+```
+
+### 与 TwinSession 集成（推荐路径）
+
+```python
+with TwinSession('stu_001', twin_db=db) as session:
+    for student_event in events:
+        trace = session.process_event(
+            extra_critic_context=builder.build_critic_context(student_event),
+            extra_actor_context=builder.build_actor_prompt_context(student_event),
+        )
+```
+
+### AppContext（typed 契约，Phase 3.3 PoC 用）
+
+```python
+from sge import AppContext
+ctx = AppContext(
+    student_name='Alice', student_grade=7,
+    current_mastery_overview='math: 65',
+    extra={'learning_pace': 0.6, 'recent_struggle': 'math/algebra'},
+)
+critic_ctx = builder.build_critic_context(extra=ctx.to_dict())
+```
+
+字段集合对应 SSOT §5「不同应用的注入差异」：
+学生孪生 / 教学 AI 教练 / Personal AI / 历史人物 各自字段。
+
+### 设计边界
+
+- **Plumbing-only 范围**：当前 TwinContextBuilder 用 duck typing，不假定 `SubjectMasteryState` 等具体类（Phase 3.3 才落地）。builder 接受任意 duck-typed mastery_state，调用 `summary() / most_recent_struggling() / learning_velocity()`；方法缺失或抛异常时静默回退，不污染 ctx。
+- **extra 完全覆盖默认 8D 同名字段**：App 层权威；保留 App 层私有字段（student_name 等）。
+- **stub 路径**：Critic stub 会给 8D 数值加小幅高斯扰动（设计如此避免失真），App 层字符串/整数原样保留。real 路径把 extra_context 序列化为 `[App Context]` 块追加到 LLM prompt。
+- **注入原则**（SSOT §6）：注入"AI 不知道的领域知识"，不是"所有信息"——成绩单/敏感数据/实时聊天历史不应注入。
 
 ## 架构
 

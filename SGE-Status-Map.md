@@ -6,13 +6,13 @@
 >
 > **更新机制**：每次大版本变更后更新（如 CHANGELOG 新增 minor version）。
 >
-> **最后更新**：2026-08-12（CHANGELOG [1.35.0]）
+> **最后更新**：2026-08-12（CHANGELOG [1.36.0]）
 
 ---
 
 ## 0. 一句话总结
 
-M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 已完成 persistence.py + session.py**，剩 context_injection.py。
+M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地），下一步 = Phase 3.2 单元测试覆盖 ≥ 80%。
 
 ---
 
@@ -104,26 +104,26 @@ Emotion Layer / Meta-Cognition / Multi-AI Interaction 已重新定位为 M4+ 延
 
 > **按推荐顺序排列**。每项标明：工作量、依赖、风险、退出标准。
 
-### 动作 1：Phase 3.1 context_injection.py — **最优先**
+### 动作 1：Phase 3.2 单元测试覆盖（≥80%）— **最优先**
 
-- **工作量**：1.5 天（参考 [research/phase3/10-engineering/03-context-injection.md](./research/phase3/10-engineering/03-context-injection.md)）
-- **依赖**：persistence.py（1.33.0/1.34.0 已完成）+ session.py（1.35.0 已完成）
-- **风险**：中（prompt 组装策略 + token 预算需实测）
-- **退出标准**：history / identity / narrative / hawking 检索结果可注入 Actor prompt + 单测全绿
+- **工作量**：3.5 天
+- **依赖**：Phase 3.1（已全部就绪）
+- **风险**：中（各模块目前用 `python -m sge.X` 自测，需迁移到 pytest 框架 + 覆盖率工具）
+- **退出标准**：baseline/event/experience/metrics/identity/narrative/orchestrator/persistence/session/context_injection 10 个模块覆盖率 ≥ 80%
 
-### 动作 2：Phase 3.1 已完成部分 — **✅ 收口**
+### 动作 2：Phase 3.1 — **✅ 全部完成（1.32.0 ~ 1.36.0）**
 
 - ✅ **snapshot/restore 统一接口**（1.32.0）— 5 个分散 state + 编排器聚合层
 - ✅ **persistence.py / TwinStateDB**（1.33.0 + 1.34.0）— 20 测试，含 GDPR + schema 迁移 + 编排器自动 checkpoint
 - ✅ **session.py / TwinSession**（1.35.0）— 8 测试，构造即恢复 + 进程内 SessionLock
+- ✅ **context_injection.py / TwinContextBuilder**（1.36.0）— 9 测试，App 层领域上下文可注入 Critic / Actor prompt
 - **遗留**：跨进程 SessionLock（DB 级 `session_locks` 表）未做，当前仅依赖 SQLite WAL 串行化
 
-### 动作 3：Phase 3.2 单元测试覆盖（≥80%）— **Phase 3.1 完成后**
+### 动作 3：Phase 3.3 student-digital-twin PoC — **Phase 3.2 完成后**
 
-- **工作量**：3.5 天
-- **依赖**：Phase 3.1 持久化层（已就绪）
-- **风险**：中（各模块目前用 `python -m sge.X` 自测，需迁移到 pytest 框架并统计覆盖率）
-- **退出标准**：9 个核心模块覆盖率 ≥ 80%
+- **工作量**：2 周
+- **依赖**：Phase 3.1（已就绪，context_injection 的 duck typing 入口可消费 SubjectMasteryState 等具体类型）
+- **退出标准**：K12 学生数字孪生端到端 demo（教学 AI 教练场景）
 
 ### 动作 4：A→B / ECOS 边界维护 — **持续（轻量）**
 
@@ -166,4 +166,4 @@ context_injection   →  (可选) async       →  Phase 3 总结     →  Multi
 
 **维护者**：Bisen & Claude
 **创建日期**：2026-06-15
-**最后重写**：2026-08-12（基于 CHANGELOG 1.35.0）
+**最后重写**：2026-08-12（基于 CHANGELOG 1.36.0）
