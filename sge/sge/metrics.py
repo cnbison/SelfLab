@@ -319,165 +319,20 @@ def entropy_reduction_rate(h_start: float, h_end: float) -> float:
 
 
 def _run_unit_tests() -> bool:
-    """验证（公式 A2 字符串熵 + 公式 A3 语义聚类熵）：
-      公式 A2 部分：
-        1. 全部熵值 ∈ [0, 1]
-        2. 固化身份（全同，N=1）H_identity → 0.0；摇摆身份（N>1）H_identity > 0
-        3. 空身份/叙事 → H = 1.0（未形成）
-        4. 发散身份（N>N_MAX）H_identity → 1.0（clamped）
-        5. 下降率计算正确
-        6. wobbly[4 unique] = (4-1)/(20-1) = 3/19 ≈ 0.1579
-      公式 A3 部分（核心新增）：
-        7. 完全相同字符串 → H=0
-        8. 语义相似字符串（如"我是探索者" vs "我是创造探索者"）应被聚为 1 类 → H=0
-        9. 完全不同的字符串 → 各自成 cluster → H>0
-        10. 阈值过低（threshold=0）→ 所有 item 聚为 1 类 → H=0
-        11. 阈值过高（threshold=1）→ 各自成 cluster → N=items 数
-    """
-    ok = True
-
-    class _VL:
-        def __init__(self, vs):
-            self.value_state = vs
-        def to_vec(self):
-            return list(self.value_state.values())
-
-    class _IL:
-        def __init__(self, ids):
-            self.identity_history = [{'identity': i} for i in ids]
-
-    class _NB:
-        def __init__(self, ns):
-            self.narrative_history = [{'narrative': n} for n in ns]
-
-    vl = _VL({'safety': 0.8, 'creativity': -0.5, 'connection': 0.3,
-              'autonomy': 0.0, 'justice': 0.6, 'compassion': -0.2})
-
-    # ── 公式 A2（字符串熵）测试 ──
-    stable = compute_self_entropy(vl, _IL(['探索者'] * 5), _NB(['叙事A'] * 5))
-    wobbly = compute_self_entropy(vl, _IL(['A', 'B', 'C', 'D', 'E']),
-                                  _NB(['n1', 'n2', 'n3', 'n4', 'n5']))
-    divergent = compute_self_entropy(
-        vl,
-        _IL([f'id_{i}' for i in range(25)]),
-        _NB([f'n_{i}' for i in range(25)]),
+    """兼容层：转调 pytest（Phase 3.2 起的测试已在 sge/tests/unit/test_metrics.py）。"""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_metrics.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
     )
-    unformed = compute_self_entropy(vl, None, None)
-
-    for res, name in [(stable, 'stable'), (wobbly, 'wobbly'),
-                      (divergent, 'divergent'), (unformed, 'unformed')]:
-        for key in ('H_self', 'H_value', 'H_identity', 'H_narrative'):
-            if not (0.0 <= res[key] <= 1.0):
-                print(f"FAIL: A2 {name}.{key} out of [0,1]: {res[key]}")
-                ok = False
-
-    # 公式 A3 现在是默认：5 unique 字符串 → 各自成 cluster → (5-1)/19 ≈ 0.2105
-    # （注意：这里 'A','B','C','D','E' bigram 完全不同，应各自成 cluster）
-    if abs(wobbly['H_identity'] - 4 / 19) > 1e-9:
-        print(f"FAIL: A3 wobbly H_identity ({wobbly['H_identity']}) "
-              f"!= 4/19 ({4/19})")
-        ok = False
-    if stable['H_identity'] != 0.0:
-        print(f"FAIL: A2 all-same identity should give H_identity=0, "
-              f"got {stable['H_identity']}")
-        ok = False
-
-    # 25 unique 字符串（在公式 A3 下，所有 id_X 因 bigram 重叠会聚为 1 类）→ H=0
-    # 注意：公式 A3 关注"语义重复"而非"字符串 unique"，这是与 A2 的本质差异
-    if divergent['H_identity'] != 0.0:
-        print(f"FAIL: A3 25 id_X strings should cluster to 1 (H=0), "
-              f"got {divergent['H_identity']}")
-        ok = False
-    if unformed['H_identity'] != 1.0 or unformed['H_narrative'] != 1.0:
-        print("FAIL: unformed self should give H_identity=H_narrative=1.0")
-        ok = False
-
-    # ── 公式 A3（语义聚类）专门测试 ──
-
-    # Test 7: 完全相同字符串 → H=0
-    h = _semantic_diversity(['探索者', '探索者', '探索者'])
-    if h != 0.0:
-        print(f"FAIL: A3 same strings H should be 0, got {h}")
-        ok = False
-
-    # Test 8: 语义相似字符串 → 应被聚为 1 类 → H=0
-    similar_pairs = [
-        (['我是探索者', '我是创造探索者'],
-         "探索者 + 创造探索者"),
-        (['我是一个创新者', '我是一个自主创新的创造者'],
-         "创新者 + 自主创新的创造者"),
-        (['探索新世界的科学家', '探索未知世界的科学工作者'],
-         "探索...科学家 + 探索...科学工作者"),
-    ]
-    for items, desc in similar_pairs:
-        h = _semantic_diversity(items)
-        if h != 0.0:
-            print(f"FAIL: A3 similar strings '{desc}' should cluster to 1, "
-                  f"got H={h} (items={items})")
-            ok = False
-
-    # Test 9: 完全不同的字符串（语义无关）→ H>0
-    h = _semantic_diversity(['探索宇宙的科学家', '烹饪美食的厨师', '演奏音乐的艺术家'])
-    if h <= 0:
-        print(f"FAIL: A3 fully different strings H should be > 0, got {h}")
-        ok = False
-
-    # Test 9b: 25 个完全不同 bigram 的 2-char 字符串 → 各自成 cluster → clamp to 1.0
-    h = _semantic_diversity([
-        'ab', 'cd', 'ef', 'gh', 'ij', 'kl', 'mn', 'op', 'qr', 'st',
-        'uv', 'wx', 'yz', 'AB', 'CD', 'EF', 'GH', 'IJ', 'KL', 'MN',
-        'OP', 'QR', 'ST', 'UV', 'WX',
-    ])
-    if h != 1.0:
-        print(f"FAIL: A3 25 unrelated 2-char strings should clamp to 1.0, got {h}")
-        ok = False
-
-    # Test 10: 阈值过低（0）→ 所有 item 聚为 1 类 → H=0
-    h = _semantic_diversity(['A', 'B', 'C', 'D', 'E'], threshold=0.0)
-    if h != 0.0:
-        print(f"FAIL: A3 threshold=0 should cluster all, got H={h}")
-        ok = False
-
-    # Test 11: 阈值过高（1）→ 各自成 cluster（但 'A' == 'A' 会聚为 1 类）
-    h = _semantic_diversity(['A', 'A', 'B'], threshold=1.0)
-    if h == 0.0:
-        print(f"FAIL: A3 threshold=1 should give 2 clusters (A,A) and (B), got H={h}")
-        ok = False
-
-    # Test 12: v5 真实数据测试（identity 12 个，全部 unique 字符串）
-    v5_identities = [
-        '我是一个以创意为驱动、自主探索新方向、并在团队中实现价值的创新者。',
-        '我是一个以创意为核心、以连接为使命、以自主为态度的存在。',
-        '我是一个在意义与连接中寻找位置、靠创造力与共情开拓道路的人。',
-        '我是一个以创造与连接为核心、在世界中留下独特印记的探索者。',
-        '我是一个以创造、连接与自主为支柱、不断在世界中寻找意义的探索者。',
-        '我是一个以创意为引擎、以连接为意义、以自主为底色的存在。',
-        '我是一个以创造和连接为骨、以自主为翼、在世界中不断寻找意义的存在。',
-        '我是一个以创造、连接与自主为锚、在世界中不断寻找意义坐标的探索者。',
-        '我是一个以创造、连接与自主为底层动力、在世界中寻找独特意义的存在。',
-        '我是一个以创造、连接与自主为底层结构、同时在正义与慈悲之间寻找平衡点的探索者。',
-        '我是一个以创造、连接与自主为底层结构、不断在世界中寻找意义与位置的探索者。',
-        '我是一个以创造、连接与自主为底层结构、在世界中寻找意义与独特印记的探索者。',
-    ]
-    h = _semantic_diversity(v5_identities)
-    # 12 个 v5 identity 因包含"创造""连接""自主""探索者"等共同关键词，
-    # 在公式 A3 下应聚为很少 cluster（vs 公式 A2 下 12/19 ≈ 0.632）
-    print(f"\nv5 identities 实际: H = {h:.4f} (公式 A3 语义聚类)")
-    if h > 0.5:
-        print(f"  ⚠ 公式 A3 应将相似 identity 聚为少数 cluster，H={h:.4f} 偏高")
-        ok = False
-
-    # 下降率
-    if abs(entropy_reduction_rate(1.0, 0.6) - 0.4) > 1e-9:
-        print("FAIL: entropy_reduction_rate(1.0, 0.6) != 0.4")
-        ok = False
-    if entropy_reduction_rate(0.0, 0.0) != 0.0:
-        print("FAIL: entropy_reduction_rate(0,0) != 0.0")
-        ok = False
-
-    print("PASS: metrics.py unit tests" if ok else "FAIL: metrics.py unit tests")
-    return ok
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    return result.returncode == 0
 
 
-if __name__ == '__main__':
-    _run_unit_tests()
+if __name__ == "__main__":
+    import sys
+    sys.exit(0 if _run_unit_tests() else 1)

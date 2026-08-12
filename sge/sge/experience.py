@@ -302,55 +302,20 @@ def encode_experience(
 
 
 def _run_unit_tests() -> bool:
-    """验证：
-      1. stub 对全部事件类型产出非空 meaning
-      2. emotion / goal_relevance / uncertainty 在 [0,1]
-      3. experience_id 格式正确
-      4. 可重现（同 seed 同结果）
-    """
-    ok = True
-
-    for etype in _TYPE_TO_MEANING:
-        event = {
-            'event_id': f'test-e0001-abcd1234',
-            'event_type': etype,
-            'description': f'a {etype} event',
-            'intensity': 0.7,
-            'causal_context': 'prior context',
-            'timestamp': 100.0,
-        }
-        exp = stub_encode_experience(event, seed=42)
-
-        if not exp.meaning:
-            print(f"FAIL: empty meaning for {etype}")
-            ok = False
-        if not (0.0 <= exp.emotion['valence'] <= 1.0):
-            print(f"FAIL: valence out of range for {etype}: {exp.emotion['valence']}")
-            ok = False
-        if not (0.0 <= exp.emotion['arousal'] <= 1.0):
-            print(f"FAIL: arousal out of range for {etype}: {exp.emotion['arousal']}")
-            ok = False
-        if not (0.0 <= exp.goal_relevance <= 1.0):
-            print(f"FAIL: goal_relevance out of range for {etype}")
-            ok = False
-        if not (0.0 <= exp.uncertainty <= 1.0):
-            print(f"FAIL: uncertainty out of range for {etype}")
-            ok = False
-        if exp.experience_id != 'test-e0001-abcd1234-exp':
-            print(f"FAIL: bad experience_id: {exp.experience_id}")
-            ok = False
-
-    # 可重现性
-    e = {'event_id': 'x', 'event_type': 'success', 'intensity': 0.5, 'timestamp': 0.0}
-    a = stub_encode_experience(e, seed=7)
-    b = stub_encode_experience(e, seed=7)
-    if a.to_dict() != b.to_dict():
-        print("FAIL: stub not reproducible with same seed")
-        ok = False
-
-    print("PASS: experience.py unit tests" if ok else "FAIL: experience.py unit tests")
-    return ok
+    """兼容层：转调 pytest（Phase 3.2 起的测试已在 sge/tests/unit/test_experience.py）。"""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_experience.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
+    )
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    return result.returncode == 0
 
 
-if __name__ == '__main__':
-    _run_unit_tests()
+if __name__ == "__main__":
+    import sys
+    sys.exit(0 if _run_unit_tests() else 1)

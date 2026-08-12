@@ -290,3 +290,28 @@ def critic_sense(
             event, drives, values, llm=llm, extra_context=extra_context, **kwargs
         )
     return stub_critic_sense(event, drives, values, seed, extra_context=extra_context)
+
+
+# ═══════════════════════════════════════════════
+# 单元测试（Phase 3.2 起已迁出至 tests/unit/test_critic.py）
+# ═══════════════════════════════════════════════
+
+
+def _run_unit_tests() -> bool:
+    """兼容层：转调 pytest。"""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_critic.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
+    )
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    return result.returncode == 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(0 if _run_unit_tests() else 1)
