@@ -368,18 +368,15 @@ def make_llm_client(
 
 
 if __name__ == "__main__":
-    # 模块直接运行：测试 SGELLMClient 是否能连通
-    print("═" * 60)
-    print("  SGELLMClient 连接测试")
-    print("═" * 60)
-
-    client = make_llm_client(provider='minimax', verbose=True)
-
-    response = client.chat(
-        messages=[{"role": "user", "content": "用一句话介绍你自己"}],
-        temperature=0.5,
-        max_tokens=200,
+    # 兼容层：转调 pytest（Phase 3.2 起的测试已在 sge/tests/unit/test_llm_client.py）
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_llm_client.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
     )
-    print(f"\n响应: {response[:300]}")
-
-    print(f"\n统计: {client.stats()}")
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    sys.exit(result.returncode)

@@ -507,3 +507,28 @@ class IdentityLayer:
         self.dedup_method = snap['dedup_method']
         # llm 句柄不持久化；由 SGEOrchestrator.restore_all 统一注入
         self.llm = llm
+
+
+# ════════════════════════════════════════════════
+# 单元测试
+# ════════════════════════════════════════════════
+
+
+def _run_unit_tests() -> bool:
+    """兼容层：转调 pytest（Phase 3.2 起的测试已在 sge/tests/unit/test_identity.py）。"""
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, '-m', 'pytest',
+         'tests/unit/test_identity.py', '-v', '--tb=short'],
+        capture_output=True, text=True,
+    )
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+    return result.returncode == 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(0 if _run_unit_tests() else 1)
