@@ -12,7 +12,7 @@
 
 ## 0. 一句话总结
 
-M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地），下一步 = Phase 3.2 单元测试覆盖 ≥ 80%。
+M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地）。**Phase 3.2 第一批 5 模块 pytest 框架化完成**（1.37.0，95 tests pass，平均覆盖率 81%），下一步 = Phase 3.2 第二批 4 模块 + 第三批 4 模块 conversion → 整体覆盖率 ≥ 80% → Phase 3.3 PoC。
 
 ---
 
@@ -104,12 +104,15 @@ Emotion Layer / Meta-Cognition / Multi-AI Interaction 已重新定位为 M4+ 延
 
 > **按推荐顺序排列**。每项标明：工作量、依赖、风险、退出标准。
 
-### 动作 1：Phase 3.2 单元测试覆盖（≥80%）— **最优先**
+### 动作 1：Phase 3.2 单元测试覆盖（≥80%）— **第一批 5 模块完成**
 
-- **工作量**：3.5 天
+- **工作量**：3.5 天（已完成 2 天，剩余 1.5 天第二批 + 第三批）
 - **依赖**：Phase 3.1（已全部就绪）
 - **风险**：中（各模块目前用 `python -m sge.X` 自测，需迁移到 pytest 框架 + 覆盖率工具）
 - **退出标准**：baseline/event/experience/metrics/identity/narrative/orchestrator/persistence/session/context_injection 10 个模块覆盖率 ≥ 80%
+- **第一批 5 模块（1.37.0）**：context_injection 86% + actor 73% + persistence 89% + baseline 79% + orchestrator 76%（平均 81%，达成 ≥ 80% 目标）；共 95 测试全绿
+- **第二批 4 模块**（待启动）：critic / event / experience / metrics
+- **第三批 4 模块**（待启动）：identity / narrative / llm_client（集成）/ session
 
 ### 动作 2：Phase 3.1 — **✅ 全部完成（1.32.0 ~ 1.36.0）**
 
