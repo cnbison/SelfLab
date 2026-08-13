@@ -117,9 +117,13 @@ def fake_litellm(monkeypatch):
 
 @pytest.fixture
 def client(fake_litellm):
-    """构造一个 SGELLMClient 实例（注入 fake litellm + api_key）。"""
+    """构造一个 SGELLMClient 实例（注入 fake litellm + api_key）。
+    显式清掉 env 中的 base_url/model，确保走 fallback 默认值。
+    """
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setenv('MINIMAX_API_KEY', 'test-key-12345')
+    monkeypatch.delenv('MINIMAX_BASE_URL', raising=False)
+    monkeypatch.delenv('MINIMAX_MODEL', raising=False)
     try:
         c = SGELLMClient(provider='minimax')
         yield c
@@ -171,6 +175,42 @@ def test_init_with_unknown_provider_raises(fake_litellm):
     with patch.dict('os.environ', {'MINIMAX_API_KEY': 'fake'}):
         with pytest.raises(ValueError, match='Unknown provider'):
             SGELLMClient(provider='unknown_provider')
+
+
+def test_init_env_overrides_base_url_and_model(fake_litellm, monkeypatch):
+    """env 中设了 MINIMAX_BASE_URL / MINIMAX_MODEL → 优先使用 env 值。"""
+    monkeypatch.setenv('MINIMAX_API_KEY', 'test-key')
+    monkeypatch.setenv('MINIMAX_BASE_URL', 'https://custom.example.com/v1')
+    monkeypatch.setenv('MINIMAX_MODEL', 'Custom-Model-X')
+    c = SGELLMClient(provider='minimax')
+    assert c.base_url == 'https://custom.example.com/v1'
+    # 自动加 openai/ 前缀（因为 base_url 形如 /v1）
+    assert c.model == 'openai/Custom-Model-X'
+
+
+def test_init_no_provider_prefix_when_explicit(fake_litellm, monkeypatch):
+    """model 已带前缀 → 不再加。"""
+    monkeypatch.setenv('MINIMAX_API_KEY', 'test-key')
+    monkeypatch.setenv('MINIMAX_BASE_URL', 'https://api.minimax.io/anthropic')
+    monkeypatch.setenv('MINIMAX_MODEL', 'anthropic/MiniMax-M3')
+    c = SGELLMClient(provider='minimax')
+    assert c.model == 'anthropic/MiniMax-M3'  # 不重复加前缀
+
+
+def test_chat_clamps_max_tokens_to_provider_min(fake_litellm, monkeypatch):
+    """reasoning 模型：max_tokens 低于 provider min → 自动 clamp。"""
+    monkeypatch.setenv('MINIMAX_API_KEY', 'test-key')
+    monkeypatch.delenv('MINIMAX_BASE_URL', raising=False)
+    monkeypatch.delenv('MINIMAX_MODEL', raising=False)
+    c = SGELLMClient(provider='minimax')
+    # min_max_tokens 在 minimax 配置里是 512（reasoning 模型需要余量）
+    assert c.min_max_tokens == 512
+    # 替换 fake completion：记录 kwargs，返回成功
+    fake_completion = _FakeCompletions()
+    fake_completion.responses = ["ok"]
+    fake_litellm.completion = fake_completion
+    c.chat(messages=[{"role": "user", "content": "hi"}], max_tokens=10)
+    assert fake_completion.call_kwargs_list[0]['max_tokens'] == 512
 
 
 def test_init_without_api_key_raises(fake_litellm):

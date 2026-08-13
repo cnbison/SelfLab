@@ -26,6 +26,11 @@ import random
 from typing import Optional
 
 from .baseline import SnapshotError
+from .llm_client import get_default_endpoint
+
+
+# 模块加载时一次性读 env（避免每次调用都重读）
+_DEFAULT_BASE_URL, _DEFAULT_MODEL = get_default_endpoint('minimax')
 
 
 # ══════════════════════════════════════════════
@@ -128,8 +133,8 @@ def real_build_narrative(
     crystallized_events: list,
     current_identity: Optional[str],
     api_key: Optional[str] = None,
-    base_url: str = "https://api.minimax.io/anthropic",
-    model: str = "anthropic/MiniMax-M3",
+    base_url: str = _DEFAULT_BASE_URL,
+    model: str = _DEFAULT_MODEL,
     temperature: float = 0.5,
     max_tokens: int = 1024,
 ) -> str:
@@ -177,8 +182,8 @@ def real_check_narrative_consistency(
     narrative: str,
     crystallized_events: list,
     api_key: Optional[str] = None,
-    base_url: str = "https://api.minimax.io/anthropic",
-    model: str = "anthropic/MiniMax-M3",
+    base_url: str = _DEFAULT_BASE_URL,
+    model: str = _DEFAULT_MODEL,
     temperature: float = 0.0,
     max_tokens: int = 16,
 ) -> float:

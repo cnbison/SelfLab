@@ -6,13 +6,13 @@
 >
 > **更新机制**：每次大版本变更后更新（如 CHANGELOG 新增 minor version）。
 >
-> **最后更新**：2026-08-12（CHANGELOG [1.40.0]）
+> **最后更新**：2026-08-13（CHANGELOG [1.40.1] — 真实 LLM 链路验证 + LLM endpoint env 化）
 
 ---
 
 ## 0. 一句话总结
 
-M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地）。**Phase 3.2 全部完成**（1.37.0 + 1.38.0 + 1.39.0，14 模块 pytest 框架化，442 tests pass，总覆盖率 **86%**）。**Phase 3.3 student-digital-twin PoC 完成**（1.40.0，关键路径端到端：Alice 200 epoch stub LLM 跑通 + SubjectMasteryState 学科×主题二维 schema + 69 tests pass + mastery/events/adapter 三模块 100% 覆盖），下一步 = Phase 3.3 teaching-ai-coach PoC。
+M2.x 全部完成（M2.2 v6 长程验证 6 实验 5/6 通过，PRD §6 双维度首次同时达成）。SGE 已从"研究纲领"转型为 **Self Evolution Runtime**（[洞察 33](./SGE-Key-Insights.md)），sge/ Python 包就绪。**Phase 3.1 全部完成**（persistence + session + context_injection 三层落地）。**Phase 3.2 全部完成**（1.37.0 + 1.38.0 + 1.39.0，14 模块 pytest 框架化，442 tests pass，总覆盖率 **86%**）。**Phase 3.3 student-digital-twin PoC 完成**（1.40.0，关键路径端到端：Alice 200 epoch stub LLM 跑通 + SubjectMasteryState 学科×主题二维 schema + 69 tests pass + mastery/events/adapter 三模块 100% 覆盖）+ **真实 LLM 链路验证完成**（1.40.1：20 epoch × MiniMax-M3 端到端 0 retry 跑通 + LLM endpoint env 化让 .env 成为 SSOT），下一步 = Phase 3.3 teaching-ai-coach PoC。
 
 ---
 
@@ -184,4 +184,4 @@ context_injection   →  (可选) async       →  Phase 3 总结     →  Multi
 
 **维护者**：Bisen & Claude
 **创建日期**：2026-06-15
-**最后重写**：2026-08-12（基于 CHANGELOG 1.40.0 — Phase 3.3 PoC 完成）
+**最后重写**：2026-08-13（基于 CHANGELOG 1.40.1 — 真实 LLM 链路验证 + LLM endpoint env 化）

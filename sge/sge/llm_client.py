@@ -45,15 +45,21 @@ logger = logging.getLogger(__name__)
 # LLM Provider 配置（SSOT）
 # ══════════════════════════════════════════════
 
+# base_url / model 从 env 读（.env 是 SSOT），env 没设时用以下 fallback
 LLM_PROVIDER_CONFIG = {
     'minimax': {
         'api_key_env': 'MINIMAX_API_KEY',
-        'base_url': 'https://api.minimax.io/anthropic',
-        'model': 'anthropic/MiniMax-M3',
+        'base_url_env': 'MINIMAX_BASE_URL',
+        'model_env': 'MINIMAX_MODEL',
+        'base_url': 'https://api.minimax.io/anthropic',  # fallback
+        'model': 'anthropic/MiniMax-M3',                  # fallback
         'default_temperature': 0.5,
+        'min_max_tokens': 512,  # MiniMax-M3 是 reasoning 模型，256 仍会被内部推理截断 → 512 给文本留余量
     },
     'moonshot': {
         'api_key_env': 'MOONSHOT_API_KEY',
+        'base_url_env': 'MOONSHOT_BASE_URL',
+        'model_env': 'MOONSHOT_MODEL',
         'base_url': 'https://api.moonshot.cn/v1',
         'model': 'openai/kimi-k2.6',
         'default_temperature': 0.6,
@@ -120,9 +126,24 @@ class SGELLMClient:
                 f"{cfg['api_key_env']} environment variable not set. "
                 f"Please add it to your .env file or set it before running."
             )
-        self.base_url = base_url or cfg['base_url']
-        self.model = model or cfg['model']
+        # base_url / model 优先从 env 读（.env 是 SSOT）
+        self.base_url = (
+            base_url
+            or (os.environ.get(cfg['base_url_env']) if 'base_url_env' in cfg else None)
+            or cfg['base_url']
+        )
+        raw_model = (
+            model
+            or (os.environ.get(cfg['model_env']) if 'model_env' in cfg else None)
+            or cfg['model']
+        )
+        # 自动加 provider 前缀：base_url 形如 /v1 走 OpenAI 协议 → openai/ 前缀
+        if '/' not in raw_model and '/v1' in self.base_url:
+            self.model = f'openai/{raw_model}'
+        else:
+            self.model = raw_model
         self.default_temperature = cfg['default_temperature']
+        self.min_max_tokens = cfg.get('min_max_tokens', 64)
         self.extra_body = cfg.get('extra_body')
         self.verbose = verbose
         self.call_count = 0
@@ -182,6 +203,8 @@ class SGELLMClient:
 
         if temperature is None:
             temperature = self.default_temperature
+        # clamp max_tokens 到 provider 最小值（reasoning 模型需要余量给内部推理）
+        effective_max_tokens = max(max_tokens, self.min_max_tokens)
 
         kwargs = dict(
             model=self.model,
@@ -189,7 +212,7 @@ class SGELLMClient:
             api_key=self.api_key,
             base_url=self.base_url,
             temperature=temperature,
-            max_tokens=max_tokens,
+            max_tokens=effective_max_tokens,
             timeout=timeout,  # M2.2 修复：防止 server hang 时无限等待
         )
         if response_format is not None:
@@ -352,6 +375,25 @@ class SGELLMClient:
 # ══════════════════════════════════════════════
 # 便捷工厂函数
 # ══════════════════════════════════════════════
+
+
+def get_default_endpoint(provider: str = 'minimax') -> tuple[str, str]:
+    """读取 provider 的 env-aware 默认 (base_url, model) — 供 narrative/identity 等用
+
+    返回的 model 已自动加 provider 前缀（与 SGELLMClient.__init__ 一致）。
+    """
+    cfg = LLM_PROVIDER_CONFIG[provider]
+    base_url = (
+        os.environ.get(cfg['base_url_env']) if 'base_url_env' in cfg else None
+    ) or cfg['base_url']
+    raw_model = (
+        os.environ.get(cfg['model_env']) if 'model_env' in cfg else None
+    ) or cfg['model']
+    if '/' not in raw_model and '/v1' in base_url:
+        model = f'openai/{raw_model}'
+    else:
+        model = raw_model
+    return base_url, model
 
 
 def make_llm_client(
