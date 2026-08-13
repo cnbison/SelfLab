@@ -351,17 +351,17 @@ Phase 3: 系统完善（当前 — M2.x 全完成 + 规划完成 + 实施中）
 
 **目标**：完善 SGE 系统，为下游应用做准备
 
-**当前状态（2026-08-11）**：**规划完成，Phase 3.1 实施中** —— M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch v6 长程验证 + M2.3 个人真实测试）。Phase 3 规划已完成（18 个文件，详见 `research/phase3/`），sge/ Python 包已建立，CHANGELOG 1.25-1.31 架构修订已落地（Self Evolution Runtime / Experience Encoder / H_self 公式 A3）。
+**当前状态（2026-08-13）**：**Phase 3.1 + Phase 3.2 pytest 部分 + Phase 3.3 student-digital-twin Runtime Demo 已完成；Phase 3.3 收窄决策已落地** —— M2.x 全部完成（M2.1 全阶段 + M2.2 三胞胎 1000 epoch v6 长程验证 + M2.3 个人真实测试）。Phase 3.1 三个 P0 模块完成（persistence + session + context_injection，CHANGELOG 1.32-1.36），Phase 3.2 pytest 框架化完成（14 模块 86% 覆盖，1.37-1.39），Phase 3.3 student-digital-twin Runtime Demo 完成（512 行设计 + 5 源文件 + 真实 LLM 验证，1.40.0 + 1.40.1）。**2026-08-13 Bisen 反思后决定收窄 Phase 3.3 范围** —— 从"应用 PoC 验证"重定义为"Runtime 可加载性验证"，teaching-ai-coach PoC 标记 M4+ 延后，详细讨论见 [discussions/2026-08-13-phase3-narrowing-decision.md](./discussions/2026-08-13-phase3-narrowing-decision.md)。
 
-**Phase 3 SSOT**：[research/phase3/](./research/phase3/)（战略层、工程层、领域知识层、跨项目层、应用 PoC 层）。**Phase 3 子任务划分的权威源**：[research/phase3/00-overview/03-roadmap.md](./research/phase3/00-overview/03-roadmap.md)（Phase 3.1/3.2/3.3 + 6 个 M1-M6 里程碑）。本节为顶层摘要，详细时间线与依赖图以 SSOT 为准。
+**Phase 3 SSOT**：[research/phase3/](./research/phase3/)（战略层、工程层、领域知识层、跨项目层、应用 PoC 层）。**Phase 3 子任务划分的权威源**：[research/phase3/00-overview/03-roadmap.md](./research/phase3/00-overview/03-roadmap.md)（Phase 3.1/3.2/3.3 + 6 个 M1-M6 里程碑 + §10 Phase 3.3 收窄决策）。本节为顶层摘要，详细时间线与依赖图以 SSOT 为准。
 
 ## 里程碑
 
-> **子阶段划分（与 SSOT 对齐）**：
-> - **Phase 3.1**（P0 应用基础）: persistence + session + context-injection（W1-W3）
-> - **Phase 3.2**（P1 性能 + 测试）: llm_cache + 单元测试覆盖 ≥80% + prompt 版本管理（W4-W6）
-> - **Phase 3.3**（P2 PoC 验证）: student-digital-twin + teaching-ai-coach 两个 PoC（W7-W12）
-> - **M4+ 延后范围**（不在 Phase 3 时间线内）: Emotion & Energy Layer / Meta-Cognition Layer / Multi-AI Interaction（参见 §M3.1-M3.3 历史定义）
+> **子阶段划分（与 SSOT 对齐，2026-08-13 收窄后）**：
+> - **Phase 3.1**（P0 应用基础）✅: persistence + session + context-injection（W1-W3，1.32-1.36）
+> - **Phase 3.2**（P1 性能 + 测试）⚠️ pytest 部分 ✅ + llm_cache/prompts 划收尾: 14 模块 86% 覆盖（1.37-1.39）+ `sge/llm_cache.py` + `sge/prompts/`（划"Phase 3.2 收尾"待办）
+> - **Phase 3.3**（P2 Runtime 可加载性验证）⚠️ student-digital-twin Runtime Demo ✅ + teaching-ai-coach M4+ 延后: Runtime Demo（1.40.0 + 1.40.1）+ Phase 3 收尾报告（待写）
+> - **M4+ 延后范围**（不在 Phase 3 时间线内）: Emotion & Energy Layer / Meta-Cognition Layer / Multi-AI Interaction / teaching-ai-coach PoC（参见 §M3.1-M3.3 历史定义）
 
 ### Phase 3.1：工程基础设施（P0）
 
@@ -402,21 +402,27 @@ Phase 3: 系统完善（当前 — M2.x 全完成 + 规划完成 + 实施中）
 | async/streaming（可选）| 1 天 |
 | **Phase 3.2 合计** | **5-6 天** |
 
-### Phase 3.3：PoC 验证（P2）
+### Phase 3.3：Runtime 可加载性验证（P2，2026-08-13 收窄后）
 
-**涉及 PoC**：student-digital-twin + teaching-ai-coach
+> **2026-08-13 收窄决策**：Phase 3.3 从"PoC 验证"重命名为"Runtime 可加载性验证"——证明 sge/ 包可被外部项目加载调用，**不是**应用可行性验证。详细决策见 [discussions/2026-08-13-phase3-narrowing-decision.md](./discussions/2026-08-13-phase3-narrowing-decision.md) + [research/phase3/00-overview/03-roadmap.md §10](./research/phase3/00-overview/03-roadmap.md)。
+
+**涉及项**：student-digital-twin Runtime Demo（已完成）+ teaching-ai-coach（M4+ 延后）
 
 **内容**：
-- **学生数字孪生 PoC**（[research/phase3/90-applications/student-digital-twin.md](./research/phase3/90-applications/student-digital-twin.md)）：学生事件 schema + SGE adapter + UI 原型
-- **教学 AI 教练 PoC**（[research/phase3/90-applications/teaching-ai-coach.md](./research/phase3/90-applications/teaching-ai-coach.md)）：长期会话 + frustration 累积 + （含 A→B 整合探索）
-- **PoC 评估 + Phase 3 总结报告**
+- **学生数字孪生 Runtime Demo**（[research/phase3/90-applications/student-digital-twin.md](./research/phase3/90-applications/student-digital-twin.md)）：学生事件 schema + SGE adapter + 端到端 demo（CHANGELOG 1.40.0 + 1.40.1，含真实 LLM 验证）
+- **教学 AI 教练 PoC**（[research/phase3/90-applications/teaching-ai-coach.md](./research/phase3/90-applications/teaching-ai-coach.md)）：⏸ **M4+ 延后**（仍为 21 行占位，不在 Phase 3 范围）
+- **Phase 3 Runtime 收尾报告**（待写）：总结"包已可调用"而非"应用可行"
 
-| 子任务 | 工作量 |
-|--------|--------|
-| student-digital-twin PoC | 2 周 |
-| teaching-ai-coach PoC | 2 周 |
-| 评估 + 总结 | 2 周 |
-| **Phase 3.3 合计** | **6 周** |
+| 子任务 | 工作量 | 状态（2026-08-13）|
+|--------|--------|-------------------|
+| student-digital-twin Runtime Demo | 2 周 | ✅ 完成（CHANGELOG 1.40.0 + 1.40.1）|
+| teaching-ai-coach PoC | ~~2 周~~ | ⏸ M4+ 延后 |
+| Phase 3 Runtime 收尾报告 | 1 周 | ⏸ 待写 |
+| **Phase 3.3 实际投入** | **2 周** | Runtime Demo 完成；后续仅"收尾报告" |
+
+**Phase 3.2 收尾待办**（不在本次收窄范围，划为下次启动）：
+- `sge/llm_cache.py` 实施 + 单元测试（0.5 天，省 API 成本）
+- `sge/prompts/` 目录 + version 管理（1 天，洞察 33 Runtime 抽象完整性待验证）
 
 ### M4+ 延后范围（不在 Phase 3 时间线内）
 

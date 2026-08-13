@@ -1,9 +1,38 @@
-# 90-01 - 学生数字孪生 PoC 设计
+# 90-01 - 学生数字孪生 Runtime Demo 设计
 
-> **状态**：🚧 Phase 3.3 实施中（2026-08-12 启动）
-> **关联**：[01-applications.md §应用 1](../00-overview/01-applications.md)、[02-architecture.md §5 数据流](../00-overview/02-architecture.md)、[10-engineering/03-context-injection.md](../10-engineering/03-context-injection.md)、[Status-Map §4 动作 3](../../../../SGE-Status-Map.md)
+> **状态**：✅ **Runtime Demo 完成（2026-08-13 定性归档）** —— 定位从"应用 PoC"重命名为"Runtime API 调用演示"，**不再往前推新功能**
+> **关联**：[01-applications.md §应用 1](../00-overview/01-applications.md)、[02-architecture.md §5 数据流](../00-overview/02-architecture.md)、[10-engineering/03-context-injection.md](../10-engineering/03-context-injection.md)、[Status-Map §4 动作 3](../../../../SGE-Status-Map.md)、[2026-08-13 Phase 3 收窄决策讨论](../../../discussions/2026-08-13-phase3-narrowing-decision.md)
 >
-> **PoC 项目**：[`student_digital_twin/`](../../../student_digital_twin/) — 与 `sge/` 并列的应用项目（兄弟项目 ECOS 模式）
+> **Demo 项目**：[`student_digital_twin/`](../../../student_digital_twin/) — 与 `sge/` 并列的兄弟项目（**Runtime 调用演示**，不是 ECOS 前站）
+
+---
+
+## 0. Phase 3.3 收窄边界声明（2026-08-13）
+
+**为什么改名字**：本 Demo 原命名"学生数字孪生 PoC"——但 PoC 暗示"做应用原型"，与独立项目 ECOS（教育认知操作系统）名称重叠度过高。Bisen 在 2026-08-13 反思后决定收窄 Phase 3.3 范围，**Runtime Demo 是定性归档，不是应用探索**。
+
+**这次 Demo 证明什么**（不证明什么）：
+
+| 证明 ✅ | 不证明 ❌ |
+|---------|---------|
+| sge/ 包可被外部项目加载调用（`import sge` → 跑通 200 epoch）| 教育应用可行性（产品形态、用户体验、商业模式）|
+| TwinContextBuilder plumbing 可消费 duck typing mastery_state | 学生认知状态估计的科学性（IRT/BKT/DKT 那一套不在 SGE 范围）|
+| SubjectMasteryState + StudentEvent + adapter 的最小数据契约 | K12 教育效果（A/B 测试、提分幅度、家长反馈）|
+| SGE 12 步编排 + Identity/Narrative/H_self 可观察 | SGE value/drive 适合建模学生认知（洞察 32 已否决此映射）|
+
+**与 ECOS 的明确边界**：
+
+- ECOS（独立项目 `/Users/loubicheng/project/ecos/`）解决"AI 理解并帮助学生成长"，状态空间是学生 9D + BloomProfile，CTA+LCA 双 Agent
+- 本 Demo 只证明"SGE Runtime 可被外部调用"，不涉及 ECOS 的任何状态估计方法
+- 如果未来要做 ECOS，请回到 `/Users/loubicheng/project/ecos/` 项目（独立演进）
+
+**Demo 已实现的能力清单**（仅供 Runtime 调用参考，**不在 Phase 3 路线往前推**）：
+
+- `mastery.py`（SubjectMasteryState 学科×主题二维 + 3 个 duck typing 方法）
+- `events.py`（StudentEvent 8 类型 + to_dict/from_dict/to_human_readable）
+- `adapter.py`（student_event → SGE event + critic/actor context builder + R5 安全约束）
+- `demo_alice.py`（CLI 端到端 + Markdown 报告生成）
+- `fixtures/alice_200_events.jsonl`（200 事件 fixture）
 
 ---
 

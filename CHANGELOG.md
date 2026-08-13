@@ -60,6 +60,68 @@
 | 1.39.0 | 2026-08-12 | (待提交) | **Phase 3.2 第三批 4 模块 pytest 框架化完成 — 全模块转换达成**：延续 1.38.0 第三批 4 模块 conversion：identity / narrative / llm_client / session 从 inline runner 或 silent module 迁移到 pytest；**问题**：第二批完成后剩 4 模块为最棘手（涉及 LLM 实时调用 + SessionLock + registry 等复杂逻辑），原覆盖率 35%/46%/17%/10%；**4 模块 conversion**：(1) **identity.py** 510 行 inline runner → shim + **70 tests**（`_value_vector_to_description` / `_memories_to_description` / `stub_crystallize_identity` 4 polarity 分支 + `stub_validate_identity` / `real_*_identity` 配合 fake litellm 注入 + `_jaccard_similarity` / `_char_ngram_vector` / `_tfidf_cosine` / `_ngram_similarity` / `IdentityLayer.__init__/should_crystallize/get_current/stability_score/snapshot/restore`）覆盖 **91%**；(2) **narrative.py** 439 行 inline runner → shim + **54 tests**（`_format_events_timeline` / `stub_build_narrative` / `stub_check_narrative_consistency` / `real_*_narrative` 配 fake_litellm + `NarrativeBuilder.__init__/should_build/get_current/build/check_consistency/handle_phase_transition/snapshot/restore`）覆盖 **91%**；(3) **llm_client.py** silent module → shim + **44 tests**（`LLM_PROVIDER_CONFIG` / `SGELLMClient.__init__` 4 路径 / `chat` 成功+retry+exhausted+kwargs / `chat_json` markdown fence+fallback / `_parse_json` static / `stats` retry_rate+avg_attempts / `warmup` success+failure / `make_llm_client`）覆盖 **86%**；(4) **session.py** 254 行 inline runner → shim + **29 tests**（异常类 3 + 完整生命周期 + process_event 单步+auto_save_every=0 不增量 + close value_state 全等 + SessionLock 重复/释放/不同 student 并发 + auto_save_every 增量 + context manager + 未注册 fail-fast+无残留 + process_event_on_closed + 边界 invalid student_id/auto_save_every + fresh student + close(save=False) + add_conversation 累积+创建 list + process_event default epoch + extra_context 透传 + __del__ warning + close 幂等 + _student_exists + _save_incremental 错误处理 + close save 错误处理）覆盖 **94%**；**shim 替换**：identity / narrative / session 三个源文件末尾删除原 inline runner，新增长 14 行 subprocess shim；llm_client.py 替换原 14 行 `__main__` block；**关键技术决策 + Bug 修复**：(1) **fake litellm 注入模式** — `ModuleType('litellm')` + `__path__ = []` 标记为 package + `sys.modules['litellm']` / `sys.modules['litellm.exceptions']` 双重注入；exceptions 类既挂在 fake.exceptions 也挂在 fake 主模块（适配代码 `litellm.InternalServerError` 直接访问）；(2) **narrative.py 字符串返回 Bug 修复** — `real_build_narrative` 在 LLM 直接返回 narrative 字符串时（真实 LLM 常见），`parsed.get('narrative', ...)` 抛 AttributeError，新增 `isinstance(parsed, str)` 分支处理（与 identity.py 模式对齐）；(3) **`__del__` warning 测试技巧** — `del session` 不触发 `__del__` 因对象在 `_session_registry` 中仍有引用，需先 `_session_registry.pop(sid, None)` + `gc.collect()` 强制销毁；(4) **`test_close_preserves_value_state`** 修正 — `Agent` 对象无 `run` 方法，需直接构造 `SGEOrchestrator.run(n_epochs=10)`；(5) **session `close` 错误处理** — `_save_incremental` + `close` 都用 try/except 包 `db.save_full_state` 调用，失败写 stderr 不抛异常（与 `SGEOrchestrator._save_checkpoint` 一致）；**全模块回归**：**442/442 tests pass**（第一批 95 + 第二批 156 + 第三批 191），6 skipped（litellm 不可用时的真实 LLM 路径），总覆盖率从 64% 提升至 **86%**（+22 个百分点）；**第三批 4 模块覆盖率**：91% + 91% + 86% + 94% = **平均 90.5%**（远高于 80% 目标），全部 ≥ 85%；**14 模块全模块覆盖率**：__init__ 100% / actor 73% / baseline 79% / context_injection 86% / critic 86% / event 91% / experience 87% / identity 91% / llm_client 86% / metrics 90% / narrative 91% / orchestrator 77% / persistence 89% / session 94%；**关键里程碑**：**(A)** Phase 3.2 pytest 框架化目标达成，14/14 模块全部 pytest 化；(B) 平均覆盖率 86%，远超 ≥ 80% 目标；(C) 未达 80% 的仅 actor (73%) / baseline (79%) / orchestrator (77%) 三个模块，均为 real_llm 路径未充分覆盖（非测试设计问题）；**文档同步**：README 测试章节扩展（14 模块覆盖率表 + 第三批新增项）；**后续**：Phase 3.3 PoC（student-digital-twin，可直接消费全部 pytest 化的 sge/ + SubjectMasteryState / StudentEvent / conversation_history 等 PoC 类型）→ Phase 3.4 端到端 demo（CLI 输入学生陈述 → 输出 personality trace + value trajectory）|
 | 1.40.0 | 2026-08-12 | (待提交) | **Phase 3.3 student-digital-twin PoC 实施完成 — 关键路径端到端 demo**:SSOT [research/phase3/90-applications/student-digital-twin.md §设计](./research/phase3/90-applications/student-digital-twin.md) + Status-Map §4 动作 3 完成；**问题**：sge/ 14 模块 86% 覆盖已就绪（1.39.0），但"应用层领域模型 + 端到端 demo"未落地，Phase 3.3 退出标准（K12 学生数字孪生端到端 demo）无法验证；**5 步实施**：(1) **填充设计文档** [research/phase3/90-applications/student-digital-twin.md](./research/phase3/90-applications/student-digital-twin.md) 完整 7 章（场景 / schema / 数据流 / 关键技术点 / UI 原型 / 验收 / 风险），从占位升级为完整设计 SSOT；(2) **新建 `student_digital_twin/` 项目**（与 `sge/` 并列，兄弟项目 ECOS 模式）：`mastery.py`（SubjectMasteryState 学科×主题二维 + 3 个 duck typing 方法：summary / most_recent_struggling / learning_velocity）+ `events.py`（StudentEvent 8 类型 + to_dict/from_dict/to_human_readable）+ `adapter.py`（student_event_to_sge_event + build_critic_context_for_event + build_actor_prompt_for_event + R5 安全约束）+ `demo_alice.py`（CLI 端到端 + Markdown 报告生成）+ `fixtures/`（alice_200_events.jsonl 200 事件 fixture + generate_alice_200.py 生成脚本）；(3) **sge/ 包增强** — TwinContextBuilder.build_actor_prompt_context 扩展 duck typing 调用 mastery_state.most_recent_struggling() / learning_velocity()（原版只调用 summary()），让 Actor prompt 也能注入挣扎主题和学习速率（其他应用受益）；(4) **fixture 设计**：K12 真实模式分阶段（math 反复失败 1-80 / english 稳定上升 81-120 / emotional 主导 121-160 / breakthrough 161-180 / 巩固 181-200），事件类型分布 mastery_drop 50 + mastery_rise 40 + emotional_event 32 + praise 32 + social 16 + breakthrough 11 + criticism 10 + fatigue 9 = 200；(5) **demo_alice.py 端到端**：CLI 8 步（加载事件 → TwinStateDB create_student → SubjectMasteryState init → TwinContextBuilder → TwinSession → 200 epoch stub LLM → close(save_full_state trigger=on_close) → Markdown 报告），CLI 输出含 mastery 阶段性概览（epoch 20: math:43 → epoch 200: math:81 + english:83）；**测试统计**：**69/69 tests pass**（mastery 35 + events 13 + adapter 16 + demo_alice 6），**模块覆盖率**（不含 demo_alice）：mastery.py **100%** / events.py **100%** / adapter.py **100%** / tests/__init__.py 100% / 总覆盖率 80%（demo_alice.py 0% 因 e2e subprocess 不计入本进程覆盖）；**R5 数据误用缓解**：adapter 层 SAFETY_DIRECTIVE 强制约束"不使用评判性语言"+"使用建设性语言"+"给具体可执行建议"+"避免高风险建议"，单元测试抽样 10 个真实场景全部通过；**R10 多用户隔离**：`TestR10MultiUserIsolation` 2 tests 验证 create_2_students 隔离 + delete_one_does_not_affect_other；**关键 Bug 发现 + 修复**：(1) **TwinContextBuilder.build_actor_prompt_context 缺 duck typing** — 原版只 duck type summary()，不读 most_recent_struggling/learning_velocity，actor prompt 近期挑战固定"无"；新增 2 个 duck typing 调用（与 build_critic_context 行为对齐）；(2) **R5 安全约束子字符串假阳性** — SAFETY_DIRECTIVE 直接列出禁用词（"你太差了"/"你不行"等）导致 prompt 实际含这些词，单元测试 substring 检测触发；改为"避免使用如负面标签等表达方式"反向引用；(3) **fixture 轨迹设计错误** — 初版用 trajectory 插值 + 随机扰动，mastery 漂移覆盖下降趋势（math/algebra 78 → 35 → 100 触顶触底）；改为 mastery_drop 强制负 delta + mastery_rise 强制正 delta + 边界 [35, 90] 限制；(4) **update_topic delta 计算 Bug** — 初版用 last score 减去 new_score 取反逻辑混乱；修复为 TopicMastery.update 返回真实 delta，首次创建返回 0.0；(5) **e2e 测试 subprocess PYTHONPATH 路径错** — 初版 PROJECT_ROOT 多一层 / 少一层，sge 包 import 失败；修正为 4 层 `.parent` 到 SelfLab/；(6) **报告事件类型分布错** — 初版从 SGE 内部 event 字段统计，显示 value_conflict/risk/exploration 而非 StudentEvent 8 类型；改为从 student_events 列表统计；(7) **H_self chunk 聚合错** — 初版按数据点切片（50 个数据点=500 epoch）导致 1 个 chunk；改为按 epoch 范围 0-49/50-99/100-149/150-199 分组；**PoC 验证**：Alice 200 epoch stub LLM 在 0.1s 内跑通（含 20 次 Identity 结晶 + 4 次 Narrative 构建 + 4 个 H_self chunk：chunk 0-40 H_self 0.720 → 0.436 ↓39.5% / chunk 50-90 H_self 0.126 / chunk 100-140 0.168 / chunk 150-190 0.158），证明：(A) SubjectMasteryState 学科×主题二维 schema 可工作；(B) TwinContextBuilder duck typing 调用 3 个方法被消费；(C) SGE 12 步编排能处理领域事件流；(D) Identity/Narrative/H_self 都可观察；(E) Markdown 报告完整 5 章节；**文档同步**：Status-Map §4 动作 3 标记 ✅；新增讨论记录 `discussions/2026-08-12-phase3.3-poc.md`；**后续**：Phase 3.3 PoC 端到端已验证；下一个 PoC = teaching-ai-coach（含 A→B 整合，W9-W10）；Phase 3 总结报告（W12 末）|
 | 1.40.1 | 2026-08-13 | (待提交) | **Phase 3.3 真实 LLM 链路验证 + LLM endpoint env 化**:1.40.0 的 V2 验收（真实 LLM 跑通）从 ⚠️ 升级为 ✅；**真实 LLM 端到端跑通 20 epoch × MiniMax-M3**（545s, 0 retry, actor 6 种真实行为标签, R5 缓解验证通过）；**LLM endpoint env 化**：`LLM_PROVIDER_CONFIG` 新增 `base_url_env` / `model_env`（`.env` 成为 SSOT，移除硬编码 `api.minimax.io/anthropic`）；`SGELLMClient` 自动加 `openai/` 前缀（OpenAI 协议端点）+ 新增 `min_max_tokens=512`（reasoning 模型需要余量）+ 新增 `get_default_endpoint()` 工具函数；`narrative.py` / `identity.py` 4 处默认 `base_url` / `model` 改 env-aware；`test_llm_client.py` 新增 3 测试（env 覆盖 / 前缀不重复加 / clamp max_tokens）+ `client` fixture 显式 delenv 走 fallback；全 sge/ 回归 451/451 + student_digital_twin/ 69/69 全绿 |
+| 1.41.0 | 2026-08-13 | (本次) | **Phase 3.3 收窄决策 + Runtime Demo 定性归档 + teaching-ai-coach M4+ 延后 + Phase 3.2 收尾待办划分**:Bisen 在 1.40.1 完成后反思"感觉像 ECOS 项目"，Claude 给 3 选项（保留/暂停/收窄 PoC）+ 关键决策点（PoC 处理 + Coach 处理 + Phase 3.2 缺口），Bisen 全选推荐项 → 选项 A 收窄；**student-digital-twin 重定位**：原"应用 PoC"重命名为"Runtime API 调用演示"，加 §0 收窄边界声明（证明什么 ✅ + 不证明什么 ❌ + 与 ECOS 的边界），不再往前推新功能；**teaching-ai-coach M4+ 延后**：21 行占位文档顶部状态从 📋 占位 → ⏸ M4+ 延后，加"为什么延后 + 未来重启条件"段；**Phase 3 SSOT 重写**：[research/phase3/00-overview/03-roadmap.md](./research/phase3/00-overview/03-roadmap.md) 整体时间线 + §1 整体时间线 + §3 Phase 3.2 详细时间线（标 [1] llm_cache/prompts 缺口 + [2] pytest 完成度）+ §4 Phase 3.3 详细时间线（重命名为"Runtime 可加载性验证"）+ §6 里程碑（M5/M6 状态更新）+ §7 并行维度（20-domain-k12 + 30-atoB 暂停）+ §8 优先级矩阵（标状态列）+ 新增 §10 Phase 3.3 收窄决策章节；**顶层 ROADMAP.md 更新**：Phase 3 当前状态描述（2026-08-11 → 2026-08-13 + 收窄决策）+ 子阶段划分表（Phase 3.3 改为"Runtime 可加载性验证"）+ §Phase 3.3 子章节重写（标题 + 内容 + 实际投入时间表）；**讨论记录**：[discussions/2026-08-13-phase3-narrowing-decision.md](./discussions/2026-08-13-phase3-narrowing-decision.md)（决策背景 + 现状盘点 + 方向偏移判断 + 决策内容 + 影响范围 + 与洞察 30/31/32/33 关系）；**Phase 3.2 收尾待办**：llm_cache.py（0.5 天，省 API 成本）+ sge/prompts/（1 天，洞察 33 Runtime 抽象完整性待验证），下次启动 |
+
+---
+
+## [1.41.0] - 2026-08-13 (Phase 3.3 收窄决策 + Runtime Demo 定性归档 + teaching-ai-coach M4+ 延后)
+
+### 背景
+
+1.40.1 真实 LLM 链路验证完成后，Bisen 反思：
+
+> "先暂停一下，梳理总结一下 SGE 开发到现在，是个什么状况？我咋感觉越来越像在做类似 ECOS 项目的事情了呢？会不会方向偏移了？"
+
+**核心担忧**：Phase 3.3 的两个 PoC（`student-digital-twin` + `teaching-ai-coach`）虽然在防火墙之内（洞察 31/32/33），但**名称与 ECOS（学生数字孪生 + AI 教学教练）高度重叠**，做下去感觉"像在给 ECOS 打前站"。
+
+### 决策内容
+
+**采用选项 A：保留 Phase 3 路线但收窄 PoC 范围**
+
+| 原 Phase 3.3 | 收窄后 |
+|-------------|--------|
+| **PoC 验证**（应用原型） | **Runtime 可加载性验证**（证明 sge/ 包可被外部项目加载调用）|
+| student-digital-twin PoC | student-digital-twin Runtime Demo |
+| teaching-ai-coach PoC | M4+ 延后（占位文档保留）|
+| Phase 3.3 评估 + 总结报告 | **Phase 3 Runtime 收尾报告**（待写）|
+
+**核心边界**：Phase 3.3 收尾 = 把 1.40.0/1.40.1 的成果**定性归档**，不再往前推。
+
+### 三个子决策
+
+| 子决策 | 选择 |
+|--------|------|
+| **student-digital-twin 处理** | ✅ 保留为 Runtime Demo，重命名定位 |
+| **teaching-ai-coach 处理** | ⏸ 标记为 M4+ 延后（占位文档保留作为未来参考）|
+| **Phase 3.2 缺口（llm_cache + prompts）** | 🔧 划为 Phase 3.2 收尾任务，本次不实施 |
+
+### 文档更新清单（本次）
+
+- `discussions/2026-08-13-phase3-narrowing-decision.md` — 新增（决策讨论记录）
+- `research/phase3/90-applications/student-digital-twin.md` — 重命名为 Runtime Demo + 新增 §0 收窄边界声明
+- `research/phase3/90-applications/teaching-ai-coach.md` — 顶部状态改 M4+ 延后 + 加延期原因说明
+- `research/phase3/00-overview/03-roadmap.md` — §1/§3/§4/§6/§7/§8 全部更新 + 新增 §10 收窄决策章节
+- `ROADMAP.md` — Phase 3 当前状态 + 子阶段划分表 + §Phase 3.3 子章节重写
+
+### 与已有洞察的关系
+
+| 洞察 | 关系 |
+|------|------|
+| 30（SGE 三原则锚点）| **强化** —— 原则 1（"SGE 是根"）边界更清晰 |
+| 31（ECOS 独立项目）| **强化** —— 通过收窄避免 PoC 被误读为 ECOS 前站 |
+| 32（SGE value/drive 不适合建模他人）| **支撑** —— Runtime Demo 只调 duck typing mastery_state |
+| 33（Self Evolution Runtime 定位）| **强化** —— Runtime Demo 直接证明 sge/ 包可作为外部 Runtime 被加载调用 |
+
+### Phase 3.2 收尾待办（下次启动）
+
+| 任务 | 工作量 | 说明 |
+|------|--------|------|
+| `sge/llm_cache.py` 实施 + 单元测试 | 0.5 天 | hash 策略 + 失效检测，省 API 成本 |
+| `sge/prompts/` 目录 + version 管理 | 1 天 | Prompt 版本化（洞察 33 Runtime 抽象完整性的待验证问题）|
+
+### 详细讨论记录
+
+- [discussions/2026-08-13-phase3-narrowing-decision.md](./discussions/2026-08-13-phase3-narrowing-decision.md)
 
 ---
 
